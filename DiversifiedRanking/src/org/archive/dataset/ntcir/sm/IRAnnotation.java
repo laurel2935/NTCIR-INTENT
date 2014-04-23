@@ -1,5 +1,6 @@
-package org.archive.sm.data;
+package org.archive.dataset.ntcir.sm;
 
+import java.util.ArrayList;
 import java.util.Vector;
 
 /**
@@ -11,9 +12,9 @@ public class IRAnnotation {
 	
 	public KernelObject ko = null;
 	
-	public Vector<Modifier> moSet = null;
+	public ArrayList<Modifier> moSet = null;
 	//
-	public IRAnnotation(KernelObject ko, Vector<Modifier> moSet){
+	public IRAnnotation(KernelObject ko, ArrayList<Modifier> moSet){
 		this.ko = ko;
 		this.moSet = moSet;	
 	}		
@@ -62,7 +63,7 @@ public class IRAnnotation {
 	 * When two irAnnotation share the same kernel-object,
 	 * we determine whether they indicate the same intent based on the most left two modifiers
 	 * **/
-	private boolean compareVector(Vector<Modifier> vectorA, Vector<Modifier> vectorB){
+	private boolean compareVector(ArrayList<Modifier> vectorA, ArrayList<Modifier> vectorB){
 		if(vectorA.containsAll(vectorB) && vectorB.containsAll(vectorA)){
 			return true;
 		}else{

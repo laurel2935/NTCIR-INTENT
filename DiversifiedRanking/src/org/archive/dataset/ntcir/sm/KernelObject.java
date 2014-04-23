@@ -1,4 +1,4 @@
-package org.archive.sm.data;
+package org.archive.dataset.ntcir.sm;
 
 public class KernelObject {
 	public String koStr;

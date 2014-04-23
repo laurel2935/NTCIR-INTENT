@@ -1,15 +1,31 @@
-package org.archive.sm.kernel;
+package org.archive.dataset.ntcir.sm;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
-import org.archive.sm.data.IRAnnotation;
-import org.archive.sm.data.KernelObject;
-import org.archive.sm.data.Modifier;
-import org.archive.sm.data.TaggedTerm;
-
+import edu.stanford.nlp.trees.Tree;
 
 public abstract class IRAnnotator {
+	//
+	public IRAnnotation irAnnotate(ArrayList<TaggedTerm> canTaggedTerms, IRAnnotation topicIRAnnotation){
+		boolean include = false;
+		ArrayList<Modifier> moSet = new ArrayList<Modifier>();
+    	KernelObject canKO = null;
+    	for(TaggedTerm taggedTerm: canTaggedTerms){    		
+    		if(taggedTerm.koMatch(topicIRAnnotation.ko)){
+    			include = true;
+    			canKO = taggedTerm.toKernelObject();
+    		}else{
+    			moSet.add(taggedTerm.toModifier());
+    		}    		  		
+    	}
+    	if(include){
+    		return new IRAnnotation(canKO, moSet);
+    	}else {
+			return null;
+		}
+	}
 	//
 	public ArrayList<IRAnnotation> irAnnotate(ArrayList<TaggedTerm> topicTaggedTerms){
 		Vector<Integer> acceptPosIndex = new Vector<Integer>();
@@ -32,8 +48,8 @@ public abstract class IRAnnotator {
 		}
 	}	
 	//
-	public IRAnnotation getIRAnnotation(int koIndex, ArrayList<TaggedTerm> topicTaggedTerms){
-		Vector<Modifier> moSet = new Vector<Modifier>();
+	protected IRAnnotation getIRAnnotation(int koIndex, ArrayList<TaggedTerm> topicTaggedTerms){
+		ArrayList<Modifier> moSet = new ArrayList<Modifier>();
 		KernelObject ko = topicTaggedTerms.get(koIndex).toKernelObject();
 		for(int i=0; i<topicTaggedTerms.size(); i++){
 			if(i != koIndex){
@@ -43,5 +59,5 @@ public abstract class IRAnnotator {
 		return new IRAnnotation(ko, moSet);
 	}
 	//
-	public abstract boolean accept(String posTag);
+	protected abstract boolean accept(String posTag);
 }

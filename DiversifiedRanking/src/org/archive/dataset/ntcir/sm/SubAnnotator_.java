@@ -1,16 +1,11 @@
-package org.archive.sm.kernel;
+package org.archive.dataset.ntcir.sm;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Vector;
 
-import org.archive.sm.data.IRAnnotation;
-import org.archive.sm.data.KernelObject;
-import org.archive.sm.data.Modifier;
-import org.archive.sm.data.TaggedTerm;
 
-
-public class SubAnnotator {
+public class SubAnnotator_ {
 	//the entire subtopic string instances, and their corresponding tagged word list
 	public HashMap<String, ArrayList<TaggedTerm>> _stInstance_all_noun = null;
 	public HashMap<String, ArrayList<TaggedTerm>> _stInstance_all_np = null;
@@ -18,7 +13,7 @@ public class SubAnnotator {
 	public HashMap<String, IRAnnotation> _irAnnotationCache = new HashMap<String, IRAnnotation>();	
 	
 	//
-	public SubAnnotator(HashMap<String,ArrayList<TaggedTerm>> stInstance_all_noun, 
+	public SubAnnotator_(HashMap<String,ArrayList<TaggedTerm>> stInstance_all_noun, 
 			HashMap<String,ArrayList<TaggedTerm>> stInstance_all_np) {
 		this._stInstance_all_noun = stInstance_all_noun;	
 		this._stInstance_all_np = stInstance_all_np;
@@ -44,7 +39,7 @@ public class SubAnnotator {
 	}
 	//
 	public IRAnnotation getNoncachedIRAnnotation(ArrayList<TaggedTerm> taggedTerms, KernelObject ko){
-		Vector<Modifier> moSet = new Vector<Modifier>();
+		ArrayList<Modifier> moSet = new ArrayList<Modifier>();
 		KernelObject matchedKO = null;
 		boolean matched = false;
 		for(TaggedTerm taggedTerm: taggedTerms){

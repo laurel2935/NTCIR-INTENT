@@ -13,13 +13,15 @@ import java.util.List;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.archive.dataset.ntcir.sm.IRAnnotation;
+import org.archive.dataset.ntcir.sm.SMTopic;
+import org.archive.dataset.ntcir.sm.TermIRAnnotator;
+import org.archive.dataset.ntcir.sm.PhraseIRAnnotator;
+import org.archive.dataset.ntcir.sm.SubtopicInstance;
+import org.archive.dataset.ntcir.sm.TaggedTerm;
 import org.archive.nlp.chunk.ShallowParser;
 import org.archive.nlp.htmlparser.pk.HtmlExtractor;
 import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
-import org.archive.sm.data.TaggedTerm;
-import org.archive.sm.kernel.NounIRAnnotator;
-import org.archive.sm.kernel.NpIRAnnotator;
-import org.archive.sm.kernel.SubAnnotator;
 import org.archive.util.Directory;
 import org.archive.util.DocUtils;
 import org.archive.util.FileFinder;
@@ -477,45 +479,60 @@ public class NTCIRLoader {
 		//
 		ShallowParser enShallowParser = new ShallowParser(Lang.English);
 		ShallowParser chShallowParser = new ShallowParser(Lang.Chinese);
-		NounIRAnnotator nounIRAnnotator = new NounIRAnnotator();
-		NpIRAnnotator npIRAnnotator = new NpIRAnnotator();
+		TermIRAnnotator termIRAnnotator = new TermIRAnnotator();
+		PhraseIRAnnotator phraseIRAnnotator = new PhraseIRAnnotator();
 		//perform intent role annotation for each topic
 		for(int i=1; i<=100; i++){
 			SMTopic smTopic = smTopicList.get(i-1);
 			if(i<=50){
-				smTopic.setNounIRAnnotations(nounIRAnnotator.irAnnotate(
-						chShallowParser.getTaggedTerms_Noun(smTopic.getTopicText())));
-				smTopic.setNpIRAnnotations(npIRAnnotator.irAnnotate(
-						chShallowParser.getTaggedTerms_Np(smTopic.getTopicText())));
+				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(
+						chShallowParser.getTaggedTerms(smTopic.getTopicText())));
+				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(
+						chShallowParser.getTaggedPhrases(smTopic.getTopicText())));
 			}else{
-				smTopic.setNounIRAnnotations(nounIRAnnotator.irAnnotate(
-						enShallowParser.getTaggedTerms_Noun(smTopic.getTopicText())));
-				smTopic.setNpIRAnnotations(npIRAnnotator.irAnnotate(
-						enShallowParser.getTaggedTerms_Np(smTopic.getTopicText())));
+				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(
+						enShallowParser.getTaggedTerms(smTopic.getTopicText())));
+				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(
+						enShallowParser.getTaggedPhrases(smTopic.getTopicText())));
 			}
 		}
-		//perform intent role annotation for subtopic string instances
-		ArrayList<SubAnnotator> anoterhList = new ArrayList<SubAnnotator>();
+		//perform shallow parsing for subtopic string 	
+		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_term = new HashMap<String, ArrayList<TaggedTerm>>();
+		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_phrase = new HashMap<String, ArrayList<TaggedTerm>>();
 		for(int i=1; i<=100; i++){
 			SMTopic smTopic = smTopicList.get(i-1);
-			HashMap<String, ArrayList<TaggedTerm>> stInstance_all_noun = new HashMap<String, ArrayList<TaggedTerm>>();
-			HashMap<String, ArrayList<TaggedTerm>> stInstance_all_np = new HashMap<String, ArrayList<TaggedTerm>>();
-			
 			if(i<=50){
 				for(String rq: smTopic.uniqueRelatedQueries){
-					stInstance_all_noun.put(rq, chShallowParser.getTaggedTerms_Noun(rq));
-					stInstance_all_np.put(rq, chShallowParser.getTaggedTerms_Np(rq));
+					stInstance_all_term.put(rq, chShallowParser.getTaggedTerms(rq));
+					stInstance_all_phrase.put(rq, chShallowParser.getTaggedPhrases(rq));
 				}				
 			}else{
 				for(String rq: smTopic.uniqueRelatedQueries){
-					stInstance_all_noun.put(rq, enShallowParser.getTaggedTerms_Noun(rq));
-					stInstance_all_np.put(rq, enShallowParser.getTaggedTerms_Np(rq));
+					stInstance_all_term.put(rq, enShallowParser.getTaggedTerms(rq));
+					stInstance_all_phrase.put(rq, enShallowParser.getTaggedPhrases(rq));
 				}
-			}			
-			SubAnnotator subAnnotator = new SubAnnotator(stInstance_all_noun, stInstance_all_np);
-			anoterhList.add(subAnnotator);
+			}						
 		}
-		
+		//perform intent role annotation for subtopic string				
+		for(int i=1; i<=100; i++){
+			SMTopic smTopic = smTopicList.get(i-1);	
+			ArrayList<SubtopicInstance> subtopicInstances = new ArrayList<SubtopicInstance>();
+			//
+			for(String rq: smTopic.uniqueRelatedQueries){
+				SubtopicInstance subtopicInstance = new SubtopicInstance();
+				for(IRAnnotation topicTermIRAnnotation: smTopic.getTermIRAnnotations()){
+					subtopicInstance.addTermIRAnnotation(
+							termIRAnnotator.irAnnotate(stInstance_all_term.get(rq), topicTermIRAnnotation));					
+				}
+				for(IRAnnotation topicPhraseIRAnnotation: smTopic.getPhraseIRAnnotations()){
+					subtopicInstance.addPhraseIRAnnotation(
+							termIRAnnotator.irAnnotate(stInstance_all_phrase.get(rq), topicPhraseIRAnnotation));
+				}
+				subtopicInstances.add(subtopicInstance);
+			}		
+			//
+			smTopic.getSubtopicItemList(subtopicInstances);
+		}
 		//
 		if(DEBUG){
 			for(SMTopic smTopic: smTopicList){
@@ -530,8 +547,7 @@ public class NTCIRLoader {
 		}
 		//
 		return smTopicList;
-	}
-	
+	}	
 	
 	public static HashMap<String, ArrayList<String>> loadSystemRun(String sysRunFile, NTCIR_EVAL_TASK eval){
 		return loadSystemRun(sysRunFile, CODE_UTF8, eval);

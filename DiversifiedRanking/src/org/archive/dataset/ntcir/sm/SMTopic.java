@@ -1,16 +1,14 @@
-package org.archive.dataset.ntcir;
+package org.archive.dataset.ntcir.sm;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-
-import org.archive.sm.data.IRAnnotation;
 
 public class SMTopic {
 	
 	private String _id;
 	private String _text;
-	private ArrayList<IRAnnotation> _nounIRAnnotationList;
-	private ArrayList<IRAnnotation> _npIRAnnotationList;
+	private ArrayList<IRAnnotation> _termIRAnnotationList;
+	private ArrayList<IRAnnotation> _phraseIRAnnotationList;
 	
 	public ArrayList<String> suggestionBaidu;
 	public ArrayList<String> suggestionBing;
@@ -19,6 +17,8 @@ public class SMTopic {
 	public ArrayList<String> relatedQList;
 	
 	public ArrayList<String> uniqueRelatedQueries;
+	
+	public ArrayList<SMSubtopicItem> subtopicItemList;
 	
 	public SMTopic(String id, String text){
 		this._id = id;
@@ -54,17 +54,17 @@ public class SMTopic {
 		return this._text;
 	}
 	//
-	public ArrayList<IRAnnotation> getNounIRAnnotations(){
-		return this._nounIRAnnotationList;
+	public ArrayList<IRAnnotation> getTermIRAnnotations(){
+		return this._termIRAnnotationList;
 	}
-	public void setNounIRAnnotations(ArrayList<IRAnnotation> nounIRAnnotationList){
-		this._nounIRAnnotationList = nounIRAnnotationList;
+	public void setTermIRAnnotations(ArrayList<IRAnnotation> termIRAnnotationList){
+		this._termIRAnnotationList = termIRAnnotationList;
 	}
-	public ArrayList<IRAnnotation> getNpIRAnnotations(){
-		return this._npIRAnnotationList;
+	public ArrayList<IRAnnotation> getPhraseIRAnnotations(){
+		return this._phraseIRAnnotationList;
 	}
-	public void setNpIRAnnotations(ArrayList<IRAnnotation> npIRAnnotationList){
-		this._npIRAnnotationList = npIRAnnotationList;
+	public void setPhraseIRAnnotations(ArrayList<IRAnnotation> phraseIRAnnotationList){
+		this._phraseIRAnnotationList = phraseIRAnnotationList;
 	}
 	//
 	public void getUniqueRelatedQueries(){
@@ -100,5 +100,9 @@ public class SMTopic {
 				this.uniqueRelatedQueries.add(q);
 			}
 		}
+	}
+	//
+	public void getSubtopicItemList(ArrayList<SubtopicInstance> subtopicInstances){
+		
 	}
 }

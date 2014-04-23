@@ -4,7 +4,7 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.archive.sm.data.TaggedTerm;
+import org.archive.dataset.ntcir.sm.TaggedTerm;
 import org.archive.util.Language;
 import org.archive.util.Language.Lang;
 
@@ -25,7 +25,7 @@ public class ShallowParser {
     private String grammar = null;
     private LexicalizedParser lp = null;
     private TreebankLanguagePack tlp = null;
-    private GrammaticalStructureFactory gsf = null;
+    //private GrammaticalStructureFactory gsf = null;
     
     
     public ShallowParser(Language.Lang lang){
@@ -40,7 +40,7 @@ public class ShallowParser {
     	this.lang = lang;
     	this.lp = LexicalizedParser.loadModel(grammar, options);
     	this.tlp = lp.getOp().langpack();
-    	this.gsf = tlp.grammaticalStructureFactory();
+    	//this.gsf = tlp.grammaticalStructureFactory();
     }
     
     /**
@@ -55,7 +55,7 @@ public class ShallowParser {
         return parse.taggedYield();
     } 
     
-    public ArrayList<TaggedTerm> getTaggedTerms_Noun(String text){
+    public ArrayList<TaggedTerm> getTaggedTerms(String text){
     	ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
     	
     	ArrayList<TaggedWord> taggedWords = getTaggedWords(text);
@@ -83,8 +83,8 @@ public class ShallowParser {
     	}
     }
     
-    public ArrayList<TaggedTerm> getTaggedTerms_Np(String text){
-    	ArrayList<Tree> treeSet = getSimple2LevelTrees(text, "NP");
+    public ArrayList<TaggedTerm> getTaggedPhrases(String text){
+    	ArrayList<Tree> treeSet = getSimple2LevelTrees(text);
     	if(null != treeSet){
     		ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
     		for(Tree tree: treeSet){
@@ -145,23 +145,11 @@ public class ShallowParser {
     		}
     	}
     	return true;
-    }
-    //
-    private boolean treeFilter(Tree tree, String type){
-    	if(type.length() > 0){
-    		if(tree.value().equals(type)){
-    			return true;
-    		}else{
-    			return false;
-    		}
-    	}else{
-    		return true;
-    	}
-    }
+    }    
     /**
      * 
      * **/
-    private ArrayList<Tree> getSimple2LevelTrees(String text, String type){
+    private ArrayList<Tree> getSimple2LevelTrees(String text){
     	// Use the default tokenizer for this TreebankLanguagePack
         Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(text));
         List<? extends HasWord> sentence = toke.tokenize();
@@ -184,22 +172,22 @@ public class ShallowParser {
     			treeSet.add(parent);
     		}else if(!treeSet.contains(ancestor)){
     			treeSet.add(ancestor);
-    			if(!appear && treeFilter(ancestor, type)){
+    			if(!appear){
     				appear = true;
     			}    			
     		}   		
     	}
     	//    	
-    	///*
+    	/*
     	for(Tree tree: treeSet){
     		System.out.println(tree.yieldWords());
     		System.out.println(tree.value());
     		System.out.println(tree.taggedYield());
     		//System.out.println(tree.toString());
     	}
-    	//*/
+    	*/
     	if(appear){
-    		System.out.println(appear);
+    		//System.out.println(appear);
     		return treeSet;
     	}else{
     		return null;
@@ -252,6 +240,6 @@ public class ShallowParser {
 		shallowParser.test("a sentence to be parsed");
 		//
 		System.out.println();
-		shallowParser.getSimple2LevelTrees("a sentence to be parsed", "NP");		
+		//shallowParser.getSimple2LevelTrees("a sentence to be parsed", "NP");		
 	}
 }
