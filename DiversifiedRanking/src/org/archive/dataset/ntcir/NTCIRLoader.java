@@ -13,10 +13,17 @@ import java.util.List;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.archive.nlp.chunk.ShallowParser;
 import org.archive.nlp.htmlparser.pk.HtmlExtractor;
 import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
+import org.archive.sm.data.TaggedTerm;
+import org.archive.sm.kernel.NounIRAnnotator;
+import org.archive.sm.kernel.NpIRAnnotator;
+import org.archive.sm.kernel.SubAnnotator;
+import org.archive.util.Directory;
 import org.archive.util.DocUtils;
 import org.archive.util.FileFinder;
+import org.archive.util.Language.Lang;
 
 public class NTCIRLoader {
 	
@@ -29,7 +36,9 @@ public class NTCIRLoader {
 	private static final String SM_SPLIT = ";";
 	
 	//
-	public static enum NTCIR_EVAL_TASK{NTCIR9_SM, NTCIR9_DR, NTCIR10_SM_EN, NTCIR10_SM_CH, NTCIR10_DR_CH};
+	public static enum NTCIR_EVAL_TASK{NTCIR9_SM, NTCIR9_DR, 
+		NTCIR10_SM_EN, NTCIR10_SM_CH, NTCIR10_DR_CH,
+		NTCIR11_SM_EN, NTCIR11_SM_CH, NTCIR11_DR_CH, NTCIR11_DR_EN};
 	
 	//location
 	//////////////////
@@ -40,7 +49,10 @@ public class NTCIRLoader {
 	/////////////////
 	//topic
 	////////////////
-	private final static String NTCIR10_TOPIC = "./dataset/ntcir/ntcir-10/DR/INTENT1and2CtopicsQS.xlsx";
+	private final static String NTCIR10_TOPIC = "./dataset/ntcir/ntcir-10/DR/INTENT1and2CtopicsQS.xlsx";	
+	//
+	private final static String NTCIR11_TOPIC = Directory.ROOT+"ntcir/ntcir-11/SM/IMine.Query.txt";
+	
 	/////////////////
 	//NTCIR10 document ranking
 	////////////////
@@ -54,6 +66,10 @@ public class NTCIRLoader {
 	private final static String NTCIR10_SM_CH_Dqrels = "./dataset/ntcir/ntcir-10/SM/INTENT-2SMC.rev.Dqrels";
 	private final static String NTCIR10_SM_EN_Iprob = "./dataset/ntcir/ntcir-10/SM/INTENT-2SME.Iprob";
 	private final static String NTCIR10_SM_EN_Dqrels = "/dataset/ntcir/ntcir-10/SM/INTENT-2SME.rev.Dqrels";
+	
+	private final static String NTCIR11_SM_RelatedQueries = Directory.ROOT+"ntcir/ntcir-11/SM/IMine.RelatedQueries/IMine.RelatedQueries.txt";
+	private final static String NTCIR11_SM_QuerySuggestions = Directory.ROOT+"ntcir/ntcir-11/SM/IMine.QuerySuggestion/IMine.QuerySuggestion.txt";
+	
 	/////////////////
 	//document
 	////////////////
@@ -346,6 +362,177 @@ public class NTCIRLoader {
 		return topicList;
 	}
 	
+	/*
+	private static HashMap<String, String> loadNTCIR11TopicList(){
+		HashMap<String, String> topicList = new HashMap<String, String>();
+		//
+		String line = null;
+		String []strArray = null;
+		//
+		try {
+			BufferedReader reader = new BufferedReader(
+					new InputStreamReader(new FileInputStream(NTCIR11_TOPIC)));
+			
+			while(null != (line=reader.readLine()))
+			{
+				strArray = line.split("\t");
+				if (Integer.parseInt(strArray[0]) > 100) {
+					break;		
+				}else{
+					topicList.put(strArray[0], strArray[1]);
+				}
+				
+			}
+			reader.close();
+			//
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();			
+		}		
+		return topicList;				
+	}
+	*/
+	
+	
+	public static List<SMTopic> loadNTCIR11TopicList(){
+		ArrayList<SMTopic> smTopicList = new ArrayList<SMTopic>();
+		//suggestions
+		try {
+			String line = null;			
+			//
+			BufferedReader suggReader = new BufferedReader(new InputStreamReader(new FileInputStream(NTCIR11_SM_QuerySuggestions)));
+			//
+			String id = null, text = null, suggestion = null, from = null;
+			SMTopic smTopic = null;
+			while(null != (line=suggReader.readLine()))
+			{
+				if(line.indexOf("ID") > 0 ){					
+					id = line.substring(line.indexOf(">")+1, line.indexOf("</"));
+					//
+					if(Integer.parseInt(id) > 100){
+						smTopicList.add(smTopic);
+						break;
+					}
+				}else if(line.indexOf("Topic") > 0){
+					text = line.substring(line.indexOf(">")+1, line.indexOf("</"));
+					//
+					if(Integer.parseInt(id) > 1){
+						smTopicList.add(smTopic);
+					}					
+					//
+					smTopic = new SMTopic(id, text);
+				}else if(line.indexOf("CandidateFrom") > 0){
+					from = line.substring(line.indexOf(">")+1, line.indexOf("</"));
+				}else if(line.indexOf("Candidate") > 0){
+					suggestion = line.substring(line.indexOf(">")+1, line.indexOf("</"));
+					//
+					if(from.equals("Baidu")){
+						smTopic.addBaidu(suggestion);
+					}else if(from.equals("Bing")){
+						smTopic.addBing(suggestion);
+					}else if(from.equals("Sougou")){
+						smTopic.addSougou(suggestion);
+					}else if(from.equals("Google")){
+						smTopic.addGoogle(suggestion);
+					}else{
+						new Exception("error").printStackTrace();
+					}					
+				}
+			}
+			suggReader.close();
+			//
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();			
+		}
+		//related queries
+		try {
+			BufferedReader rqReader = new BufferedReader(new InputStreamReader(new FileInputStream(NTCIR11_SM_RelatedQueries)));
+			String line=null, relatedQ=null;
+			int id = -1;
+			while(null != (line=rqReader.readLine()))
+			{
+				if(line.indexOf("ID") > 0 ){					
+					id = Integer.parseInt(line.substring(line.indexOf(">")+1, line.indexOf("</")));
+					//
+					if(id > 100){						
+						break;
+					}
+				}else if(line.indexOf("Candidate") > 0){
+					relatedQ = line.substring(line.indexOf(">")+1, line.indexOf("</"));
+					//
+					smTopicList.get(id-1).addRelatedQ(relatedQ);
+				}				
+			}
+			rqReader.close();
+			//
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();			
+		}	
+		//
+		for(SMTopic smTopic: smTopicList){
+			smTopic.getUniqueRelatedQueries();
+		}
+		//
+		ShallowParser enShallowParser = new ShallowParser(Lang.English);
+		ShallowParser chShallowParser = new ShallowParser(Lang.Chinese);
+		NounIRAnnotator nounIRAnnotator = new NounIRAnnotator();
+		NpIRAnnotator npIRAnnotator = new NpIRAnnotator();
+		//perform intent role annotation for each topic
+		for(int i=1; i<=100; i++){
+			SMTopic smTopic = smTopicList.get(i-1);
+			if(i<=50){
+				smTopic.setNounIRAnnotations(nounIRAnnotator.irAnnotate(
+						chShallowParser.getTaggedTerms_Noun(smTopic.getTopicText())));
+				smTopic.setNpIRAnnotations(npIRAnnotator.irAnnotate(
+						chShallowParser.getTaggedTerms_Np(smTopic.getTopicText())));
+			}else{
+				smTopic.setNounIRAnnotations(nounIRAnnotator.irAnnotate(
+						enShallowParser.getTaggedTerms_Noun(smTopic.getTopicText())));
+				smTopic.setNpIRAnnotations(npIRAnnotator.irAnnotate(
+						enShallowParser.getTaggedTerms_Np(smTopic.getTopicText())));
+			}
+		}
+		//perform intent role annotation for subtopic string instances
+		ArrayList<SubAnnotator> anoterhList = new ArrayList<SubAnnotator>();
+		for(int i=1; i<=100; i++){
+			SMTopic smTopic = smTopicList.get(i-1);
+			HashMap<String, ArrayList<TaggedTerm>> stInstance_all_noun = new HashMap<String, ArrayList<TaggedTerm>>();
+			HashMap<String, ArrayList<TaggedTerm>> stInstance_all_np = new HashMap<String, ArrayList<TaggedTerm>>();
+			
+			if(i<=50){
+				for(String rq: smTopic.uniqueRelatedQueries){
+					stInstance_all_noun.put(rq, chShallowParser.getTaggedTerms_Noun(rq));
+					stInstance_all_np.put(rq, chShallowParser.getTaggedTerms_Np(rq));
+				}				
+			}else{
+				for(String rq: smTopic.uniqueRelatedQueries){
+					stInstance_all_noun.put(rq, enShallowParser.getTaggedTerms_Noun(rq));
+					stInstance_all_np.put(rq, enShallowParser.getTaggedTerms_Np(rq));
+				}
+			}			
+			SubAnnotator subAnnotator = new SubAnnotator(stInstance_all_noun, stInstance_all_np);
+			anoterhList.add(subAnnotator);
+		}
+		
+		//
+		if(DEBUG){
+			for(SMTopic smTopic: smTopicList){
+				System.out.println(smTopic.getID());
+				System.out.println(smTopic.getTopicText());
+				System.out.println(smTopic.suggestionBaidu);
+				System.out.println(smTopic.suggestionBing);
+				System.out.println(smTopic.suggestionGoogle);
+				System.out.println(smTopic.suggestionSougou);
+				System.out.println(smTopic.relatedQList);
+			}
+		}
+		//
+		return smTopicList;
+	}
+	
+	
 	public static HashMap<String, ArrayList<String>> loadSystemRun(String sysRunFile, NTCIR_EVAL_TASK eval){
 		return loadSystemRun(sysRunFile, CODE_UTF8, eval);
 	}
@@ -393,6 +580,7 @@ public class NTCIRLoader {
 		}
 		return systemRun;
 	}
+	
 	
 	public static void main(String []args){
 		//1

@@ -4,7 +4,7 @@ public class TaggedTerm {
 	public String termStr;
 	public String posTag;
 	
-	TaggedTerm(String termStr, String posTag){
+	public TaggedTerm(String termStr, String posTag){
 		this.termStr = termStr;
 		this.posTag = posTag;
 	}

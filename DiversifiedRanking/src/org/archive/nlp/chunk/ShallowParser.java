@@ -4,10 +4,13 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.archive.sm.data.TaggedTerm;
 import org.archive.util.Language;
+import org.archive.util.Language.Lang;
 
 import edu.stanford.nlp.ling.HasWord;
 import edu.stanford.nlp.ling.TaggedWord;
+import edu.stanford.nlp.ling.Word;
 import edu.stanford.nlp.parser.lexparser.LexicalizedParser;
 import edu.stanford.nlp.process.Tokenizer;
 import edu.stanford.nlp.trees.GrammaticalStructureFactory;
@@ -18,13 +21,14 @@ public class ShallowParser {
 
     private static String[] options = { "-maxLength", "80", "-retainTmpSubcategories" };
     
+    private Lang lang = null;
     private String grammar = null;
     private LexicalizedParser lp = null;
     private TreebankLanguagePack tlp = null;
     private GrammaticalStructureFactory gsf = null;
     
     
-    ShallowParser(Language.Lang lang){
+    public ShallowParser(Language.Lang lang){
     	if(Language.isEnglish(lang)){
     		this.grammar = "edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz";
     	}else if(Language.isChinese(lang)){
@@ -33,6 +37,7 @@ public class ShallowParser {
     		new Exception().printStackTrace();
     	}
     	//
+    	this.lang = lang;
     	this.lp = LexicalizedParser.loadModel(grammar, options);
     	this.tlp = lp.getOp().langpack();
     	this.gsf = tlp.grammaticalStructureFactory();
@@ -41,14 +46,55 @@ public class ShallowParser {
     /**
      * the tokenized word and its pos tag
      * **/
-    public ArrayList<TaggedWord> getTaggedWords(String text){
+    private ArrayList<TaggedWord> getTaggedWords(String text){
     	// Use the default tokenizer for this TreebankLanguagePack
         Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(text));
         List<? extends HasWord> sentence = toke.tokenize();
         Tree parse = lp.parse(sentence);
         //
         return parse.taggedYield();
-    }    
+    } 
+    
+    public ArrayList<TaggedTerm> getTaggedTerms_Noun(String text){
+    	ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
+    	
+    	ArrayList<TaggedWord> taggedWords = getTaggedWords(text);
+    	for(TaggedWord word: taggedWords){
+    		taggedTerms.add(new TaggedTerm(word.value(), word.tag()));
+    	}
+    	
+    	return taggedTerms;
+    }
+    //
+    private String getTerm(Tree tree){
+    	String term = "";
+    	ArrayList<Word> words = tree.yieldWords();
+    	if(Language.isEnglish(lang)){
+    		term += words.get(0).word();
+    		for(int i=1; i<words.size(); i++){
+    			term = term + " " + words.get(i).word();
+    		}
+    		return term;
+    	}else{    		
+    		for(int i=0; i<words.size(); i++){
+    			term += words.get(i).word();
+    		}
+    		return term;
+    	}
+    }
+    
+    public ArrayList<TaggedTerm> getTaggedTerms_Np(String text){
+    	ArrayList<Tree> treeSet = getSimple2LevelTrees(text, "NP");
+    	if(null != treeSet){
+    		ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
+    		for(Tree tree: treeSet){
+    			taggedTerms.add(new TaggedTerm(getTerm(tree), tree.value()));
+    		}
+    		return taggedTerms;
+    	}else{
+    		return null;
+    	}
+    }
     /**
      * It finds that: the leaves are a bare word, namely without pos tag
      * its parent is a merely a tagged word, also a tree!
@@ -115,7 +161,7 @@ public class ShallowParser {
     /**
      * 
      * **/
-    public ArrayList<Tree> getSimple2LevelTrees(String text, String type){
+    private ArrayList<Tree> getSimple2LevelTrees(String text, String type){
     	// Use the default tokenizer for this TreebankLanguagePack
         Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(text));
         List<? extends HasWord> sentence = toke.tokenize();
@@ -144,12 +190,14 @@ public class ShallowParser {
     		}   		
     	}
     	//    	
-    	/*
+    	///*
     	for(Tree tree: treeSet){
+    		System.out.println(tree.yieldWords());
+    		System.out.println(tree.value());
     		System.out.println(tree.taggedYield());
     		//System.out.println(tree.toString());
     	}
-    	*/
+    	//*/
     	if(appear){
     		System.out.println(appear);
     		return treeSet;
@@ -189,6 +237,10 @@ public class ShallowParser {
         
         System.out.println();
         System.out.println(parse.taggedYield());
+        ArrayList<TaggedWord> taggedWords = parse.taggedYield();
+        for(TaggedWord word: taggedWords){
+        	System.out.println(word.tag() + "\t" + word.value());
+        }
         System.out.println();
     }
 	
