@@ -29,7 +29,7 @@ import org.archive.util.Language.Lang;
 
 public class NTCIRLoader {
 	
-	private final static boolean DEBUG = false;
+	private final static boolean DEBUG = true;
 	
 	private static boolean ICTCLAS2014_INI = false;
 	private static final String CODE_UTF8 = "UTF-8";
@@ -261,7 +261,9 @@ public class NTCIRLoader {
 		
 		return poolOfBaseline;
 	}
-	
+	/**
+	 * special topic: en-0060
+	 * **/
 	public static List<NTCIRTopic> loadNTCIR10TopicList(NTCIR_EVAL_TASK eval){
 		
 		if(!ICTCLAS2014_INI){
@@ -395,38 +397,55 @@ public class NTCIRLoader {
 	}
 	*/
 	
-	
-	public static List<SMTopic> loadNTCIR11TopicList(){
+	/**
+	 * ch: ? for related query
+	 * en: 0060
+	 * **/
+	public static List<SMTopic> loadNTCIR11TopicList(NTCIR_EVAL_TASK eval){
 		ArrayList<SMTopic> smTopicList = new ArrayList<SMTopic>();
 		//suggestions
 		try {
 			String line = null;			
 			//
-			BufferedReader suggReader = new BufferedReader(new InputStreamReader(new FileInputStream(NTCIR11_SM_QuerySuggestions)));
+			BufferedReader suggReader = new BufferedReader(new InputStreamReader(new FileInputStream(NTCIR11_SM_QuerySuggestions), CODE_UTF8));
 			//
 			String id = null, text = null, suggestion = null, from = null;
+			int intID = -1;
 			SMTopic smTopic = null;
 			while(null != (line=suggReader.readLine()))
 			{
 				if(line.indexOf("ID") > 0 ){					
 					id = line.substring(line.indexOf(">")+1, line.indexOf("</"));
-					//
-					if(Integer.parseInt(id) > 100){
+					intID = Integer.parseInt(id);					
+				}
+				if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
+					if(intID>50){
 						smTopicList.add(smTopic);
 						break;
 					}
-				}else if(line.indexOf("Topic") > 0){
-					text = line.substring(line.indexOf(">")+1, line.indexOf("</"));
+				}
+				if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
+					if(intID<=50){
+						continue;
+					}else if(intID>100){
+						smTopicList.add(smTopic);
+						break;
+					}
+				}
+				if(line.indexOf("Topic") > 0){
+					text = line.substring(line.indexOf(">")+1, line.indexOf("</"));					
 					//
-					if(Integer.parseInt(id) > 1){
+					if(NTCIR_EVAL_TASK.NTCIR11_SM_CH==eval && Integer.parseInt(id) > 1){						
+						smTopicList.add(smTopic);
+					}else if(NTCIR_EVAL_TASK.NTCIR11_SM_EN==eval && Integer.parseInt(id) > 51){
 						smTopicList.add(smTopic);
 					}					
 					//
 					smTopic = new SMTopic(id, text);
 				}else if(line.indexOf("CandidateFrom") > 0){
-					from = line.substring(line.indexOf(">")+1, line.indexOf("</"));
-				}else if(line.indexOf("Candidate") > 0){
-					suggestion = line.substring(line.indexOf(">")+1, line.indexOf("</"));
+					from = line.substring(line.indexOf(">")+1, line.indexOf("</"));					
+				}else if(line.indexOf("Candidate>") > 0){
+					suggestion = line.substring(line.indexOf(">")+1, line.indexOf("</"));					
 					//
 					if(from.equals("Baidu")){
 						smTopic.addBaidu(suggestion);
@@ -436,7 +455,10 @@ public class NTCIRLoader {
 						smTopic.addSougou(suggestion);
 					}else if(from.equals("Google")){
 						smTopic.addGoogle(suggestion);
+					}else if(from.equals("Yahoo")){
+						smTopic.addYahoo(suggestion);
 					}else{
+						System.out.println("error from:\t"+from);
 						new Exception("error").printStackTrace();
 					}					
 				}
@@ -447,31 +469,48 @@ public class NTCIRLoader {
 			// TODO: handle exception
 			e.printStackTrace();			
 		}
-		//related queries
-		try {
-			BufferedReader rqReader = new BufferedReader(new InputStreamReader(new FileInputStream(NTCIR11_SM_RelatedQueries)));
-			String line=null, relatedQ=null;
-			int id = -1;
-			while(null != (line=rqReader.readLine()))
-			{
-				if(line.indexOf("ID") > 0 ){					
-					id = Integer.parseInt(line.substring(line.indexOf(">")+1, line.indexOf("</")));
-					//
-					if(id > 100){						
-						break;
-					}
-				}else if(line.indexOf("Candidate") > 0){
-					relatedQ = line.substring(line.indexOf(">")+1, line.indexOf("</"));
-					//
-					smTopicList.get(id-1).addRelatedQ(relatedQ);
-				}				
+		//related queries only for Chinese topic
+		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
+			try {
+				BufferedReader rqReader = new BufferedReader(new InputStreamReader(new FileInputStream(NTCIR11_SM_RelatedQueries), CODE_UTF8));
+				String line=null, relatedQ=null;
+				int id = -1;
+				while(null != (line=rqReader.readLine()))
+				{
+					if(line.indexOf("ID") > 0 ){					
+						id = Integer.parseInt(line.substring(line.indexOf(">")+1, line.indexOf("</")));						
+					}else if(line.indexOf("Candidate>") > 0){	
+						line = line.replaceFirst("<Candidate>", "");
+						line = line.replaceFirst("</Candidate>", "");
+						//relatedQ = line.substring(11, line.indexOf("</"));
+						relatedQ = line;
+						//
+						smTopicList.get(id-1).addRelatedQ(relatedQ);
+					}				
+				}
+				rqReader.close();
+				//
+			} catch (Exception e) {
+				// TODO: handle exception
+				e.printStackTrace();			
 			}
-			rqReader.close();
-			//
-		} catch (Exception e) {
-			// TODO: handle exception
-			e.printStackTrace();			
-		}	
+		}			
+		//
+		if(DEBUG){
+			int k =51;
+			System.out.println("size:\t"+smTopicList.size());
+			for(SMTopic smTopic: smTopicList){
+				System.out.println(smTopic.getID()+"\t"+(k++));
+				System.out.println(smTopic.getTopicText());
+				System.out.println(smTopic.suggestionBaidu);
+				System.out.println(smTopic.suggestionBing.toString());
+				System.out.println(smTopic.suggestionGoogle);
+				System.out.println(smTopic.suggestionSougou);
+				System.out.println(smTopic.suggestionYahoo);
+				System.out.println(smTopic.relatedQList);
+			}
+		}
+		//
 		//
 		for(SMTopic smTopic: smTopicList){
 			smTopic.getUniqueRelatedQueries();
@@ -534,18 +573,6 @@ public class NTCIRLoader {
 			smTopic.getSubtopicItemList(subtopicInstances);
 		}
 		//
-		if(DEBUG){
-			for(SMTopic smTopic: smTopicList){
-				System.out.println(smTopic.getID());
-				System.out.println(smTopic.getTopicText());
-				System.out.println(smTopic.suggestionBaidu);
-				System.out.println(smTopic.suggestionBing);
-				System.out.println(smTopic.suggestionGoogle);
-				System.out.println(smTopic.suggestionSougou);
-				System.out.println(smTopic.relatedQList);
-			}
-		}
-		//
 		return smTopicList;
 	}	
 	
@@ -600,10 +627,14 @@ public class NTCIRLoader {
 	
 	public static void main(String []args){
 		//1
-		NTCIRLoader.loadNTCIR10Docs();
+		//NTCIRLoader.loadNTCIR10Docs();
 		
 		//2
 		//NTCIRLoader.loadNTCIR10TopicList();
+		
+		//3
+		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH);
+		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH);
 	}
 	
 }

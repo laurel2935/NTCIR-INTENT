@@ -9,12 +9,16 @@ public class SMTopic {
 	private String _text;
 	private ArrayList<IRAnnotation> _termIRAnnotationList;
 	private ArrayList<IRAnnotation> _phraseIRAnnotationList;
-	
-	public ArrayList<String> suggestionBaidu;
-	public ArrayList<String> suggestionBing;
-	public ArrayList<String> suggestionGoogle;
+	//for Chinese topic
 	public ArrayList<String> suggestionSougou;
-	public ArrayList<String> relatedQList;
+	public ArrayList<String> suggestionBaidu;
+	public ArrayList<String> relatedQList;	
+	//for English topic
+	public ArrayList<String> suggestionYahoo;
+	//both
+	public ArrayList<String> suggestionBing;	
+	public ArrayList<String> suggestionGoogle;	
+	
 	
 	public ArrayList<String> uniqueRelatedQueries;
 	
@@ -28,6 +32,7 @@ public class SMTopic {
 		suggestionBing = new ArrayList<String>();
 		suggestionGoogle = new ArrayList<String>();
 		suggestionSougou = new ArrayList<String>();
+		suggestionYahoo = new ArrayList<String>();
 		relatedQList = new ArrayList<String>();
 	}
 	//
@@ -42,6 +47,9 @@ public class SMTopic {
 	}
 	public void addSougou(String sSuggestion){
 		suggestionSougou.add(sSuggestion);
+	}
+	public void addYahoo(String ySuggestion){
+		suggestionYahoo.add(ySuggestion);
 	}
 	public void addRelatedQ(String rSuggestion){
 		relatedQList.add(rSuggestion);
