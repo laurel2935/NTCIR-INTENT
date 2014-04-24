@@ -5,9 +5,11 @@ import java.util.ArrayList;
  * corresponding to a subtopic instance
  * **/
 public class SubtopicInstance {
+	public static enum OddCase {NoMatchKO}
 	//corresponding to each kernel-object of the topic
 	//null will be added if it doesn't include the kernel-object
 	public String _text;
+	public ArrayList<OddCase> oddCases = null;
 	
 	public ArrayList<IRAnnotation> termIRAnnotationList;
 	public ArrayList<IRAnnotation> phraseIRAnnotationList;
@@ -26,7 +28,17 @@ public class SubtopicInstance {
 	public void addPhraseIRAnnotation(IRAnnotation irAnnotation){
 		this.phraseIRAnnotationList.add(irAnnotation);
 	}
-	
+	//
+	public void checkIRAnnotation(){
+		if(this.termIRAnnotationList.size()==0 && this.phraseIRAnnotationList.size()==0){
+			this.oddCases = new ArrayList<SubtopicInstance.OddCase>();
+			this.oddCases.add(OddCase.NoMatchKO);
+		}
+	}
+	//
+	public boolean belongToOddCase(){
+		return null!=this.oddCases;
+	}
 	//
 	public boolean shrinkMatch(SubtopicInstance cmpSubtopicInstance){
 		//term-level

@@ -24,5 +24,9 @@ public class TaggedTerm {
 	public KernelObject toKernelObject(){
 		return new KernelObject(this.termStr, this.posTag);
 	}
+	//
+	public String toString(){
+		return termStr+"/"+posTag;
+	}
 
 }

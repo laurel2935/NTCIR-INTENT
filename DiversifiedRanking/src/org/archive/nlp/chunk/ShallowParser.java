@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.archive.dataset.ntcir.sm.TaggedTerm;
+import org.archive.dataset.ntcir.sm.TaggedTopic;
 import org.archive.util.Language;
 import org.archive.util.Language.Lang;
 
@@ -18,6 +19,7 @@ import edu.stanford.nlp.trees.Tree;
 import edu.stanford.nlp.trees.TreebankLanguagePack;
 
 public class ShallowParser {
+	private static final boolean DEBUG = true;
 
     private static final String[] en_options = { "-maxLength", "80", "-retainTmpSubcategories" };
     private static final String[] ch_options = { "-maxLength", "80"};
@@ -34,7 +36,8 @@ public class ShallowParser {
     		this.grammar = "edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz";
     		this.lp = LexicalizedParser.loadModel(grammar, en_options);
     	}else if(Language.isChinese(lang)){
-    		this.grammar = "edu/stanford/nlp/models/lexparser/chinesePCFG.ser.gz";    	
+    		//this.grammar = "edu/stanford/nlp/models/lexparser/chinesePCFG.ser.gz";   
+    		this.grammar = "edu/stanford/nlp/models/lexparser/chineseFactored.ser.gz";   
     		this.lp = LexicalizedParser.loadModel(grammar, ch_options);
     	}else{
     		new Exception().printStackTrace();
@@ -65,6 +68,13 @@ public class ShallowParser {
     		taggedTerms.add(new TaggedTerm(word.value(), word.tag()));
     	}
     	
+    	if(DEBUG){
+    		System.out.println();
+    		for(TaggedTerm taggedTerm: taggedTerms){
+    			System.out.print(taggedTerm.toString()+"\t");
+    		}
+    		System.out.println();
+    	}
     	return taggedTerms;
     }
     //
@@ -84,7 +94,60 @@ public class ShallowParser {
     		return term;
     	}
     }
-    
+    //
+    public TaggedTopic getTaggedTopic(String topicText){
+    	TaggedTopic taggedTopic = new TaggedTopic();
+    	// Use the default tokenizer for this TreebankLanguagePack
+        Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(topicText));
+        List<? extends HasWord> sentence = toke.tokenize();
+        Tree parse = lp.parse(sentence);
+        //
+        taggedTopic.setPennString(parse.pennString());
+        //
+        ArrayList<TaggedWord> taggedWords = parse.taggedYield();        
+        //
+        ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
+    	for(TaggedWord word: taggedWords){
+    		taggedTerms.add(new TaggedTerm(word.value(), word.tag()));
+    	}
+    	taggedTopic.setTaggedTerms(taggedTerms);
+    	//--    	
+        boolean appear = false;
+        ArrayList<Tree> treeSet = new ArrayList<Tree>();
+    	//
+    	List<Tree> leafSet = parse.getLeaves();
+    	for(Tree leaf: leafSet){    		
+    		//System.out.println("leaf:\t"+leaf.toString());
+    		//tagged word tree
+    		Tree parent = leaf.ancestor(1, parse);
+    		//System.out.println("parent:\t"+parent.toString());
+    		//
+    		Tree ancestor = parent.ancestor(1, parse);
+    		//System.out.println("ancestor:\t"+ancestor.toString());    		
+    		//
+    		if(null==ancestor || !isSimple2LevelTree(ancestor)){
+    			treeSet.add(parent);
+    		}else if(!treeSet.contains(ancestor)){
+    			treeSet.add(ancestor);
+    			if(!appear){
+    				appear = true;
+    			}    			
+    		}   		
+    	}
+    	//   
+    	if(appear){
+    		ArrayList<TaggedTerm> taggedPhrases = new ArrayList<TaggedTerm>();
+    		for(Tree tree: treeSet){
+    			taggedPhrases.add(new TaggedTerm(getTerm(tree), tree.value()));
+    		}    		       	
+    		taggedTopic.setTaggedPhrases(taggedPhrases);
+    	}else{
+    		taggedTopic.setTaggedPhrases(null);
+    	} 
+    	//
+    	return taggedTopic;        
+    }
+    //
     public ArrayList<TaggedTerm> getTaggedPhrases(String text){
     	ArrayList<Tree> treeSet = getSimple2LevelTrees(text);
     	if(null != treeSet){
@@ -92,6 +155,13 @@ public class ShallowParser {
     		for(Tree tree: treeSet){
     			taggedTerms.add(new TaggedTerm(getTerm(tree), tree.value()));
     		}
+    		if(DEBUG){
+        		System.out.println();
+        		for(TaggedTerm taggedTerm: taggedTerms){
+        			System.out.print(taggedTerm.toString()+"\t");
+        		}
+        		System.out.println();
+        	}        	
     		return taggedTerms;
     	}else{
     		return null;
@@ -141,6 +211,9 @@ public class ShallowParser {
     		return false;
     	}
     	List<Tree> childSet = tree.getChildrenAsList();
+    	if(childSet.size() < 2){
+    		return false;
+    	}
     	for(Tree child: childSet){
     		if(!isTaggedWordTree(child)){
     			return false;
@@ -207,7 +280,7 @@ public class ShallowParser {
         //        
         Tree parse = lp.parse(sentence);
         
-        parse.pennPrint();
+        parse.pennPrint();        
         System.out.println();
         
 		//        GrammaticalStructure gs = gsf.newGrammaticalStructure(parse);
@@ -238,10 +311,10 @@ public class ShallowParser {
 	//
 	public static void main(String []args){
 		//1
-		ShallowParser shallowParser = new ShallowParser(Language.Lang.English);
-		shallowParser.test("a sentence to be parsed");
+		ShallowParser shallowParser = new ShallowParser(Language.Lang.Chinese);
+		shallowParser.test("相亲节目有哪些");
 		//
-		System.out.println();
+		//System.out.println();
 		//shallowParser.getSimple2LevelTrees("a sentence to be parsed", "NP");		
 	}
 }

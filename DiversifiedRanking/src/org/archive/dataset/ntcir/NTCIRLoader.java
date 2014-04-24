@@ -527,27 +527,38 @@ public class NTCIRLoader {
 		TermIRAnnotator termIRAnnotator = new TermIRAnnotator();
 		PhraseIRAnnotator phraseIRAnnotator = new PhraseIRAnnotator();
 		for(SMTopic smTopic: smTopicList){
-			smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(
-					shallowParser.getTaggedTerms(smTopic.getTopicText())));
-			smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(
-					shallowParser.getTaggedPhrases(smTopic.getTopicText())));
+			smTopic.setTaggedTopic(shallowParser.getTaggedTopic(smTopic.getTopicText()));
+			if(DEBUG){
+				System.out.println(smTopic.getTaggedTopic().toString());
+			}
+			//
+			smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedTerms));
+			smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhrases));
+			//
+			smTopic.checkIRAnnotation();
 		}		
 		//perform shallow parsing for subtopic string 	
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_term = new HashMap<String, ArrayList<TaggedTerm>>();
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_phrase = new HashMap<String, ArrayList<TaggedTerm>>();
 		for(SMTopic smTopic: smTopicList){
-			for(String rq: smTopic.uniqueRelatedQueries){
-				stInstance_all_term.put(rq, shallowParser.getTaggedTerms(rq));
-				stInstance_all_phrase.put(rq, shallowParser.getTaggedPhrases(rq));
-			}
+			if(smTopic.belongToBadCase()){
+				System.out.println(smTopic.toString());
+				smTopic.printBadCase();
+			}else{
+				for(String rq: smTopic.uniqueRelatedQueries){
+					if(DEBUG){
+						System.out.println(rq);
+					}
+					stInstance_all_term.put(rq, shallowParser.getTaggedTerms(rq));
+					stInstance_all_phrase.put(rq, shallowParser.getTaggedPhrases(rq));
+				}
+			}			
 		}		
-		//perform intent role annotation for subtopic string	
-		int count = 1;
-		for(SMTopic smTopic: smTopicList){
-			System.out.println("count:\t"+(count++));
+		//perform intent role annotation for subtopic string		
+		for(SMTopic smTopic: smTopicList){			
 			ArrayList<SubtopicInstance> subtopicInstances = new ArrayList<SubtopicInstance>();
 			//
-			if(smTopic.uniqueRelatedQueries.size() > 0){
+			if(!smTopic.belongToBadCase()){
 				for(String rq: smTopic.uniqueRelatedQueries){
 					SubtopicInstance subtopicInstance = new SubtopicInstance(rq);
 					//if has term irannotations
@@ -563,7 +574,10 @@ public class NTCIRLoader {
 							subtopicInstance.addPhraseIRAnnotation(
 									termIRAnnotator.irAnnotate(stInstance_all_phrase.get(rq), topicPhraseIRAnnotation));
 						}
-					}					
+					}		
+					//
+					subtopicInstance.checkIRAnnotation();
+					//
 					subtopicInstances.add(subtopicInstance);
 				}		
 				//
@@ -632,7 +646,7 @@ public class NTCIRLoader {
 		
 		//3
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH);
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH);
+		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN);
 	}
 	
 }

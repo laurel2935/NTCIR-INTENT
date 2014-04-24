@@ -4,11 +4,14 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 public class SMTopic {
+	public static enum BadCase{NoRelatedQuery, NoIRAnnotation}
 	//
 	public static final int ShrinkThreshold = 2;
+	private ArrayList<BadCase> badCases = null;
 	
 	private String _id;
 	private String _text;
+	private TaggedTopic _taggedTopic;
 	private ArrayList<IRAnnotation> _termIRAnnotationList;
 	private ArrayList<IRAnnotation> _phraseIRAnnotationList;
 	//for Chinese topic
@@ -25,6 +28,7 @@ public class SMTopic {
 	public ArrayList<String> uniqueRelatedQueries;
 	
 	public ArrayList<SMSubtopicItem> subtopicItemList;
+	public ArrayList<SubtopicInstance> oddSubtopicInstances;
 	
 	public SMTopic(String id, String text){
 		this._id = id;
@@ -62,6 +66,13 @@ public class SMTopic {
 	}
 	public String getTopicText(){
 		return this._text;
+	}
+	//
+	public void setTaggedTopic(TaggedTopic taggedTopic){
+		this._taggedTopic = taggedTopic;
+	}
+	public TaggedTopic getTaggedTopic(){
+		return this._taggedTopic;
 	}
 	//
 	public ArrayList<IRAnnotation> getTermIRAnnotations(){
@@ -116,37 +127,86 @@ public class SMTopic {
 				this.uniqueRelatedQueries.add(q);
 			}
 		}
+		//
+		if(this.uniqueRelatedQueries.size() == 0){
+			this.badCases.add(BadCase.NoRelatedQuery);
+		}
+	}
+	//
+	public void checkIRAnnotation(){		
+		if(null==this._termIRAnnotationList && null==this._phraseIRAnnotationList){
+			if(null == this.badCases){
+				this.badCases = new ArrayList<SMTopic.BadCase>();
+			}
+			this.badCases.add(BadCase.NoIRAnnotation);
+		}
+	}
+	//
+	public String toString(){
+		StringBuffer strBuffer = new StringBuffer();
+		strBuffer.append(this._id+" - "+this._text+"\n");
+		strBuffer.append(this._taggedTopic.toString());
+		return strBuffer.toString();
+	}
+	//
+	public boolean belongToBadCase(){
+		return null!=this.badCases;
+	}
+	public void printBadCase(){
+		System.out.println(this.badCases);
 	}
 	//first meet first match, which may leads to non-consistent results
 	public void getSubtopicItemList(ArrayList<SubtopicInstance> subtopicInstances){
+		this.oddSubtopicInstances = new ArrayList<SubtopicInstance>();
+		//
 		this.subtopicItemList = new ArrayList<SMSubtopicItem>();
-		SMSubtopicItem smSubtopicItem = new SMSubtopicItem(subtopicInstances.get(subtopicInstances.size()-1));
-		subtopicInstances.remove(subtopicInstances.size()-1);
-		this.subtopicItemList.add(smSubtopicItem);
+		//
+		SubtopicInstance subtopicInstance = subtopicInstances.get(subtopicInstances.size()-1);
+		while(subtopicInstance.belongToOddCase()){
+			this.oddSubtopicInstances.add(subtopicInstance);
+			subtopicInstances.remove(subtopicInstances.size()-1);
+			if(subtopicInstances.size() > 0){
+				subtopicInstance = subtopicInstances.get(subtopicInstances.size()-1);
+			}else{
+				subtopicInstance = null;
+				break;
+			}
+			
+		}
+		if(null != subtopicInstance){
+			SMSubtopicItem smSubtopicItem = new SMSubtopicItem(subtopicInstance);
+			subtopicInstances.remove(subtopicInstances.size()-1);
+			this.subtopicItemList.add(smSubtopicItem);
+		}		
 		//
 		while(subtopicInstances.size() > 0){
 			SubtopicInstance instance = subtopicInstances.get(subtopicInstances.size()-1);
-			boolean matched = false;
-			for(SMSubtopicItem item: this.subtopicItemList){
-				for(SubtopicInstance taggedInstance: item.subtopicInstanceGroup){
-					if(instance.shrinkMatch(taggedInstance)){
-						item.addSubtopicInstance(instance);
-						matched = true;
+			if(instance.belongToOddCase()){
+				this.oddSubtopicInstances.add(instance);
+				subtopicInstances.remove(subtopicInstances.size()-1);
+			}else{
+				boolean matched = false;
+				for(SMSubtopicItem item: this.subtopicItemList){
+					for(SubtopicInstance taggedInstance: item.subtopicInstanceGroup){
+						if(instance.shrinkMatch(taggedInstance)){
+							item.addSubtopicInstance(instance);
+							matched = true;
+							break;
+						}
+					}
+					if(matched){
 						break;
 					}
 				}
+				//
 				if(matched){
-					break;
+					subtopicInstances.remove(subtopicInstances.size()-1);
+				}else{
+					SMSubtopicItem newSmItem = new SMSubtopicItem(instance);
+					this.subtopicItemList.add(newSmItem);
+					subtopicInstances.remove(subtopicInstances.size()-1);
 				}
-			}
-			//
-			if(matched){
-				subtopicInstances.remove(subtopicInstances.size()-1);
-			}else{
-				SMSubtopicItem newSmItem = new SMSubtopicItem(instance);
-				this.subtopicItemList.add(newSmItem);
-				subtopicInstances.remove(subtopicInstances.size()-1);
-			}
+			}			
 		}
 	}
 }

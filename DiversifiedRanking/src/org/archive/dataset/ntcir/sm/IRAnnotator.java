@@ -28,6 +28,10 @@ public abstract class IRAnnotator {
 	}
 	//
 	public ArrayList<IRAnnotation> irAnnotate(ArrayList<TaggedTerm> topicTaggedTerms){
+		if(null == topicTaggedTerms){
+			return null;
+		}
+		//
 		Vector<Integer> acceptPosIndex = new Vector<Integer>();
 		for(int i=0; i<topicTaggedTerms.size(); i++){
 			if(accept(topicTaggedTerms.get(i).posTag)){
