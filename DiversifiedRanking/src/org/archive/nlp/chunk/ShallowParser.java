@@ -19,7 +19,8 @@ import edu.stanford.nlp.trees.TreebankLanguagePack;
 
 public class ShallowParser {
 
-    private static String[] options = { "-maxLength", "80", "-retainTmpSubcategories" };
+    private static final String[] en_options = { "-maxLength", "80", "-retainTmpSubcategories" };
+    private static final String[] ch_options = { "-maxLength", "80"};
     
     private Lang lang = null;
     private String grammar = null;
@@ -31,14 +32,15 @@ public class ShallowParser {
     public ShallowParser(Language.Lang lang){
     	if(Language.isEnglish(lang)){
     		this.grammar = "edu/stanford/nlp/models/lexparser/englishPCFG.ser.gz";
+    		this.lp = LexicalizedParser.loadModel(grammar, en_options);
     	}else if(Language.isChinese(lang)){
-    		this.grammar = "edu/stanford/nlp/models/lexparser/chinesePCFG.ser.gz";    		
+    		this.grammar = "edu/stanford/nlp/models/lexparser/chinesePCFG.ser.gz";    	
+    		this.lp = LexicalizedParser.loadModel(grammar, ch_options);
     	}else{
     		new Exception().printStackTrace();
     	}
     	//
-    	this.lang = lang;
-    	this.lp = LexicalizedParser.loadModel(grammar, options);
+    	this.lang = lang;    	
     	this.tlp = lp.getOp().langpack();
     	//this.gsf = tlp.grammaticalStructureFactory();
     }

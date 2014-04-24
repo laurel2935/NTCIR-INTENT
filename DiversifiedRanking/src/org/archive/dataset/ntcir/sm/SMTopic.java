@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 public class SMTopic {
+	//
+	public static final int ShrinkThreshold = 2;
 	
 	private String _id;
 	private String _text;
@@ -19,7 +21,7 @@ public class SMTopic {
 	public ArrayList<String> suggestionBing;	
 	public ArrayList<String> suggestionGoogle;	
 	
-	
+	//
 	public ArrayList<String> uniqueRelatedQueries;
 	
 	public ArrayList<SMSubtopicItem> subtopicItemList;
@@ -102,6 +104,12 @@ public class SMTopic {
 				this.uniqueRelatedQueries.add(q);
 			}
 		}
+		for(String q: this.suggestionYahoo){
+			if(!qSet.contains(q)){
+				qSet.add(q);
+				this.uniqueRelatedQueries.add(q);
+			}
+		}
 		for(String q: this.relatedQList){
 			if(!qSet.contains(q)){
 				qSet.add(q);
@@ -109,8 +117,36 @@ public class SMTopic {
 			}
 		}
 	}
-	//
+	//first meet first match, which may leads to non-consistent results
 	public void getSubtopicItemList(ArrayList<SubtopicInstance> subtopicInstances){
-		
+		this.subtopicItemList = new ArrayList<SMSubtopicItem>();
+		SMSubtopicItem smSubtopicItem = new SMSubtopicItem(subtopicInstances.get(subtopicInstances.size()-1));
+		subtopicInstances.remove(subtopicInstances.size()-1);
+		this.subtopicItemList.add(smSubtopicItem);
+		//
+		while(subtopicInstances.size() > 0){
+			SubtopicInstance instance = subtopicInstances.get(subtopicInstances.size()-1);
+			boolean matched = false;
+			for(SMSubtopicItem item: this.subtopicItemList){
+				for(SubtopicInstance taggedInstance: item.subtopicInstanceGroup){
+					if(instance.shrinkMatch(taggedInstance)){
+						item.addSubtopicInstance(instance);
+						matched = true;
+						break;
+					}
+				}
+				if(matched){
+					break;
+				}
+			}
+			//
+			if(matched){
+				subtopicInstances.remove(subtopicInstances.size()-1);
+			}else{
+				SMSubtopicItem newSmItem = new SMSubtopicItem(instance);
+				this.subtopicItemList.add(newSmItem);
+				subtopicInstances.remove(subtopicInstances.size()-1);
+			}
+		}
 	}
 }

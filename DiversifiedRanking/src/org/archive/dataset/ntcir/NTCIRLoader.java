@@ -496,6 +496,7 @@ public class NTCIRLoader {
 			}
 		}			
 		//
+		/*
 		if(DEBUG){
 			int k =51;
 			System.out.println("size:\t"+smTopicList.size());
@@ -510,68 +511,65 @@ public class NTCIRLoader {
 				System.out.println(smTopic.relatedQList);
 			}
 		}
-		//
+		*/		
 		//
 		for(SMTopic smTopic: smTopicList){
 			smTopic.getUniqueRelatedQueries();
 		}
 		//
-		ShallowParser enShallowParser = new ShallowParser(Lang.English);
-		ShallowParser chShallowParser = new ShallowParser(Lang.Chinese);
+		ShallowParser shallowParser;
+		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
+			shallowParser = new ShallowParser(Lang.Chinese);
+		}else{
+			shallowParser = new ShallowParser(Lang.English);
+		}				
+		//perform intent role annotation for each topic
 		TermIRAnnotator termIRAnnotator = new TermIRAnnotator();
 		PhraseIRAnnotator phraseIRAnnotator = new PhraseIRAnnotator();
-		//perform intent role annotation for each topic
-		for(int i=1; i<=100; i++){
-			SMTopic smTopic = smTopicList.get(i-1);
-			if(i<=50){
-				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(
-						chShallowParser.getTaggedTerms(smTopic.getTopicText())));
-				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(
-						chShallowParser.getTaggedPhrases(smTopic.getTopicText())));
-			}else{
-				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(
-						enShallowParser.getTaggedTerms(smTopic.getTopicText())));
-				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(
-						enShallowParser.getTaggedPhrases(smTopic.getTopicText())));
-			}
-		}
+		for(SMTopic smTopic: smTopicList){
+			smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(
+					shallowParser.getTaggedTerms(smTopic.getTopicText())));
+			smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(
+					shallowParser.getTaggedPhrases(smTopic.getTopicText())));
+		}		
 		//perform shallow parsing for subtopic string 	
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_term = new HashMap<String, ArrayList<TaggedTerm>>();
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_phrase = new HashMap<String, ArrayList<TaggedTerm>>();
-		for(int i=1; i<=100; i++){
-			SMTopic smTopic = smTopicList.get(i-1);
-			if(i<=50){
-				for(String rq: smTopic.uniqueRelatedQueries){
-					stInstance_all_term.put(rq, chShallowParser.getTaggedTerms(rq));
-					stInstance_all_phrase.put(rq, chShallowParser.getTaggedPhrases(rq));
-				}				
-			}else{
-				for(String rq: smTopic.uniqueRelatedQueries){
-					stInstance_all_term.put(rq, enShallowParser.getTaggedTerms(rq));
-					stInstance_all_phrase.put(rq, enShallowParser.getTaggedPhrases(rq));
-				}
-			}						
-		}
-		//perform intent role annotation for subtopic string				
-		for(int i=1; i<=100; i++){
-			SMTopic smTopic = smTopicList.get(i-1);	
+		for(SMTopic smTopic: smTopicList){
+			for(String rq: smTopic.uniqueRelatedQueries){
+				stInstance_all_term.put(rq, shallowParser.getTaggedTerms(rq));
+				stInstance_all_phrase.put(rq, shallowParser.getTaggedPhrases(rq));
+			}
+		}		
+		//perform intent role annotation for subtopic string	
+		int count = 1;
+		for(SMTopic smTopic: smTopicList){
+			System.out.println("count:\t"+(count++));
 			ArrayList<SubtopicInstance> subtopicInstances = new ArrayList<SubtopicInstance>();
 			//
-			for(String rq: smTopic.uniqueRelatedQueries){
-				SubtopicInstance subtopicInstance = new SubtopicInstance();
-				for(IRAnnotation topicTermIRAnnotation: smTopic.getTermIRAnnotations()){
-					subtopicInstance.addTermIRAnnotation(
-							termIRAnnotator.irAnnotate(stInstance_all_term.get(rq), topicTermIRAnnotation));					
-				}
-				for(IRAnnotation topicPhraseIRAnnotation: smTopic.getPhraseIRAnnotations()){
-					subtopicInstance.addPhraseIRAnnotation(
-							termIRAnnotator.irAnnotate(stInstance_all_phrase.get(rq), topicPhraseIRAnnotation));
-				}
-				subtopicInstances.add(subtopicInstance);
-			}		
-			//
-			smTopic.getSubtopicItemList(subtopicInstances);
-		}
+			if(smTopic.uniqueRelatedQueries.size() > 0){
+				for(String rq: smTopic.uniqueRelatedQueries){
+					SubtopicInstance subtopicInstance = new SubtopicInstance(rq);
+					//if has term irannotations
+					if(null != smTopic.getTermIRAnnotations()){
+						for(IRAnnotation topicTermIRAnnotation: smTopic.getTermIRAnnotations()){
+							subtopicInstance.addTermIRAnnotation(
+									termIRAnnotator.irAnnotate(stInstance_all_term.get(rq), topicTermIRAnnotation));					
+						}
+					}
+					//if has phrase irannotations
+					if(null != smTopic.getPhraseIRAnnotations()){
+						for(IRAnnotation topicPhraseIRAnnotation: smTopic.getPhraseIRAnnotations()){
+							subtopicInstance.addPhraseIRAnnotation(
+									termIRAnnotator.irAnnotate(stInstance_all_phrase.get(rq), topicPhraseIRAnnotation));
+						}
+					}					
+					subtopicInstances.add(subtopicInstance);
+				}		
+				//
+				smTopic.getSubtopicItemList(subtopicInstances);
+			}			
+		}		
 		//
 		return smTopicList;
 	}	

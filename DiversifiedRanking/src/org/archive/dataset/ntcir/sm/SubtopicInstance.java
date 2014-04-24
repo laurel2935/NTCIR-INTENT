@@ -7,10 +7,13 @@ import java.util.ArrayList;
 public class SubtopicInstance {
 	//corresponding to each kernel-object of the topic
 	//null will be added if it doesn't include the kernel-object
-	private ArrayList<IRAnnotation> termIRAnnotationList;
-	private ArrayList<IRAnnotation> phraseIRAnnotationList;
+	public String _text;
 	
-	public SubtopicInstance(){
+	public ArrayList<IRAnnotation> termIRAnnotationList;
+	public ArrayList<IRAnnotation> phraseIRAnnotationList;
+	
+	public SubtopicInstance(String text){
+		this._text = text;
 		this.termIRAnnotationList = new ArrayList<IRAnnotation>();
 		this.phraseIRAnnotationList = new ArrayList<IRAnnotation>();		
 	}
@@ -22,6 +25,23 @@ public class SubtopicInstance {
 	//
 	public void addPhraseIRAnnotation(IRAnnotation irAnnotation){
 		this.phraseIRAnnotationList.add(irAnnotation);
+	}
+	
+	//
+	public boolean shrinkMatch(SubtopicInstance cmpSubtopicInstance){
+		//term-level
+		for(int i=0; i<this.termIRAnnotationList.size(); i++){
+			if(this.termIRAnnotationList.get(i).shrinkEquals(cmpSubtopicInstance.termIRAnnotationList.get(i))){
+				return true;
+			}
+		}
+		//phrase-level
+		for(int j=0; j<this.phraseIRAnnotationList.size(); j++){
+			if(this.phraseIRAnnotationList.get(j).shrinkEquals(cmpSubtopicInstance.phraseIRAnnotationList.get(j))){
+				return true;
+			}
+		}
+		return false;
 	}
 
 }
