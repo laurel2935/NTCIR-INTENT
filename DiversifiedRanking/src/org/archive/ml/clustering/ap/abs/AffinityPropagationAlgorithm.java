@@ -50,7 +50,6 @@ public abstract class AffinityPropagationAlgorithm extends AbstractClusterAlgori
     protected abstract void showInfo();
     //the type of connecting the exemplar
     public enum AffinityConnectingMethod {
-
         PRIME_ALG, FLOYD_ALG, ORIGINAL
     }
 
@@ -240,7 +239,6 @@ public abstract class AffinityPropagationAlgorithm extends AbstractClusterAlgori
                     res.put(obj, entry.getKey());
                 }
             }
-
             return res;
         } else {
             return null;
