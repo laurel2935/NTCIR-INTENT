@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 public class SMTopic {
+	private static boolean DEBUG = true;
+	//
 	public static enum BadCase{NoRelatedQuery, NoIRAnnotation}
 	//
 	public static final int ShrinkThreshold = 2;
@@ -27,7 +29,7 @@ public class SMTopic {
 	//
 	public ArrayList<String> uniqueRelatedQueries;
 	
-	public ArrayList<SMSubtopicItem> subtopicItemList;
+	public ArrayList<SMSubtopicItem> smSubtopicItemList;
 	public ArrayList<SubtopicInstance> oddSubtopicInstances;
 	
 	public SMTopic(String id, String text){
@@ -156,41 +158,70 @@ public class SMTopic {
 		System.out.println(this.badCases);
 	}
 	//first meet first match, which may leads to non-consistent results
-	public void getSubtopicItemList(ArrayList<SubtopicInstance> subtopicInstances){
+	public void getSubtopicItemList(ArrayList<SubtopicInstance> subtopicInstanceList){
+		if(DEBUG){
+			System.out.println("subtopicInstance number:\t"+subtopicInstanceList.size());
+		}
+		//
 		this.oddSubtopicInstances = new ArrayList<SubtopicInstance>();
 		//
-		this.subtopicItemList = new ArrayList<SMSubtopicItem>();
+		this.smSubtopicItemList = new ArrayList<SMSubtopicItem>();
 		//
-		SubtopicInstance subtopicInstance = subtopicInstances.get(subtopicInstances.size()-1);
+		SubtopicInstance subtopicInstance = subtopicInstanceList.get(subtopicInstanceList.size()-1);
+		if(DEBUG){
+			System.out.println(subtopicInstance.toString());
+		}
+		//
 		while(subtopicInstance.belongToOddCase()){
-			this.oddSubtopicInstances.add(subtopicInstance);
-			subtopicInstances.remove(subtopicInstances.size()-1);
-			if(subtopicInstances.size() > 0){
-				subtopicInstance = subtopicInstances.get(subtopicInstances.size()-1);
-			}else{
-				subtopicInstance = null;
-				break;
+			if(DEBUG){
+				System.out.println("odd case:\t"+subtopicInstance.toString());
 			}
-			
+			//
+			this.oddSubtopicInstances.add(subtopicInstance);
+			subtopicInstanceList.remove(subtopicInstanceList.size()-1);
+			subtopicInstance = null;
+			//
+			if(subtopicInstanceList.size() > 0){
+				subtopicInstance = subtopicInstanceList.get(subtopicInstanceList.size()-1);
+			}else{				
+				break;
+			}			
 		}
 		if(null != subtopicInstance){
 			SMSubtopicItem smSubtopicItem = new SMSubtopicItem(subtopicInstance);
-			subtopicInstances.remove(subtopicInstances.size()-1);
-			this.subtopicItemList.add(smSubtopicItem);
+			if(DEBUG){
+				System.out.println("add new item:\t"+subtopicInstance.toString());
+			}
+			this.smSubtopicItemList.add(smSubtopicItem);
+			//
+			subtopicInstanceList.remove(subtopicInstanceList.size()-1);			
 		}		
 		//
-		while(subtopicInstances.size() > 0){
-			SubtopicInstance instance = subtopicInstances.get(subtopicInstances.size()-1);
+		while(subtopicInstanceList.size() > 0){
+			SubtopicInstance instance = subtopicInstanceList.get(subtopicInstanceList.size()-1);
+			if(DEBUG){
+				System.out.println("running for:\t"+instance.toString());
+			}
+			//
 			if(instance.belongToOddCase()){
+				if(DEBUG){
+					System.out.println("odd case:\t"+instance.toString());
+				}
 				this.oddSubtopicInstances.add(instance);
-				subtopicInstances.remove(subtopicInstances.size()-1);
+				subtopicInstanceList.remove(subtopicInstanceList.size()-1);
 			}else{
 				boolean matched = false;
-				for(SMSubtopicItem item: this.subtopicItemList){
+				for(SMSubtopicItem item: this.smSubtopicItemList){
 					for(SubtopicInstance taggedInstance: item.subtopicInstanceGroup){
+						if(DEBUG){
+							System.out.println("matching ---\t"+taggedInstance.toString());
+						}
 						if(instance.shrinkMatch(taggedInstance)){
 							item.addSubtopicInstance(instance);
 							matched = true;
+							if(DEBUG){
+								System.out.println("matched for :\t"+instance.toString());
+							}
 							break;
 						}
 					}
@@ -200,13 +231,20 @@ public class SMTopic {
 				}
 				//
 				if(matched){
-					subtopicInstances.remove(subtopicInstances.size()-1);
+					subtopicInstanceList.remove(subtopicInstanceList.size()-1);
 				}else{
 					SMSubtopicItem newSmItem = new SMSubtopicItem(instance);
-					this.subtopicItemList.add(newSmItem);
-					subtopicInstances.remove(subtopicInstances.size()-1);
+					this.smSubtopicItemList.add(newSmItem);
+					if(DEBUG){
+						System.out.println("add new item:\t"+instance.toString());
+					}
+					subtopicInstanceList.remove(subtopicInstanceList.size()-1);
 				}
 			}			
+		}
+		//
+		for(SMSubtopicItem smSubtopicItem: this.smSubtopicItemList){
+			smSubtopicItem.getModifierGroupList();
 		}
 	}
 }

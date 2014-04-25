@@ -9,6 +9,10 @@ import edu.stanford.nlp.trees.Tree;
 public abstract class IRAnnotator {
 	//
 	public IRAnnotation irAnnotate(ArrayList<TaggedTerm> canTaggedTerms, IRAnnotation topicIRAnnotation){
+		if(null == canTaggedTerms){
+			return null;
+		}
+		//
 		boolean include = false;
 		ArrayList<Modifier> moSet = new ArrayList<Modifier>();
     	KernelObject canKO = null;

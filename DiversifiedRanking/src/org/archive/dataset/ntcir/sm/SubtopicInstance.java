@@ -5,11 +5,12 @@ import java.util.ArrayList;
  * corresponding to a subtopic instance
  * **/
 public class SubtopicInstance {
-	public static enum OddCase {NoMatchKO}
+	//public static enum OddCase {NoMatchKO}
 	//corresponding to each kernel-object of the topic
 	//null will be added if it doesn't include the kernel-object
 	public String _text;
-	public ArrayList<OddCase> oddCases = null;
+	//public ArrayList<OddCase> oddCases = null;
+	private boolean odd = true;
 	
 	public ArrayList<IRAnnotation> termIRAnnotationList;
 	public ArrayList<IRAnnotation> phraseIRAnnotationList;
@@ -22,38 +23,49 @@ public class SubtopicInstance {
 	
 	//
 	public void addTermIRAnnotation(IRAnnotation irAnnotation){
+		if(null!=irAnnotation && true==odd){
+			odd = false;
+		}
 		this.termIRAnnotationList.add(irAnnotation);
 	}
 	//
 	public void addPhraseIRAnnotation(IRAnnotation irAnnotation){
+		if(null!=irAnnotation && true==odd){
+			odd = false;
+		}
 		this.phraseIRAnnotationList.add(irAnnotation);
 	}
 	//
-	public void checkIRAnnotation(){
-		if(this.termIRAnnotationList.size()==0 && this.phraseIRAnnotationList.size()==0){
-			this.oddCases = new ArrayList<SubtopicInstance.OddCase>();
-			this.oddCases.add(OddCase.NoMatchKO);
-		}
-	}
-	//
 	public boolean belongToOddCase(){
-		return null!=this.oddCases;
+		return odd;
 	}
 	//
 	public boolean shrinkMatch(SubtopicInstance cmpSubtopicInstance){
 		//term-level
 		for(int i=0; i<this.termIRAnnotationList.size(); i++){
-			if(this.termIRAnnotationList.get(i).shrinkEquals(cmpSubtopicInstance.termIRAnnotationList.get(i))){
-				return true;
+			IRAnnotation termIRAnnotation = this.termIRAnnotationList.get(i);
+			IRAnnotation cmpTermIRAnnotation = cmpSubtopicInstance.termIRAnnotationList.get(i);
+			if(null!=termIRAnnotation && null!=cmpTermIRAnnotation){
+				if(termIRAnnotation.shrinkEquals(cmpTermIRAnnotation)){
+					return true;
+				}
 			}
+			
 		}
 		//phrase-level
 		for(int j=0; j<this.phraseIRAnnotationList.size(); j++){
-			if(this.phraseIRAnnotationList.get(j).shrinkEquals(cmpSubtopicInstance.phraseIRAnnotationList.get(j))){
-				return true;
-			}
+			IRAnnotation phraseIRAnnotation = this.phraseIRAnnotationList.get(j);
+			IRAnnotation cmpPhraseIRAnnotation = cmpSubtopicInstance.phraseIRAnnotationList.get(j);
+			if(null!=phraseIRAnnotation && null!=cmpPhraseIRAnnotation){
+				if(phraseIRAnnotation.shrinkEquals(cmpPhraseIRAnnotation)){
+					return true;
+				}
+			}		
 		}
 		return false;
 	}
-
+	//
+	public String toString(){
+		return this._text;
+	}
 }

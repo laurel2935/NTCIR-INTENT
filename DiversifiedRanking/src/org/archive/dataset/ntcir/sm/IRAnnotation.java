@@ -74,8 +74,8 @@ public class IRAnnotation {
 		}else{
 			int minA = Math.min(SMTopic.ShrinkThreshold, vectorA.size());
 			int minB = Math.min(SMTopic.ShrinkThreshold, vectorB.size());
-			List<Modifier> tempA = vectorA.subList(0, minA-1);
-			List<Modifier> tempB = vectorB.subList(0, minB-1);
+			List<Modifier> tempA = vectorA.subList(0, minA);
+			List<Modifier> tempB = vectorB.subList(0, minB);
 			if(tempA.containsAll(tempB) || tempB.containsAll(tempA)){
 				return true;
 			}else{

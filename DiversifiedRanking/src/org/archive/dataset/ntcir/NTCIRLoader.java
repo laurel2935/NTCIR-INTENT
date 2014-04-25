@@ -14,6 +14,7 @@ import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.archive.dataset.ntcir.sm.IRAnnotation;
+import org.archive.dataset.ntcir.sm.SMSubtopicItem;
 import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.ntcir.sm.TermIRAnnotator;
 import org.archive.dataset.ntcir.sm.PhraseIRAnnotator;
@@ -528,8 +529,8 @@ public class NTCIRLoader {
 		PhraseIRAnnotator phraseIRAnnotator = new PhraseIRAnnotator();
 		for(SMTopic smTopic: smTopicList){
 			smTopic.setTaggedTopic(shallowParser.getTaggedTopic(smTopic.getTopicText()));
-			if(DEBUG){
-				System.out.println(smTopic.getTaggedTopic().toString());
+			if(DEBUG){				
+				System.out.println(smTopic.toString());
 			}
 			//
 			smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedTerms));
@@ -556,7 +557,7 @@ public class NTCIRLoader {
 		}		
 		//perform intent role annotation for subtopic string		
 		for(SMTopic smTopic: smTopicList){			
-			ArrayList<SubtopicInstance> subtopicInstances = new ArrayList<SubtopicInstance>();
+			ArrayList<SubtopicInstance> subtopicInstanceList = new ArrayList<SubtopicInstance>();
 			//
 			if(!smTopic.belongToBadCase()){
 				for(String rq: smTopic.uniqueRelatedQueries){
@@ -574,16 +575,47 @@ public class NTCIRLoader {
 							subtopicInstance.addPhraseIRAnnotation(
 									termIRAnnotator.irAnnotate(stInstance_all_phrase.get(rq), topicPhraseIRAnnotation));
 						}
-					}		
+					}				
 					//
-					subtopicInstance.checkIRAnnotation();
-					//
-					subtopicInstances.add(subtopicInstance);
+					subtopicInstanceList.add(subtopicInstance);
 				}		
 				//
-				smTopic.getSubtopicItemList(subtopicInstances);
+				smTopic.getSubtopicItemList(subtopicInstanceList);
 			}			
 		}		
+		//
+		if(DEBUG){
+			System.out.println("---------------!");
+			for(SMTopic smTopic: smTopicList){
+				if (smTopic.belongToBadCase()) {
+					System.out.println("!!!!!!!!!!!-\t"+smTopic);
+				}else{
+					System.out.println(smTopic.getID()+"\t"+smTopic.getTopicText());
+					System.out.println("number of subtopicitem:\t"+smTopic.smSubtopicItemList.size());
+					int itemCount = 1;
+					for(SMSubtopicItem smSubtopicItem: smTopic.smSubtopicItemList){
+						System.out.println("item - "+(itemCount++));
+						if(smSubtopicItem.termModifierGroupList.size() > 0){
+							System.out.println("\tTerm-Annotation:");
+							int iraCount = 1;
+							for(ArrayList<String> moGroup: smSubtopicItem.termModifierGroupList){
+								System.out.println("\tPossible Term-IRA-"+(iraCount++));
+								System.out.println(moGroup);
+							}
+						}
+						//
+						if(smSubtopicItem.phraseModifierGroupList.size() > 0){
+							System.out.println("\tPhrase-Annotation:");
+							int iraCount = 1;
+							for(ArrayList<String> moGroup: smSubtopicItem.phraseModifierGroupList){
+								System.out.println("\tPossible Phrase-IRA-"+(iraCount++));
+								System.out.println(moGroup);
+							}
+						}
+					}
+				}
+			}			
+		}
 		//
 		return smTopicList;
 	}	

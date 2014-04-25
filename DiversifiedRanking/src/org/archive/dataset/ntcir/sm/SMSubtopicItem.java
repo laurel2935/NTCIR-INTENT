@@ -5,15 +5,18 @@ import java.util.HashSet;
 
 public class SMSubtopicItem {
 	//gourp members of SubtopicInstance
-	ArrayList<SubtopicInstance> subtopicInstanceGroup;
+	ArrayList<SubtopicInstance> subtopicInstanceGroup = null;
 	//for computing similarity among different SMSubtopicItem
 	//union of the first <SMTopic.ShrinkThreshold> modifiers of member's IRAnnotation corresponding to each topic irAnnotation
-	private ArrayList<ArrayList<String>> termModifierGroupList;
-	private ArrayList<ArrayList<String>> phraseModifierGroupList;
+	public ArrayList<ArrayList<String>> termModifierGroupList = null;
+	public ArrayList<ArrayList<String>> phraseModifierGroupList = null;
 	
 	SMSubtopicItem(SubtopicInstance subtopicInstance){
 		this.subtopicInstanceGroup = new ArrayList<SubtopicInstance>();
 		this.subtopicInstanceGroup.add(subtopicInstance);
+		//
+		this.termModifierGroupList = new ArrayList<ArrayList<String>>();
+		this.phraseModifierGroupList = new ArrayList<ArrayList<String>>();
 	}
 	
 	public void addSubtopicInstance(SubtopicInstance member){
@@ -28,13 +31,15 @@ public class SMSubtopicItem {
 			HashSet<String> termModifierSet = new HashSet<String>();			
 			for(SubtopicInstance subtopicInstance: subtopicInstanceGroup){
 				IRAnnotation irAnnotation = subtopicInstance.termIRAnnotationList.get(termIRAIndex);
-				int k = Math.min(SMTopic.ShrinkThreshold, irAnnotation.moSet.size());
-				for(int i=0; i<k; i++){
-					if(!termModifierSet.contains(irAnnotation.moSet.get(i).moStr)){
-						termModifierSet.add(irAnnotation.moSet.get(i).moStr);
-						termModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+				if(null != irAnnotation){
+					int k = Math.min(SMTopic.ShrinkThreshold, irAnnotation.moSet.size());
+					for(int i=0; i<k; i++){
+						if(!termModifierSet.contains(irAnnotation.moSet.get(i).moStr)){
+							termModifierSet.add(irAnnotation.moSet.get(i).moStr);
+							termModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+						}
 					}
-				}
+				}				
 			}
 			//
 			this.termModifierGroupList.add(termModifierGroup);			
@@ -46,13 +51,15 @@ public class SMSubtopicItem {
 			HashSet<String> phraseModifierSet = new HashSet<String>();
 			for(SubtopicInstance subtopicInstance: subtopicInstanceGroup){
 				IRAnnotation irAnnotation = subtopicInstance.phraseIRAnnotationList.get(phraseIRAIndex);
-				int k = Math.min(SMTopic.ShrinkThreshold, irAnnotation.moSet.size());
-				for(int i=0; i<k; i++){
-					if(!phraseModifierSet.contains(irAnnotation.moSet.get(i).moStr)){
-						phraseModifierSet.add(irAnnotation.moSet.get(i).moStr);
-						phraseModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+				if(null != irAnnotation){
+					int k = Math.min(SMTopic.ShrinkThreshold, irAnnotation.moSet.size());
+					for(int i=0; i<k; i++){
+						if(!phraseModifierSet.contains(irAnnotation.moSet.get(i).moStr)){
+							phraseModifierSet.add(irAnnotation.moSet.get(i).moStr);
+							phraseModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+						}
 					}
-				}
+				}				
 			}
 			//
 			this.phraseModifierGroupList.add(phraseModifierGroup);
