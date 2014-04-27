@@ -33,7 +33,7 @@ public class NTCIRLoader {
 	private final static boolean DEBUG = true;
 	
 	private static boolean ICTCLAS2014_INI = false;
-	private static final String CODE_UTF8 = "UTF-8";
+	public static final String CODE_UTF8 = "UTF-8";
 	private static final String CODE_GB2312 = "GB2312";
 	private static final String DR_SPLIT = " ";
 	private static final String SM_SPLIT = ";";
