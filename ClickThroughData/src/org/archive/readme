@@ -1,0 +1,20 @@
+/**
+//note - 1: for chinese queries, there may exist [tab] in a query, thus pay attention to the split("\t")
+//it is better to use indexOf("\t")!!!
+
+//note - 2: except for the original file code, all the local files are encoded with UTF-8
+
+
+ * 1. parse a whole query into digital one
+ * 
+ * (1) i.e., query, session and urls are represented as their id
+ * (2) query and its composing words
+ * (3) word and its source queries
+ * 
+ * 2. generate small text files: frequency / rawString
+ * (1) QuerySmallText
+ * (2) SessionSmallText
+ * (3) DocSmallText
+ * (4) WordSmallText
+ 
+ * **/
