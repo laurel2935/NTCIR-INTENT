@@ -3,6 +3,7 @@ package org.archive.analysis;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -19,9 +20,11 @@ import org.archive.comon.ClickThroughDataVersion;
 import org.archive.comon.ClickThroughDataVersion.ElementType;
 import org.archive.comon.ClickThroughDataVersion.LogVersion;
 import org.archive.comon.DataDirectory;
+import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.structure.Record;
 import org.archive.structure.AOLRecord;
 import org.archive.structure.SogouQRecord2008;
+import org.archive.util.Language.Lang;
 import org.archive.util.format.StandardFormat;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.IntStrInt;
@@ -1410,7 +1413,7 @@ public class ClickThroughAnalyzer {
     	Hashtable<String, Integer> wordTable = new Hashtable<String, Integer>();
     	Vector<UserWord> wordNodeVec = new Vector<UserWord>();
     	//    	
-    	Vector<String> words;
+    	ArrayList<String> words;
 		//
     	try {
     		//query to member words
@@ -1419,7 +1422,12 @@ public class ClickThroughAnalyzer {
     		for(Entry<String, IntStrInt> entry: UniqueQTextMap.entrySet()){
     			IntStrInt uniqueQ = entry.getValue();
     			//
-    			words = UserQuery.getWords(uniqueQ.getSecond());
+    			if(LogVersion.AOL == version){
+    				words = Tokenizer.qSegment(uniqueQ.getSecond(), Lang.English);
+    			}else{
+    				words = Tokenizer.qSegment(uniqueQ.getSecond(), Lang.Chinese);
+    			}
+    			
     			if(null!=words){
     				//distinct composing words
     				HashSet<String> wordSet = new HashSet<String>();
@@ -1926,9 +1934,9 @@ public class ClickThroughAnalyzer {
 		//ClickThroughAnalyzer.generateFiles_QQAttributeGraph(LogVersion.SogouQ2008);
 		
 		//6 parsing queries into fine-grained granularity: words
-		//ClickThroughAnalyzer.parsingQueriesToWords(LogVersion.SogouQ2008);
+		ClickThroughAnalyzer.parsingQueriesToWords(LogVersion.SogouQ2008);
 		
-		System.out.println("test!");
+		//System.out.println("test!");
 		
 	}
 }

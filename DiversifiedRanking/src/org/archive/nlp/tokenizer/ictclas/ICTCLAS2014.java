@@ -1,11 +1,16 @@
 package org.archive.nlp.tokenizer.ictclas;
 
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 
 public class ICTCLAS2014 {
+	//for debugging
+	private static final boolean DEBUG = true;
+	
+	private static boolean CONFIGED = false;
 
 	// 定义接口CLibrary，继承自com.sun.jna.Library
 	public interface CLibrary extends Library {
@@ -60,6 +65,25 @@ public class ICTCLAS2014 {
 		}
 	}
 	
+	//interface
+	public static ArrayList<String> segment(String text){		
+		if(!CONFIGED){
+			iniConfig();
+			CONFIGED = true;
+		}
+		//
+		ArrayList<String> wordList = new ArrayList<String>();
+		String sentence = ICTCLAS2014.CLibrary.Instance.NLPIR_ParagraphProcess(text, 0);
+		String [] array = sentence.split(" ");
+		for(int i=0; i<array.length; i++){
+			wordList.add(array[i]);
+		}
+		if(DEBUG){
+			System.out.println(wordList);
+		}
+		return wordList.size()>0? wordList:null;		
+	}
+	
 	public static void check(){
 		String _DataDir = "ICTCLAS/";
 		// String system_charset = "GBK";//GBK----0
@@ -109,7 +133,11 @@ public class ICTCLAS2014 {
 
 	public static void main(String[] args) throws Exception {
 		
-		ICTCLAS2014.check();
+		//1
+		//ICTCLAS2014.check();
+		
+		//2
+		ICTCLAS2014.segment("关键词提取结果是");
 
 	}
 }

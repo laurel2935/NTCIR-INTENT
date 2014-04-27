@@ -2,6 +2,7 @@ package org.archive.nlp.chunk;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.archive.dataset.ntcir.sm.TaggedTerm;
@@ -19,8 +20,9 @@ import edu.stanford.nlp.trees.Tree;
 import edu.stanford.nlp.trees.TreebankLanguagePack;
 
 public class ShallowParser {
+	//for debugging
 	private static final boolean DEBUG = true;
-
+	//setting
     private static final String[] en_options = { "-maxLength", "80", "-retainTmpSubcategories" };
     private static final String[] ch_options = { "-maxLength", "80"};
     
@@ -48,6 +50,9 @@ public class ShallowParser {
     	//this.gsf = tlp.grammaticalStructureFactory();
     }
     
+    /////////////////////////
+    //for chunk parsing
+    /////////////////////////
     /**
      * the tokenized word and its pos tag
      * **/
@@ -268,14 +273,38 @@ public class ShallowParser {
     		return null;
     	}    	
     }
-        
+    
+    //////////////////////////////
+    //for segmentation
+    //////////////////////////////
+    //
+    public ArrayList<String> segment(String text){
+    	ArrayList<String> wordList = new ArrayList<String>();
+    	//
+    	Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(text));
+        List<? extends HasWord> sentence = toke.tokenize();
+        //
+        Iterator<? extends HasWord> itr = sentence.iterator();
+        while(itr.hasNext()){
+        	HasWord word = itr.next();
+        	wordList.add(word.word());
+        }
+        //
+        if(DEBUG){
+        	System.out.println(wordList);
+        }
+        //
+        return wordList.size()>0? wordList:null;      
+    }
+    
+    //////////// Test ///////////////
     
     public void test(String testString){    	
     	// Use the default tokenizer for this TreebankLanguagePack
         Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(testString));
-        List<? extends HasWord> sentence = toke.tokenize();
-        List<List<? extends HasWord>> tmp = new ArrayList<List<? extends HasWord>>();  
+        List<? extends HasWord> sentence = toke.tokenize();        
         //
+        System.out.println("before parsing...");
         System.out.println(sentence.toString());
         //        
         Tree parse = lp.parse(sentence);
@@ -300,6 +329,11 @@ public class ShallowParser {
         
         System.out.println();
         System.out.println(parse.taggedYield());
+        ArrayList<Word> wordList = parse.yieldWords();
+        for(Word word: wordList){
+        	System.out.print(word.word()+"|");
+        }
+        System.out.println();        
         ArrayList<TaggedWord> taggedWords = parse.taggedYield();
         for(TaggedWord word: taggedWords){
         	System.out.println(word.tag() + "\t" + word.value());
@@ -311,8 +345,13 @@ public class ShallowParser {
 	//
 	public static void main(String []args){
 		//1
-		ShallowParser shallowParser = new ShallowParser(Language.Lang.Chinese);
-		shallowParser.test("相亲节目有哪些");
+		//ShallowParser shallowParser = new ShallowParser(Language.Lang.Chinese);
+		//shallowParser.test("相亲节目有哪些");
+		ShallowParser shallowParser = new ShallowParser(Language.Lang.English);
+		//shallowParser.test("business insurance commerical general liability");
+		shallowParser.segment("business insurance commerical general liability");
+		
+		
 		//
 		//System.out.println();
 		//shallowParser.getSimple2LevelTrees("a sentence to be parsed", "NP");		
