@@ -6,14 +6,6 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 
 public class StandardFormat {	
-	//serial format for files
-	private static DecimalFormat fileSerialFormat = null;
-	
-	//output format for double numbers
-	private static DecimalFormat doubleOutputFormat = null;
-	
-	//
-	
 	/**
 	 * time format
 	 * @param date
@@ -56,30 +48,13 @@ public class StandardFormat {
 	/**
 	 * 序列号命名格式
 	 * @param num
-	 * @param pattern "0000"
+	 * @param pattern
 	 * @return
 	 */
-	public static String serialFormat(int num, String formatPattern){		
-		if(null == fileSerialFormat){
-			fileSerialFormat = new DecimalFormat(formatPattern);
-		}
-		//
-		return fileSerialFormat.format(num);
-	}
-	/**
-	 * @param target
-	 * @param formatPattern "#.####""
-	 * **/
-	public static String toDoubleOutputFormat(double target, String formatPattern){
-		if(Double.isNaN(target)){
-			return Double.toString(target);
-		}else{
-			if(null == doubleOutputFormat){
-				doubleOutputFormat = new DecimalFormat(formatPattern);
-			}
-			//
-			return doubleOutputFormat.format(target);
-		}		
+	public static String serialFormat(int num, String pattern){
+		//String pattern = "00000000";
+		DecimalFormat df = new DecimalFormat(pattern);
+		return df.format(num);
 	}
 }
 

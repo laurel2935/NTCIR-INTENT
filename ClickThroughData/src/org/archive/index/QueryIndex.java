@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Vector;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.core.SimpleAnalyzer_Var;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field.Store;
@@ -29,10 +28,11 @@ import org.apache.lucene.util.Version;
 import org.archive.comon.ClickThroughDataVersion.LogVersion;
 import org.archive.comon.ClickThroughDataVersion.PartType;
 import org.archive.comon.DataDirectory;
+import org.archive.index.token.lucene.SimpleAnalyzer_Var;
+import org.archive.util.Language;
+import org.archive.util.Language.Lang;
 import org.archive.util.format.StandardFormat;
 import org.archive.util.io.IOText;
-import org.archive.util.lang.Language;
-import org.archive.util.lang.Language.LanType;
 import org.archive.util.tuple.StrInt;
 import org.apache.lucene.queryparser.classic.QueryParser;
 
@@ -96,17 +96,17 @@ public class QueryIndex {
 		return doc;
 	}
 	//
-	private void buildQueryIndex(List<StrInt> rawQList, LanType lanType){
+	private void buildQueryIndex(List<StrInt> rawQList, Lang lanType){
 		try {
 			//WhitespaceAnalyzer : merely using white space
 			//SimpleAnalyzer : using non-alphabets, also convert to lower case
 			//StandardAnalyzer : merely a single character for Chinese
-			if(Language.LanType.English == lanType){
+			if(Language.Lang.English == lanType){
 				//English
 				Analyzer enAnalyzer = new SimpleAnalyzer_Var (Version.LUCENE_44);
 				indexWriter = new IndexWriter(indexDirectory, 
 						new IndexWriterConfig(Version.LUCENE_44, enAnalyzer));
-			}else if(Language.LanType.Chinese == lanType){
+			}else if(Language.Lang.Chinese == lanType){
 				//Chinese
 				Analyzer chStandardAnalyzer = new StandardAnalyzer (Version.LUCENE_44);
 				indexWriter = new IndexWriter(indexDirectory, 
@@ -140,7 +140,7 @@ public class QueryIndex {
 		}		
 	}
 	//usage-1
-	private void buildQueryIndex(String queryCollectionFile, String indexDirStr, Language.LanType lanType){
+	private void buildQueryIndex(String queryCollectionFile, String indexDirStr, Language.Lang lanType){
 		try {
 			//Vector<StrInt> rawQVector = IOBox.readStrInts("E:/CodeBench/QueryVotingExperts/test/QCorpus.txt", "GBK");
 			Vector<StrInt> rawQVector = IOText.loadStrInts_LineFormat_Int_Str(queryCollectionFile, "GBK");			
@@ -191,11 +191,11 @@ public class QueryIndex {
 			System.out.println(queryIndexDirFile.mkdir());
 		}
 		//
-		LanType lanType = null;
+		Lang lanType = null;
 		if(LogVersion.AOL == logVersion){
-			lanType = LanType.English;			
+			lanType = Lang.English;			
 		}else if(LogVersion.SogouQ2008 == logVersion){
-			lanType = LanType.Chinese;
+			lanType = Lang.Chinese;
 		}
 		//
 		buildQueryIndex(queryCollectionFile, queryIndexDir, lanType);
@@ -311,11 +311,11 @@ public class QueryIndex {
 			queryIndexDir = DataDirectory.QueryIndexRoot+DataDirectory.QueryIndex_All[logVersion.ordinal()];
 		}
 		//
-		LanType lanType = null;
+		Lang lanType = null;
 		if(LogVersion.AOL == logVersion){
-			lanType = LanType.English;			
+			lanType = Lang.English;			
 		}else if(LogVersion.SogouQ2008 == logVersion){
-			lanType = LanType.Chinese;
+			lanType = Lang.Chinese;
 		}
 		//
 		if(BufferType.Buffer == bufferType){
@@ -331,11 +331,11 @@ public class QueryIndex {
 			queryIndexDir = DataDirectory.QueryIndexRoot+DataDirectory.QueryIndex_All[logVersion.ordinal()];
 		}
 		//
-		LanType lanType = null;
+		Lang lanType = null;
 		if(LogVersion.AOL == logVersion){
-			lanType = LanType.English;			
+			lanType = Lang.English;			
 		}else if(LogVersion.SogouQ2008 == logVersion){
-			lanType = LanType.Chinese;
+			lanType = Lang.Chinese;
 		}
 		//
 		//
@@ -414,17 +414,17 @@ public class QueryIndex {
 		return -1;
 	}
 	//usage-2
-	private static int getExactParentQcount_NoBuffer(String segment, String dirString, Language.LanType lanType){
+	private static int getExactParentQcount_NoBuffer(String segment, String dirString, Language.Lang lanType){
 		if(null == indexReader){
 			iniIndexReader(dirString);
 		}	
 		//		
 		QueryParser parser;
-		if(Language.LanType.English == lanType){
+		if(Language.Lang.English == lanType){
 			Analyzer enSimpleAnalyzer = new SimpleAnalyzer_Var (Version.LUCENE_44);
 			//
 			parser = new QueryParser(Version.LUCENE_44, "QStr", enSimpleAnalyzer); 
-		}else if(Language.LanType.Chinese == lanType){
+		}else if(Language.Lang.Chinese == lanType){
 			Analyzer chStandardAnalyzer = new StandardAnalyzer (Version.LUCENE_44);
 			//
 			parser = new QueryParser(Version.LUCENE_44, "QStr", chStandardAnalyzer);
@@ -478,11 +478,11 @@ public class QueryIndex {
 			queryIndexDir = DataDirectory.QueryIndexRoot+DataDirectory.QueryIndex_All[logVersion.ordinal()];
 		}
 		//
-		LanType lanType = null;
+		Lang lanType = null;
 		if(LogVersion.AOL == logVersion){
-			lanType = LanType.English;			
+			lanType = Lang.English;			
 		}else if(LogVersion.SogouQ2008 == logVersion){
-			lanType = LanType.Chinese;
+			lanType = Lang.Chinese;
 		}
 		//
 		return getExactParentQcount_NoBuffer(segment, queryIndexDir, lanType);

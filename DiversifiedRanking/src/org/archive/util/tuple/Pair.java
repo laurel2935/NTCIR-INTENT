@@ -52,7 +52,7 @@ public class Pair<FIRST, SECOND> implements PairInterface<FIRST, SECOND> {
 				&& null==this.second? null==other.second : this.second.equals(other.second);
 	}
 	@Override
-	public final int hashCode(){
+	public int hashCode(){
 		final long prime = 2654435761L;
 		//
 		long result = 1;
