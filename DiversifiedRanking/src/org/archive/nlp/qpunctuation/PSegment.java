@@ -6,8 +6,8 @@ package org.archive.nlp.qpunctuation;
 
 public class PSegment extends Segment implements Comparable{	
 	//
-	protected int head;
-	protected int tail;
+	public int head;
+	public int tail;
 	//
 	public PSegment(String str, int head, int tail){
 		super(str);

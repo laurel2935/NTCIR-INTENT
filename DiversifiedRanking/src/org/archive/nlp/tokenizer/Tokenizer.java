@@ -11,15 +11,31 @@ import org.archive.util.Language.Lang;
 import org.archive.util.pattern.RQConstants;
 
 public class Tokenizer {
-	//for english text segmentation
-	private static ShallowParser stanfordParser = null;	
-	//
+	//for English text segmentation
+	private static ShallowParser stanfordParser = null;
+	private static final String BLANK = " ";
+	
+	
+	//for Chinese, a string including fewer than 3 or just 3 characters is directly regarded as a word	 
 	private static final int chDirectWordLength_Threshold = 3;
+	//for English, a string including no blank, is directly regarded as one word 
+	private static final int enDirectWordLength_Threshold = 1;
 		
 	////////////////////////
 	//common segmentation
 	////////////////////////
 	public static ArrayList<String> segment(String text, Lang lang){
+		return 	segment(text, lang, false);
+	}
+	//
+	private static ArrayList<String> segment(String text, Lang lang, boolean checkLength){
+		//
+		if(checkLength && isDirectWord(text, lang)){
+			ArrayList<String> wordList = new ArrayList<String>();
+			wordList.add(text);
+			return wordList;
+		}
+		//
 		if(Lang.English == lang){
 			if(null == stanfordParser){
 				stanfordParser = new ShallowParser(Lang.English);
@@ -32,45 +48,63 @@ public class Tokenizer {
 			return null;
 		}		
 	}
+	//
+	private static boolean isDirectWord(String text, Lang lang){
+		if(Lang.English == lang){
+			return text.split(BLANK).length<=enDirectWordLength_Threshold? true:false;
+		}else if(Lang.Chinese == lang){
+			return text.length()<=chDirectWordLength_Threshold? true:false;
+		}else{
+			new Exception("Language type error!").printStackTrace();
+			return false;
+		}	
+	}
+	//
 	
 	////////////////////
-	//query segmentation
+	//query-oriented segmentation
 	////////////////////
 	/**
 	 * taking the possible symbols into consideration 
 	 * **/
-	public static ArrayList<String> qSegment(String rawQuery, Lang lang){
+	public static ArrayList<String> adaptiveQuerySegment(Lang lang, String rawQuery, boolean checkSymbol, boolean checkLength){
 		ArrayList<String> words=null;
 		//
-		if(RQConstants.containSeparatorSymbol(rawQuery)){
-			Vector<QSegment> symbolSegmentSet;
-			if(null!=(symbolSegmentSet=QPunctuationParser.parse(rawQuery)) && symbolSegmentSet.size()>0){			
+		if(!checkSymbol && !checkLength){
+			return segment(rawQuery, lang, false);
+		}else if(!checkSymbol && checkLength){
+			return segment(rawQuery, lang, true);
+		}else if(checkSymbol && Lang.Chinese==lang){
+			if(RQConstants.containSeparatorSymbol(rawQuery)){
+				Vector<QSegment> symbolSegmentSet;
+				if(null!=(symbolSegmentSet=QPunctuationParser.parse(rawQuery)) && symbolSegmentSet.size()>0){			
+					//
+					words = segment(symbolSegmentSet, lang);
+				}
+			}else{			
 				//
-				words = segment(symbolSegmentSet, lang);
+				words = segment(rawQuery, lang, true);
 			}
-		}else{			
 			//
-			words = segment(rawQuery, lang);
-		}
-		//
-		if(null!=words && words.size()>0){
-			return words;
+			if(null!=words && words.size()>0){
+				return words;
+			}else{
+				return null;
+			}
 		}else{
+			new Exception("Symbol check is not available for English").printStackTrace();
 			return null;
-		}
+		}		
 	}
-	//
+	///
 	private static ArrayList<String> segment(Vector<QSegment> segmentSet, Lang lang){
 		ArrayList<String> wordSet = new ArrayList<String>();
 		//		
 		for(QSegment seg: segmentSet){
 			if(seg.unit){
 				wordSet.add(seg.getStr());
-			}else if(Lang.Chinese==lang && seg.getStr().length()<=chDirectWordLength_Threshold){
+			}else if(isDirectWord(seg.getStr(), lang)){
 				wordSet.add(seg.getStr());
-			}else if(Lang.Chinese==lang && seg.getStr().indexOf("+") >= 0 && RQConstants.containChCharacter(seg.getStr())){
-				String s2 = seg.getStr().replaceAll("\\+", " ").trim();
-				wordSet.add(s2);
 			}else{
 				ArrayList<String> wSet = segment(seg.getStr(), lang);
 				if(null != wSet){
@@ -85,5 +119,32 @@ public class Tokenizer {
 			}
 		}		
 		return wordSet;
+	}
+	//
+	
+	
+	////////////////////////
+	//additional utility
+	////////////////////////
+	
+	public static String replaceSymboleAsBlank(String rawText){
+		if(RQConstants.containSeparatorSymbol(rawText)){
+			Vector<QSegment> symbolSegmentSet;
+			if(null!=(symbolSegmentSet=QPunctuationParser.parse(rawText)) && symbolSegmentSet.size()>0){			
+				//
+				String result = "";
+				result += symbolSegmentSet.get(0).getStr();
+				for(int i=1; i<symbolSegmentSet.size(); i++){
+					result += BLANK;
+					result += symbolSegmentSet.get(i).getStr();
+				}
+				return result;				
+			}else{
+				System.out.println("No meaning input!");
+				return null;
+			}
+		}else{
+			return rawText;
+		}
 	}
 }

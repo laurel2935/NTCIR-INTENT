@@ -315,12 +315,12 @@ public class QPunctuationParser {
 	 * **/
 	private static boolean separatorDotP(int index, String str){
 		if((index-1)>=0 && index+1<str.length()){
-			if(PatternFactory.includeChC(str.substring(index-1, index)) || 
-					PatternFactory.includeChC(str.substring(index+1, index+2))){
+			if(PatternFactory.containHanCharacter(str.substring(index-1, index)) || 
+					PatternFactory.containHanCharacter(str.substring(index+1, index+2))){
 				//
 				return true;				
-			}else if(!PatternFactory.strOfNumOrAlphabet(str.substring(index-1, index)) && 
-					!PatternFactory.strOfNumOrAlphabet(str.substring(index+1, index+2))){
+			}else if(!PatternFactory.allNAStr(str.substring(index-1, index)) && 
+					!PatternFactory.allNAStr(str.substring(index+1, index+2))){
 				//+++
 				return true;
 			}else{

@@ -1,17 +1,22 @@
 package org.archive.ntcir.sm.preprocess;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.archive.OutputDirectory;
 import org.archive.dataset.DataSetDiretory;
 import org.archive.dataset.ntcir.NTCIRLoader;
+import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.nlp.chunk.lpt.ltpService.LTML;
 import org.archive.nlp.chunk.lpt.ltpService.LTPOption;
 import org.archive.nlp.chunk.lpt.ltpService.LTPService;
+import org.archive.util.io.IOText;
 import org.archive.util.tuple.StrStr;
 
 public class TopicParser {
@@ -84,7 +89,32 @@ public class TopicParser {
 		parseNTCIR11SMChTopics(loadTopicList_NTCIR11_SM_CH(), ltpOption);
 	}
 	
+	
 	//
+	private static void getUniqueSubtopicStringFile(){
+		List<SMTopic> smTopicList = NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
+		try {
+			File dirFile = new File(OutputDirectory.NTCIR11_Buffer);
+			if(!dirFile.exists()){
+				dirFile.mkdirs();
+			}
+			//
+			String targetFile = OutputDirectory.NTCIR11_Buffer+"UniqueSubtopicStrings.txt";
+			BufferedWriter writer = IOText.getBufferedWriter_UTF8(targetFile);
+			for(SMTopic smTopic: smTopicList){
+				int id = 1;
+				for(String str: smTopic.uniqueRelatedQueries){
+					writer.write(smTopic.getID()+"\t"+(id++)+"\t"+str);
+					writer.newLine();
+				}
+			}
+			writer.flush();
+			writer.close();			
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+	}
+	//-------------
 	private static void parseTopicTest(){
 		StrStr smTopic = new StrStr("0017", "̩���ز�");
 		File dirFile = new File(OutputDirectory.NTCIR11_Buffer);
@@ -135,10 +165,13 @@ public class TopicParser {
 	public static void main(String []args){
 		// test
 		//TopicParser.parseTopicTest();
-		//TopicParser.loadTopicList_NTCIR11_SM_CH();
+		TopicParser.loadTopicList_NTCIR11_SM_CH();
 		
 		//1 parseNTCIR11SMChTopics
-		TopicParser.parseNTCIR11SMChTopics(LTPOption.ALL);
+		//TopicParser.parseNTCIR11SMChTopics(LTPOption.ALL);
+		
+		//2
+		//TopicParser.getUniqueSubtopicStringFile();
 	}
 
 }
