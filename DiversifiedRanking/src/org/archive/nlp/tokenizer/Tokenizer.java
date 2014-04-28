@@ -18,12 +18,12 @@ public class Tokenizer {
 	
 	
 	//for Chinese, a string including fewer than 3 or just 3 characters is directly regarded as a word	 
-	private static final int chDirectWordLength_Threshold = 3;
+	static final int chDirectWordLength_Threshold = 3;
 	//for English, a string including no blank, is directly regarded as one word 
 	private static final int enDirectWordLength_Threshold = 1;
 		
 	////////////////////////
-	//common segmentation
+	//common segmentation, e.g., without considering symbols, etc.
 	////////////////////////
 	public static ArrayList<String> segment(String text, Lang lang){
 		return 	segment(text, lang, false);
@@ -50,7 +50,7 @@ public class Tokenizer {
 		}		
 	}
 	//
-	private static boolean isDirectWord(String text, Lang lang){
+	public static boolean isDirectWord(String text, Lang lang){
 		if(Lang.English == lang){
 			return text.split(BLANK).length<=enDirectWordLength_Threshold? true:false;
 		}else if(Lang.Chinese == lang){
@@ -127,12 +127,37 @@ public class Tokenizer {
 	////////////////////////
 	//additional utility
 	////////////////////////
-	
-	public static String replaceSymboleAsBlank(String rawText, Lang lang){
+	//targeted as the LTP service, in order to avoid unsatisfactory segmentations
+	public static String replaceSymboleAsBlank(Lang lang, String rawText, String reference){
 		if(Lang.Chinese == lang){
-			if((QPunctuationParser.includePunctuation(rawText))){
+			if(null == reference){
+				if((QPunctuationParser.includePunctuation(rawText))){
+					Vector<QSegment> symbolSegmentSet;
+					if(null!=(symbolSegmentSet=QueryPreParser.symbolAnalysis(rawText)) && symbolSegmentSet.size()>0){			
+						//
+						String result = "";
+						result += symbolSegmentSet.get(0).getStr();
+						for(int i=1; i<symbolSegmentSet.size(); i++){
+							result += BLANK;
+							result += symbolSegmentSet.get(i).getStr();
+						}
+						if(DEBUG){
+							System.out.println(result);
+						}
+						return result;				
+					}else{
+						System.out.println("No meaning input!");
+						return null;
+					}
+				}else{
+					if(DEBUG){
+						System.out.println(rawText);
+					}
+					return rawText;
+				}
+			}else{
 				Vector<QSegment> symbolSegmentSet;
-				if(null!=(symbolSegmentSet=QueryPreParser.symbolAnalysis(rawText)) && symbolSegmentSet.size()>0){			
+				if(null!=(symbolSegmentSet=QueryPreParser.symbolAnalysis(rawText, reference)) && symbolSegmentSet.size()>0){			
 					//
 					String result = "";
 					result += symbolSegmentSet.get(0).getStr();
@@ -148,12 +173,7 @@ public class Tokenizer {
 					System.out.println("No meaning input!");
 					return null;
 				}
-			}else{
-				if(DEBUG){
-					System.out.println(rawText);
-				}
-				return rawText;
-			}
+			}			
 		}else{
 			new Exception("Lang type error!").printStackTrace();
 			return null;
@@ -167,8 +187,9 @@ public class Tokenizer {
 		//http+www.10010.com
 		//android2.3游戏下载
 		//植物大战僵尸+安卓2.3
-		String rawText = "最新ie浏览器2011官方下载";
-		Tokenizer.replaceSymboleAsBlank(rawText, Lang.Chinese);
+		//最新ie浏览器2011官方下载
+		//String rawText = "饥饿游戏2";
+		//Tokenizer.replaceSymboleAsBlank(rawText, Lang.Chinese);
 		
 	}
 }

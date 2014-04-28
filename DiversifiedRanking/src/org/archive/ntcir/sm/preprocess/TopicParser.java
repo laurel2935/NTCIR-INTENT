@@ -16,6 +16,9 @@ import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.nlp.chunk.lpt.ltpService.LTML;
 import org.archive.nlp.chunk.lpt.ltpService.LTPOption;
 import org.archive.nlp.chunk.lpt.ltpService.LTPService;
+import org.archive.nlp.qpunctuation.QueryPreParser;
+import org.archive.nlp.tokenizer.Tokenizer;
+import org.archive.util.Language.Lang;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.StrStr;
 
@@ -103,8 +106,15 @@ public class TopicParser {
 			BufferedWriter writer = IOText.getBufferedWriter_UTF8(targetFile);
 			for(SMTopic smTopic: smTopicList){
 				int id = 1;
+				String reference = Tokenizer.isDirectWord(smTopic.getTopicText(), Lang.Chinese)?smTopic.getTopicText():null;
 				for(String str: smTopic.uniqueRelatedQueries){
-					writer.write(smTopic.getID()+"\t"+(id++)+"\t"+str);
+					if(!QueryPreParser.isOddQuery(str, Lang.Chinese)){
+						continue;
+					}
+					writer.write(smTopic.getID()+"\t"
+							+(id++)+"\t"
+							+str+"\t@@"
+							+Tokenizer.replaceSymboleAsBlank(Lang.Chinese, str, reference));
 					writer.newLine();
 				}
 			}
@@ -165,13 +175,19 @@ public class TopicParser {
 	public static void main(String []args){
 		// test
 		//TopicParser.parseTopicTest();
-		TopicParser.loadTopicList_NTCIR11_SM_CH();
+		//TopicParser.loadTopicList_NTCIR11_SM_CH();
 		
 		//1 parseNTCIR11SMChTopics
 		//TopicParser.parseNTCIR11SMChTopics(LTPOption.ALL);
 		
 		//2
-		//TopicParser.getUniqueSubtopicStringFile();
+		///////////////////// cases ///////////////////////////////
+		/**
+		 * (1) adobe+flash+player+官方下载	@@adobe+flash+player 官方下载
+		 * (2) 0003	23	猫头鹰与小飞象国语版	@@猫头鹰 与小飞象国语版
+		 * (3) 0001	15	弟于长 宜先知	@@弟于长 宜 先知
+		 * **/
+		TopicParser.getUniqueSubtopicStringFile();
 	}
 
 }

@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 import org.archive.nlp.qpunctuation.PSegment;
 import org.archive.nlp.qpunctuation.QPunctuationParser;
 import org.archive.nlp.qpunctuation.QSegment;
+import org.archive.util.Language.Lang;
 import org.archive.util.pattern.PatternFactory;
 
 /**
@@ -26,6 +27,7 @@ public class QueryPreParser {
 		Vector<QSegment> sSet;
 		//
 		if(PatternFactory.containNonSimpleChC(query)){
+			//pattern based unit identification
 			sSet = multiPatternSegment(query);
 			for(QSegment seg: sSet){
 				if(!seg.unit){
@@ -57,6 +59,53 @@ public class QueryPreParser {
 		return finalPoll;
 	}
 	//
+	public static Vector<QSegment> symbolAnalysis(String query, String reference){
+		//using preDefinedUnit
+		Pattern unitPattern = Pattern.compile(reference);
+		Vector<QSegment> qSegmentSet = new Vector<QSegment>();
+		qSegmentSet.add(new QSegment(query, false));
+		patternSegment(qSegmentSet, unitPattern);	
+		//
+		Vector<QSegment> resultQSegmentSet = new Vector<QSegment>();
+		Vector<QSegment> temp = null;
+		for(QSegment qSegment: qSegmentSet){
+			if(qSegment.unit){
+				resultQSegmentSet.add(qSegment);
+			}else if(null != (temp=symbolAnalysis(qSegment.str))){
+				resultQSegmentSet.addAll(temp);
+			}
+		}
+		//
+		return resultQSegmentSet;
+	}
+	//	
+	/**
+	 * odd queries:
+	 * (1) including url, mail;
+	 * (2) length>=30 for Chinese query
+	 * (3) more than 30 words for English query 
+	 * **/
+	public static boolean isOddQuery(String query, Lang lang){
+		if(Lang.Chinese==lang && query.length()>=30){
+			return false;
+		}else if(Lang.English==lang && query.split(" ").length>=30){
+			return false;
+		}else{
+			if(PatternFactory.containNonSimpleChC(query)){
+				Vector<PSegment> mat;
+				if(null!=(mat=patternMatch(query, PatternFactory.netPattern))){
+					return false;
+				}else if(null!=(mat=patternMatch(query, PatternFactory.mailPattern))){
+					return false;
+				}else{
+					return true;
+				}				
+			}else{
+				return true;
+			}
+		}		
+	}
+	//
 	private static boolean containNetMail(String str){
 		Matcher matcher_1, matcher_2;
 		matcher_1 = PatternFactory.netPattern.matcher(str);
@@ -70,28 +119,6 @@ public class QueryPreParser {
 				return false;
 			}
 		}
-	}
-	/**
-	 * 
-	 * **/
-	public static boolean effectiveQuery(String query){
-		if(query.length()>30){
-			return false;
-		}else{
-			if(PatternFactory.containNonSimpleChC(query)){
-				Vector<PSegment> mat;
-				if(null!=(mat=patternMatch(query, PatternFactory.netPattern))){
-					return false;
-				}else if(null!=(mat=patternMatch(query, PatternFactory.mailPattern))){
-					return false;
-				}else{
-					return true;
-				}
-				
-			}else{
-				return true;
-			}
-		}		
 	}
 	//
 	private static String formatQuery(String query){
