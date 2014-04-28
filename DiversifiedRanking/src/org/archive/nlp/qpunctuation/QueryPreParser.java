@@ -15,9 +15,11 @@ import org.archive.util.pattern.PatternFactory;
  * mainly using <<>>,"",...and so on to divide symbol-queries
  * **/
 public class QueryPreParser {	
-	//
-	//public static QPunctuationParser qPunctuationParser = new QPunctuationParser();
+	
 	//interface
+	/**
+	 * parse a given query into segments based on the symbols included in the query 
+	 * **/
 	public static Vector<QSegment> symbolAnalysis(String query){
 		//
 		Vector<QSegment> finalPoll = new Vector<QSegment>();

@@ -6,11 +6,12 @@ import java.util.Vector;
 import org.archive.nlp.chunk.ShallowParser;
 import org.archive.nlp.qpunctuation.QPunctuationParser;
 import org.archive.nlp.qpunctuation.QSegment;
+import org.archive.nlp.qpunctuation.QueryPreParser;
 import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
 import org.archive.util.Language.Lang;
-import org.archive.util.pattern.RQConstants;
 
 public class Tokenizer {
+	private final static boolean DEBUG = true;
 	//for English text segmentation
 	private static ShallowParser stanfordParser = null;
 	private static final String BLANK = " ";
@@ -75,9 +76,9 @@ public class Tokenizer {
 		}else if(!checkSymbol && checkLength){
 			return segment(rawQuery, lang, true);
 		}else if(checkSymbol && Lang.Chinese==lang){
-			if(RQConstants.containSeparatorSymbol(rawQuery)){
+			if(QPunctuationParser.includePunctuation(rawQuery)){
 				Vector<QSegment> symbolSegmentSet;
-				if(null!=(symbolSegmentSet=QPunctuationParser.parse(rawQuery)) && symbolSegmentSet.size()>0){			
+				if(null!=(symbolSegmentSet=QueryPreParser.symbolAnalysis(rawQuery)) && symbolSegmentSet.size()>0){			
 					//
 					words = segment(symbolSegmentSet, lang);
 				}
@@ -127,24 +128,47 @@ public class Tokenizer {
 	//additional utility
 	////////////////////////
 	
-	public static String replaceSymboleAsBlank(String rawText){
-		if(RQConstants.containSeparatorSymbol(rawText)){
-			Vector<QSegment> symbolSegmentSet;
-			if(null!=(symbolSegmentSet=QPunctuationParser.parse(rawText)) && symbolSegmentSet.size()>0){			
-				//
-				String result = "";
-				result += symbolSegmentSet.get(0).getStr();
-				for(int i=1; i<symbolSegmentSet.size(); i++){
-					result += BLANK;
-					result += symbolSegmentSet.get(i).getStr();
+	public static String replaceSymboleAsBlank(String rawText, Lang lang){
+		if(Lang.Chinese == lang){
+			if((QPunctuationParser.includePunctuation(rawText))){
+				Vector<QSegment> symbolSegmentSet;
+				if(null!=(symbolSegmentSet=QueryPreParser.symbolAnalysis(rawText)) && symbolSegmentSet.size()>0){			
+					//
+					String result = "";
+					result += symbolSegmentSet.get(0).getStr();
+					for(int i=1; i<symbolSegmentSet.size(); i++){
+						result += BLANK;
+						result += symbolSegmentSet.get(i).getStr();
+					}
+					if(DEBUG){
+						System.out.println(result);
+					}
+					return result;				
+				}else{
+					System.out.println("No meaning input!");
+					return null;
 				}
-				return result;				
 			}else{
-				System.out.println("No meaning input!");
-				return null;
+				if(DEBUG){
+					System.out.println(rawText);
+				}
+				return rawText;
 			}
 		}else{
-			return rawText;
-		}
+			new Exception("Lang type error!").printStackTrace();
+			return null;
+		}		
+	}
+	
+	
+	//
+	public static void main(String []args){
+		//1 query pre-parsing test
+		//http+www.10010.com
+		//android2.3游戏下载
+		//植物大战僵尸+安卓2.3
+		String rawText = "最新ie浏览器2011官方下载";
+		Tokenizer.replaceSymboleAsBlank(rawText, Lang.Chinese);
+		
 	}
 }
