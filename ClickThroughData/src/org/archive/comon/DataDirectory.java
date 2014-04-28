@@ -11,7 +11,7 @@ public class DataDirectory {
 	//
 	public static String [] Unique_All = {"AOL/Unique_All/", "SogouQ2008/Unique_All/", "SogouQ2012/Unique_All/"};
 	//
-	public static String [] Unique_PerUnit = {"AOL/Unique_PerUnit/", "SogouQ2008/Unique_PerUnit/", "SogouQ2012/Unique_PerUnit/"};
+	public static String [] Unique_PerUnit = {"AOL/Unique_PerUnit/", "SogouQ2008/Unique_PerUnit/", "SogouQ2012/Unique_All/"};
 	//
 	public static String [] Unique_Training = {"AOL/Unique_Training/", "", ""};
 	//

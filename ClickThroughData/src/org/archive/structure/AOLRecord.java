@@ -2,28 +2,27 @@ package org.archive.structure;
 
 public class AOLRecord extends Record{
 	//specific fields of AOL	
-	protected String queryTime;
+	protected String queryTime;	
 	
-	//construct using digital records
-	public AOLRecord(String digitalRecord){
+	//construct using digital records, ignore the time field due to unnecessary space consumption
+	public AOLRecord(String digitalRecord, boolean ignoreQueryTime){
 		String [] array = digitalRecord.split("\t");
 		if(3 == array.length){
 			this.userID = array[0];
 			this.queryText = array[1];
-			this.queryTime = array[2];
+			this.queryTime = ignoreQueryTime? null:array[2];
 			//
 			this.valid = true;
 		}else{
 			this.userID = array[0];
 			this.queryText = array[1];
-			this.queryTime = array[2];
+			this.queryTime = ignoreQueryTime? null:array[2];
 			this.itemRank = array[3];
 			this.clickUrl = array[4];
 			//
 			this.valid = true;
 		}
 	}
-	
 	//construct using original records
 	public AOLRecord(String unitSerial, String recordText){
 		String [] fieldArray = recordText.split("\t");

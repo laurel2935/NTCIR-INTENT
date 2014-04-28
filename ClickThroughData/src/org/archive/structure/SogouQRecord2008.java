@@ -9,7 +9,9 @@ public class SogouQRecord2008 extends Record{
 	protected String clickOrder;	
 	
 	//rank and session order string pattern
-	private static final Pattern RankAndSessionOrderPattern = Pattern.compile("\\t\\d+\\s{1}\\d+\\t");
+	protected static final Pattern RankAndSessionOrderPattern = Pattern.compile("\\t\\d+\\s{1}\\d+\\t");
+	
+	SogouQRecord2008(){};
 	
 	//construct using digital record, and all fields are id instead of raw values
 	public SogouQRecord2008(String digitalRecord){
@@ -48,7 +50,7 @@ public class SogouQRecord2008 extends Record{
 	    	//    	
 	    	if(null!=userID && null!=queryText){	    		
 	    		//
-	    		this.userID = daySerial+"-"+userID;
+	    		this.userID = daySerial+"-"+userID;	    		
 	    		this.queryText = queryText;
 	    		this.clickUrl = clickUrl;
 	    		this.itemRank = itemRank;
