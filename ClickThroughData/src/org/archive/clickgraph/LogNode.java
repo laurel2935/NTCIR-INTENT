@@ -12,6 +12,9 @@ public class LogNode {
 	private transient final int hash;
 	//
 	public LogNode(String id, NodeType type){
+		if(Integer.parseInt(id) <= 0){
+			new Exception("ID not starts from 1 error!").printStackTrace();
+		}
 		this.id = id;
 		this.type = type;
 		//
