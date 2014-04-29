@@ -2,30 +2,22 @@ package org.archive.structure;
 
 import java.io.BufferedReader;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 
 import org.archive.analysis.ClickThroughAnalyzer;
 import org.archive.util.io.IOText;
 
 
-public class SogouQRecord2012 extends SogouQRecord2008{
+public class SogouQRecord2012 extends SogouQRecord2008 implements Comparable{
 	//specific field of SogouQ2012 version
-	protected String queryTime;
+	private Date queryTime;
 	
-	/*
-	//as the query time is added, thus daySerial is not needed to differentiate sessions from different days
-	public SogouQRecord2012(String qTime, String subRecordText){
-		super();
-		this.queryTime = qTime;	
-		//int firstTab = recordText.indexOf(ClickThroughAnalyzer.TabSeparator);
-		//String qTime = recordText.substring(0, firstTab);
-		//String subRecordText = recordText.substring(firstTab+1);
-	}
-	*/
 	//
 	public SogouQRecord2012(String recordText, boolean ignoreQueryTime){
 		String [] fields = recordText.split(ClickThroughAnalyzer.TabSeparator);
 		if(6 == fields.length){
-			this.queryTime = ignoreQueryTime? null:fields[0];
+			this.queryTime = ignoreQueryTime? null:ClickTime.getSogouQTime(fields[0]);
 			this.userID = fields[1];
 			this.queryText = fields[2];
 			this.itemRank = fields[3];
@@ -40,15 +32,24 @@ public class SogouQRecord2012 extends SogouQRecord2008{
 	}
 	//
 	public String getQueryTime(){
+		return ClickTime.getSogouQTime(this.queryTime);
+	}
+	//
+	public Date getDateQueryTime() {
 		return this.queryTime;
 	}
 	//
 	public String toString(){
 		StringBuffer buffer = new StringBuffer();
-		buffer.append(this.queryTime+ClickThroughAnalyzer.TabSeparator+this.userID+ClickThroughAnalyzer.TabSeparator
+		buffer.append(getQueryTime()+ClickThroughAnalyzer.TabSeparator+this.userID+ClickThroughAnalyzer.TabSeparator
 				+this.queryText+ClickThroughAnalyzer.TabSeparator+this.itemRank+ClickThroughAnalyzer.TabSeparator
 				+this.clickOrder+ClickThroughAnalyzer.TabSeparator+this.clickUrl);
 		return buffer.toString();
+	}
+	//descending order by query time
+	public int compareTo(Object o){		
+		SogouQRecord2012 cmp = (SogouQRecord2012)o;
+		return this.queryTime.compareTo(cmp.queryTime);		
 	}
 	
 	//
@@ -72,6 +73,8 @@ public class SogouQRecord2012 extends SogouQRecord2008{
 				//*/
 			}
 			reader.close();
+			//
+			Collections.sort(recordList);
 			//
 			for(SogouQRecord2012 record: recordList){
 				System.out.println(record.toString());

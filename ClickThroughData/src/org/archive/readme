@@ -4,7 +4,9 @@
 
 //note - 2: except for the original file code, all the local files are encoded with UTF-8
 
-//note - 3 for large scale of data access, it is better to use arraylist plus hashtable instead of hashmap
+//note - 3: for large scale of data access, it is better to use arraylist plus hashtable instead of hashmap
+
+//note - 4: the final attribute graphs are based on a kind of session segmentation of the clickthrough data
 
 
  * 1. parse a whole query into digital one

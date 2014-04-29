@@ -4,7 +4,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-public class SogouQRecord2008 extends Record{
+public class SogouQRecord2008 extends Record implements Comparable{
 	//specific fields of SogouQ2008 version		
 	protected String clickOrder;	
 	
@@ -67,6 +67,13 @@ public class SogouQRecord2008 extends Record{
 	//
 	public String getClickOrder(){
 		return this.clickOrder;
+	}
+	//
+	//descending order by query time
+	public int compareTo(Object o){		
+		SogouQRecord2008 cmp = (SogouQRecord2008)o;
+		Integer cOrder = Integer.parseInt(this.clickOrder);
+		return cOrder.compareTo(Integer.parseInt(cmp.clickOrder));		
 	}
 	
 }

@@ -22,6 +22,14 @@ public class DataDirectory {
 	//
 	public static String [] DigitalFormat = {"AOL/", "SogouQ2008/", "SogouQ2012/"};
 	
+	//ordered sogouQ
+	public static String OrderedSogouQRoot = "E:/Data_Log/DataSource_Analyzed/OrderedSogouQ/";
+	//
+	//public static String [] OrderedVersion = {"", "SogouQ2008/", "SogouQ2012/"};
+	
+	//session segmentation
+	public static String SessionSegmentationRoot = "E:/Data_Log/DataSource_Analyzed/SessionSegmentation/";
+	
 	//ClickThroughGraph
 	public static String ClickThroughGraphRoot = "E:/Data_Log/DataSource_Analyzed/ClickThroughGraph/";
 	//
