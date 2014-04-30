@@ -1,4 +1,15 @@
 /**
+
+basic steps:
+
+specific session segmentation,
+unique files
+digital format
+unit graph files
+entire graph files
+
+
+
 //note - 1: for chinese queries, there may exist [tab] in a query, thus pay attention to the split("\t")
 //it is better to use indexOf("\t")!!!
 

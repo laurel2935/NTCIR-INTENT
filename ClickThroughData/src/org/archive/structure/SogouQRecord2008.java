@@ -25,7 +25,7 @@ public class SogouQRecord2008 extends Record implements Comparable{
 		this.valid = true;
 	}
 	
-	//construct using original record
+	//merely used for the original record
 	public SogouQRecord2008(String daySerial, String recordText){
 		String userID, queryText, itemRank, clickOrder, clickUrl;
 		String rankAndPagePart = null;		

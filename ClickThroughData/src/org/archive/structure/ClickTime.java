@@ -56,6 +56,9 @@ public class ClickTime {
 	public static int getTimeSpan_MM(Date fromDate, Date toDate){		
 		if(fromDate.after(toDate)){			
 			System.out.println("Minus time span error!");
+			System.out.println(getSogouQTime(fromDate));
+			System.out.println(getSogouQTime(toDate));
+			System.out.println();
 			return -1;
 		}else{
 			long fLong = fromDate.getTime();
