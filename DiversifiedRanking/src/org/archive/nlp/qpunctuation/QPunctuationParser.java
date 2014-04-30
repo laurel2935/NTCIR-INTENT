@@ -314,6 +314,14 @@ public class QPunctuationParser {
 	 * a dot punctuation that acts as a separator
 	 * **/
 	private static boolean separatorDotP(int index, String str){
+		//mainly name ¡¤
+		if(str.substring(index, index+1).equals("¡¤")){
+			return false;
+		}
+		if(str.substring(index, index+1).equals("+")){
+			return true;
+		}
+		//
 		if((index-1)>=0 && index+1<str.length()){
 			if(PatternFactory.containHanCharacter(str.substring(index-1, index)) || 
 					PatternFactory.containHanCharacter(str.substring(index+1, index+2))){

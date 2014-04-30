@@ -12,7 +12,9 @@ import org.archive.util.io.IOText;
  * **/
 public class PatternFactory {
 	//edition pattern
-	public static Pattern editionPattern = Pattern.compile("[a-z0-9A-Z]+[.。]+[a-z0-9A-Z]+|[0-9]{1,2}");
+	//year problem, e.g., 2013
+	//public static Pattern editionPattern = Pattern.compile("[a-z0-9A-Z]+[.。]+[a-z0-9A-Z]+|[0-9]{1,2}");
+	public static Pattern editionPattern = Pattern.compile("[a-z0-9A-Z]+[.。]+[a-z0-9A-Z]+");
 	//time pattern : [12]{1}[0-9]{3}
 	public static Pattern timePattern = Pattern.compile("(\\d+[年月日]+|[12]{1}[0-9]{3})+");	
 	//TV pattern
@@ -20,7 +22,7 @@ public class PatternFactory {
 	//number and alphabet
 	public static Pattern numAlphabetPattern = Pattern.compile("[a-z0-9A-Z_]+");
 	//number alphabet Chinese
-	public static Pattern nacPattern = Pattern.compile("[a-z0-9A-Z_]+[版号]");
+	public static Pattern nacPattern = Pattern.compile("[a-z0-9A-Z_]+[版号级]");
 	//place pattern
 	public static Pattern placePattern = Pattern.compile("[\u4E00-\u9FFF]+[县省市区国]");
 	//web net	

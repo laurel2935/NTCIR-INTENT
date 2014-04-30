@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Vector;
 
@@ -151,6 +152,26 @@ public class IOText {
 			e.printStackTrace();
 		}		
 		//
+		return null;
+	}
+	//
+	public static ArrayList<String> getLinesAsAList_UTF8(String targetFile){
+		try {
+			ArrayList<String> lineList = new ArrayList<String>();
+			//
+			BufferedReader reader = getBufferedReader_UTF8(targetFile);
+			String line = null;			
+			while(null != (line=reader.readLine())){
+				if(line.length() > 0){					
+					lineList.add(line);					
+				}				
+			}
+			reader.close();
+			return lineList;			
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
 		return null;
 	}
 	/**
