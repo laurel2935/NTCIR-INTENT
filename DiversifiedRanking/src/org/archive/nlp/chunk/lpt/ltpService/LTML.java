@@ -3,11 +3,13 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.List;
 import java.util.ArrayList;
+import java.io.BufferedWriter;
 //import java.awt.List;
 import java.io.FileOutputStream;
 import java.io.IOException;
 //import java.io.InputStream;
 //import java.text.Format;
+
 
 import org.jdom.input.SAXBuilder;
 import org.jdom.output.XMLOutputter;
@@ -169,11 +171,23 @@ public class LTML {
 	 * doc = xml.build(systemId); } //
 	 */
 	public void printXml() {
-		XMLOutputter outputter = new XMLOutputter(getFormat());// Format.getPrettyFormat());
+		XMLOutputter outputter = new XMLOutputter(getFormat());// Format.getPrettyFormat());		
 		try {
 			// Document doc = new Document();
 			outputter.output(doc, System.out);
 			// outputter.output(doc, new FileOutputStream(new File("ltp.xml")));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	//
+	public void printXml(String addLine, BufferedWriter writer) {
+		XMLOutputter outputter = new XMLOutputter(getFormat());// Format.getPrettyFormat());		
+		try {
+			writer.write(addLine);
+			writer.newLine();
+			outputter.output(doc, writer);			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -244,7 +258,7 @@ public class LTML {
 	 * 
 	 * @return
 	 */
-	private Document getDom() {
+	public Document getDom() {
 		return doc;
 	}
 

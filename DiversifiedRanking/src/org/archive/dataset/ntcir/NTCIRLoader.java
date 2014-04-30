@@ -402,7 +402,8 @@ public class NTCIRLoader {
 	 * ch: ? for related query
 	 * en: 0060
 	 * **/
-	public static List<SMTopic> loadNTCIR11TopicList(NTCIR_EVAL_TASK eval){
+	
+	public static List<SMTopic> loadNTCIR11TopicList(NTCIR_EVAL_TASK eval, boolean PerformIRAnnotation){
 		ArrayList<SMTopic> smTopicList = new ArrayList<SMTopic>();
 		//suggestions
 		try {
@@ -517,6 +518,11 @@ public class NTCIRLoader {
 		for(SMTopic smTopic: smTopicList){
 			smTopic.getUniqueRelatedQueries();
 		}
+		//
+		if(!PerformIRAnnotation){
+			return smTopicList;
+		}
+		
 		//
 		ShallowParser shallowParser;
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
@@ -678,7 +684,7 @@ public class NTCIRLoader {
 		
 		//3
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH);
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN);
+		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN);
 	}
 	
 }

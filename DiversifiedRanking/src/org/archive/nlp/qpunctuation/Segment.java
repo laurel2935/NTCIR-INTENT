@@ -6,7 +6,7 @@ package org.archive.nlp.qpunctuation;
 
 public class Segment {
 	//
-	protected String str;
+	public String str;
 	//
 	public Segment(String str){
 		this.str = str;
