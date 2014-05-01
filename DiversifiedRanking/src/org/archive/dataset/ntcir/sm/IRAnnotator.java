@@ -1,10 +1,7 @@
 package org.archive.dataset.ntcir.sm;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Vector;
-
-import edu.stanford.nlp.trees.Tree;
 
 public abstract class IRAnnotator {
 	//
