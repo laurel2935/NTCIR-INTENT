@@ -20,7 +20,8 @@ public class Modifier implements Comparable{
 	//
 	public int hashCode()
     {
-		return this.moStr.hashCode()+this.posTag.hashCode();
+		//return this.moStr.hashCode()+this.posTag.hashCode();
+		return this.moStr.hashCode();
     }
 	//
 	public boolean equals(Object other){
@@ -30,7 +31,8 @@ public class Modifier implements Comparable{
 		if(other instanceof Modifier){
 			final Modifier cmpMO = (Modifier)other;
 			//
-			return this.moStr.equals(cmpMO.moStr) && this.posTag.equals(cmpMO.posTag);						
+			//return this.moStr.equals(cmpMO.moStr) && this.posTag.equals(cmpMO.posTag);
+			return this.moStr.equals(cmpMO.moStr);
 		}else{
 			return false;
 		}

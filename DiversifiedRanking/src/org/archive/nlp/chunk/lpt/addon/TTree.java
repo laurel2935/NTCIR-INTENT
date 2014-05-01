@@ -37,5 +37,9 @@ public class TTree {
 	public TNode getRoot(){
 		return this._root;
 	}
+	//
+	public Vector<TNode> getNodes(){
+		return this._nodeList;
+	}
 
 }

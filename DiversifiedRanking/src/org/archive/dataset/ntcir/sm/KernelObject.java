@@ -10,7 +10,8 @@ public class KernelObject {
 	}
 	public int hashCode()
     {
-		return this.koStr.hashCode()+this.posTag.hashCode();
+		//return this.koStr.hashCode()+this.posTag.hashCode();
+		return this.koStr.hashCode();
     }
 	//
 	public boolean equals(Object other){
@@ -20,7 +21,8 @@ public class KernelObject {
 		if(other instanceof KernelObject){
 			final KernelObject cmpKO = (KernelObject)other;
 			//
-			return this.koStr.equals(cmpKO.koStr) && this.posTag.equals(cmpKO.posTag);						
+			//return this.koStr.equals(cmpKO.koStr) && this.posTag.equals(cmpKO.posTag);	
+			return this.koStr.equals(cmpKO.koStr);	
 		}else{
 			return false;
 		}
