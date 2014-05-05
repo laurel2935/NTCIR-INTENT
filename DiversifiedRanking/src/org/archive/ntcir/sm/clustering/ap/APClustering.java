@@ -33,14 +33,14 @@ public class APClustering {
     private boolean takeLog;
     private boolean refine;
     //?
-    private Integer steps = null;
+    //private Integer steps = null;
     private AffinityConnectingMethod connMode;
     
     
 	ArrayList<InteractionData> dataPointInteractions;
     
     APClustering(double lambda, int iterations, Integer convits, double preferences, String kind,
-    		ArrayList<InteractionData> Interactions, boolean logDomain, boolean refine, int steps, AffinityConnectingMethod connMode){
+    		ArrayList<InteractionData> Interactions, boolean logDomain, boolean refine, AffinityConnectingMethod connMode){
     	this.lambda = lambda;
         this.iterations = iterations;
         this.preferences = preferences;
@@ -49,7 +49,7 @@ public class APClustering {
         this.dataPointInteractions = Interactions;
         this.takeLog = logDomain;
         this.refine = refine;
-        this.steps = steps;
+        //this.steps = steps;
         this.connMode = connMode;
         //
     }
@@ -58,7 +58,7 @@ public class APClustering {
     	this.ap.setLambda(this.lambda);
     	this.ap.setIterations(this.iterations);
     	this.ap.setConvits(this.convits);
-    	this.ap.setSteps(this.steps);
+    	//this.ap.setSteps(this.steps);
     	this.ap.setRefine(this.refine);
     	this.ap.setConnectingMode(this.connMode);    	
         //af.addIterationListener(new ConsoleIterationListener(iterations));       

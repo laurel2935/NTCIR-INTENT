@@ -1,20 +1,35 @@
 package org.archive.ml.ufl;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Vector;
 
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
+import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
+import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 
 public class K_UFL {
-	private double INF = 1000000000.0;
+	//basic parameters//
+	private static final double INF = 1000000000.0;
 	private double _lambda = 0.5;
-	private int iterationTimes = 5000;
+	private int _iterationTimes = 5000;
 	//thus, the size of iteration-span that without change of exemplar
-    protected Integer noChangeIterSpan = null;
+    protected Integer _noChangeIterSpan = null;
+    //given preference
+    private double constPreferences;
+    //as the cost matrix takes the negative value of similarity matrix, thus ...
+    //private boolean _logDomain;
+    private ArrayList<InteractionData> _dataPointSimilarities;
+    private ArrayList<Double> _dqRelevanceList;
+    
+    //set of node identifier, i.e., names
+    private Collection<String> _nodeNames = new HashSet<String>();
     protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
 	
 	///////////////////////
@@ -59,12 +74,69 @@ public class K_UFL {
     private IntegerMatrix1D IX = null;    
     private IntegerMatrix1D IY = null;
 	
-  //the number of exemplar
+    //the number of exemplar
     private int clustersNumber = 0;
 	
-	
-	
-	
+    //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
+    K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferences, 
+    		ArrayList<InteractionData> dataPointSimilarities, ArrayList<Double> dqRelevanceList){
+    	//1
+    	//dataPointSimilarities, for cost, e.g., c_ij, it would be the negative value of each similarity
+    	//relevanceList, for facility f_j, it would be the negative value of each one
+    	//
+    	this._lambda = lambda;
+    	this._iterationTimes = iterationTimes;
+    	this._noChangeIterSpan = noChangeIterSpan;
+    	this._dataPointSimilarities = dataPointSimilarities;
+    	this._dqRelevanceList = dqRelevanceList;
+    	//this._logDomain = logDomain;
+    	
+    	//2
+    	this.ini();
+    }
+    
+    private void ini(){    	
+    	this._nodeNames = new HashSet<String>();
+    	for(InteractionData intData : this._dataPointSimilarities){
+        	this._nodeNames.add(intData.getFrom());
+        	this._nodeNames.add(intData.getTo());
+        }
+        this._N = this._nodeNames.size();
+        this._M = this._nodeNames.size();
+        
+        //cost matrix c_ij
+        this._C = new DoubleMatrix2D(this._N, this._M, 0);
+        
+        for (InteractionData intData : this._dataPointSimilarities) {
+            //System.out.println(intData.getFrom() + " " + intData.getTo() + " " + intData.getSim());           
+            Integer source = Integer.valueOf(intData.getFrom());
+            Integer target = Integer.valueOf(intData.getTo());
+            double c_ij = -intData.getSim();
+            this._C.set(source, target, c_ij);            
+        }        
+        System.out.println("pref: " + constPreferences);
+        //
+        for (int i = 0; i < this._N; i++) {
+        	double c_ii = -constPreferences;
+        	this._C.set(i, i, c_ii);
+        }
+        
+        
+        //facility cost f_j
+        this._Y = new DoubleMatrix2D(1, this._M, 0);
+        for(int j=0; j<this._M; j++){
+        	double f_j = this._dqRelevanceList.get(j);
+        	this._Y.set(0, j, f_j);
+        }
+        
+        //
+        this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
+        this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
+        this._V = new DoubleMatrix2D(1, this._M, 0);
+        this._Gama = new DoubleMatrix2D(1, this._M, 0);
+        this._A = new DoubleMatrix2D();
+        this._B = new DoubleMatrix2D();
+    }	
 	
 	public void computeBeliefs(){
 		DoubleMatrix2D EX;
@@ -77,12 +149,9 @@ public class K_UFL {
         IY = EY.diag().findG(0);
 	}
 	
-	
-	
-	
-	
-	
-	
+	public IntegerMatrix1D getSelectedDocs(){
+		return this.IY;
+	}	
 	
 	
 	//// Eta ////
@@ -263,9 +332,9 @@ public class K_UFL {
      * **/
     protected void initConvergence() {
         //System.out.println("S: " + S.toString());
-        if (this.noChangeIterSpan != null) {
+        if (this._noChangeIterSpan != null) {
             for (int i = 0; i < this._N; i++) {
-                ConvitsVector vec = new ConvitsVector(this.noChangeIterSpan.intValue(), Integer.valueOf(i));
+                ConvitsVector vec = new ConvitsVector(this._noChangeIterSpan.intValue(), Integer.valueOf(i));
                 vec.init();
                 this.convitsVectors.put(Integer.valueOf(i), vec);
             }
@@ -273,7 +342,7 @@ public class K_UFL {
     }
     //
     protected void calculateCovergence() {
-        if (this.noChangeIterSpan != null) {
+        if (this._noChangeIterSpan != null) {
             Vector<Integer> c = IX.getVector();
             for (int i = 0; i < this._N; i++) {
                 Integer ex = Integer.valueOf(i);
@@ -296,7 +365,7 @@ public class K_UFL {
             return true;
         }
         //
-        if (this.noChangeIterSpan == null) {
+        if (this._noChangeIterSpan == null) {
             return true;
         } else {
             for (ConvitsVector vec : convitsVectors.values()) {
@@ -321,7 +390,7 @@ public class K_UFL {
 	}
 	//
 	public int getIterationTimes(){
-		return this.iterationTimes;
+		return this._iterationTimes;
 	}
 
 }
