@@ -87,7 +87,7 @@ public class DoubleMatrix2D implements java.io.Serializable {
     /**
      * @return a one-row Matrix2D that sums of each column
      * */
-    public DoubleMatrix2D sum() {
+    public DoubleMatrix2D sumEachColumn() {
         DoubleMatrix2D res = new DoubleMatrix2D(1, M, 0);
         for (int j = 0; j < M; j++) {
             double s = 0;
@@ -97,7 +97,6 @@ public class DoubleMatrix2D implements java.io.Serializable {
             }
             res.matrix[0][j] = s;
         }
-
         return res;
     }
     /**
@@ -216,7 +215,7 @@ public class DoubleMatrix2D implements java.io.Serializable {
     public void plusTo(final double[][] m) {
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < M; j++) {
-                matrix[i][j] = m[i][j];
+                matrix[i][j] += m[i][j];
             }
         }
     }

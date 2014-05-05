@@ -204,7 +204,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
         //(1):[(new DoubleMatrix2D(N, rp.sum().getVector(0))).transpose()] = r(k,k)+{sum_max equation}        
         //here minus(rp) because of max{0,r(i,k)} is wrongly included
         //because r(i,k) should not be added, thus when r(i,k)>0, it will be wrongly added, thus should be deleted
-        A = (new DoubleMatrix2D(N, rp.sum().getVector(0))).transpose().minus(rp);
+        A = (new DoubleMatrix2D(N, rp.sumEachColumn().getVector(0))).transpose().minus(rp);
         //  System.out.println("A-pom: "+A.toString());
         dA = A.diag();
         
@@ -227,6 +227,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     protected void computeCenters() {
         DoubleMatrix2D E;
         E = R.plus(A);
+        //the indexes of potential exemplars
         I = E.diag().findG(0);
         clustersNumber = I.size();
     }
@@ -293,6 +294,8 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
             Vector<Integer> c = I.getVector();
             for (int i = 0; i < N; i++) {
                 Integer ex = Integer.valueOf(i);
+                //after each iteration, examine whether each node is an exemplar,
+                //then check the sequential true or false value of each node to determine convergence!
                 if (c.contains(ex)) {
                     convitsVectors.get(ex).addCovits(true);
                 } else {
