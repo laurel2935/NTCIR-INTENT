@@ -63,14 +63,32 @@ public class DoubleMatrix1D extends Matrix1D<Double> implements DoubleMatrix1DIn
     public IntegerMatrix1D findG(final double x) {
         int count = 0;
         for (int i = 0; i < this.size(); i++) {
-            if (this.getValue(i).doubleValue() > x) {
+            if (this.getValue(i).doubleValue() >= x) {
                 count++;
             }
         }
         IntegerMatrix1D res = new IntegerMatrix1D(count);
         count = 0;
         for (int i = 0; i < this.size(); i++) {
-            if (this.getValue(i).doubleValue() > x) {
+            if (this.getValue(i).doubleValue() >= x) {
+                res.set(count, Integer.valueOf(i));
+                count++;
+            }
+        }
+        return res;
+    }
+    
+    public IntegerMatrix1D findG_IncludeZero(final double x) {
+        int count = 0;
+        for (int i = 0; i < this.size(); i++) {
+            if (this.getValue(i).doubleValue() >= x) {
+                count++;
+            }
+        }
+        IntegerMatrix1D res = new IntegerMatrix1D(count);
+        count = 0;
+        for (int i = 0; i < this.size(); i++) {
+            if (this.getValue(i).doubleValue() >= x) {
                 res.set(count, Integer.valueOf(i));
                 count++;
             }

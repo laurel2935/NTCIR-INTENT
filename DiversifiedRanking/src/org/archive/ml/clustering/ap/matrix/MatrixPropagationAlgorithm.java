@@ -37,7 +37,11 @@ import java.util.Vector;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm;
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 
+import com.sun.org.apache.bcel.internal.generic.ALOAD;
+
 public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
+	
+	private static final boolean debug = true;
 
 	//number of data points
     private int N;
@@ -54,7 +58,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     //previous iteration's responsibility
     private DoubleMatrix2D rold = null;
     //similarity matrix
-    private DoubleMatrix2D S;
+    public DoubleMatrix2D S;
     private double inf = 1000000000.0;
     //the number of exemplar
     private int clustersNumber = 0;
@@ -101,18 +105,16 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     //set similarity
     @Override
     public void setSimilarityInt(final Integer x, final Integer y, final Double sim) {
-
-        //int i = Integer.valueOf(x);
-        //int j = Integer.valueOf(y);
-        //   if (graphMode == AffinityGraphMode.DIRECTED) {
-        //if(x > N || y > N) {
-        //    System.out.println("ROZMIAR: "+N+ "query: "+x +" "+y);
-        //}
-        S.set(x, y, sim.doubleValue());
-        //   } else {
-        //       S.set(x, y, sim.doubleValue());
-        //       S.set(y, x, sim.doubleValue());
-        //   }
+    	if(x >= N || y >= N) {
+            System.out.println("ROZMIAR: "+N+ "query: "+x +" "+y);
+        }else{
+        	if (graphMode == AffinityGraphMode.DIRECTED) {    	        
+    	        S.set(x, y, sim.doubleValue());
+            } else {
+                S.set(x, y, sim.doubleValue());
+                S.set(y, x, sim.doubleValue());
+            }
+        }    	
     }
 
     @Override
@@ -120,12 +122,12 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
 
         Integer x = getExamplarID(from);
         Integer y = getExamplarID(to);
-        //     if (graphMode == AffinityGraphMode.DIRECTED) {
-        S.set(x, y, sim.doubleValue());
-        //     } else {
-        //         S.set(x, y, sim.doubleValue());
-        //         S.set(y, x, sim.doubleValue());
-        //     }
+        if (graphMode == AffinityGraphMode.DIRECTED) {
+        	S.set(x, y, sim.doubleValue());
+        } else {
+            S.set(x, y, sim.doubleValue());
+            S.set(y, x, sim.doubleValue());
+        }
     }
 
     @Override
@@ -134,6 +136,10 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
      * **/
     protected void copyResponsibilies() {
         rold = R.copy();
+        if(debug){
+        	System.out.println("old R:");
+        	System.out.println(rold.toString());
+        }
     }
 
     @Override
@@ -185,6 +191,10 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
      * **/
     protected void copyAvailabilities() {
         aold = A.copy();
+        if(debug){
+        	System.out.println("old A:");
+        	System.out.println(aold.toString());
+        }
     }
 
     @Override
@@ -227,9 +237,24 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     protected void computeCenters() {
         DoubleMatrix2D E;
         E = R.plus(A);
+        //
+        DoubleMatrix2D AR = E.maxr();
+        if(debug){        	
+        	System.out.println("!!!!!! centers:");
+        	for(int i=0; i<AR.getN(); i++){
+        		System.out.println(i+" -> "+(int)AR.get(i, 0));        		
+        	}
+        	System.out.println();
+        }
+        //
         //the indexes of potential exemplars
         I = E.diag().findG(0);
         clustersNumber = I.size();
+        
+        if(debug){
+        	System.out.println("Current centers:");
+        	System.out.println(I.toString());
+        }
     }
 
     @Override
@@ -333,4 +358,6 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     @Override
     protected void showInfo() {
     }
+    
+    //
 }

@@ -5,16 +5,25 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.Vector;
 
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
+import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityGraphMode;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
+import org.archive.ntcir.sm.clustering.ap.APClustering;
+import org.archive.util.format.StandardFormat;
 
 public class K_UFL {
+	
+	private static final boolean debug = true;
+	
+	public enum UFLMode {C_Same_F, C_Differ_F}
+	
 	//basic parameters//
 	//private static final double INF = 1000000000.0;
 	private double _lambda = 0.5;
@@ -22,15 +31,18 @@ public class K_UFL {
 	//thus, the size of iteration-span that without change of exemplar
     protected Integer _noChangeIterSpan = null;
     //given preference
-    private double constPreferences;
+    private double _costPreferences;
     //as the cost matrix takes the negative value of similarity matrix, thus ...
     //private boolean _logDomain;
     private ArrayList<InteractionData> _dataPointSimilarities;
     private ArrayList<Double> _dqRelevanceList;
     
     //set of node identifier, i.e., names
-    private Collection<String> _nodeNames = new HashSet<String>();
+    private Collection<String> _cNodeNames;
+    private Collection<String> _fNodeNames;
     protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
+    
+    private UFLMode _uflMode;
 	
     //predefined k
     Integer G_M1_zM;
@@ -81,7 +93,7 @@ public class K_UFL {
     private int clustersNumber = 0;
 	
     //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
-    K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferences, Integer preK, 
+    K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferences, Integer preK, UFLMode uflMode, 
     		ArrayList<InteractionData> dataPointSimilarities, ArrayList<Double> dqRelevanceList){
     	//1
     	//dataPointSimilarities, for cost, e.g., c_ij, it would be the negative value of each similarity
@@ -90,9 +102,11 @@ public class K_UFL {
     	this._lambda = lambda;
     	this._iterationTimes = iterationTimes;
     	this._noChangeIterSpan = noChangeIterSpan;
+    	this._costPreferences = preferences;
     	this._dataPointSimilarities = dataPointSimilarities;
     	this._dqRelevanceList = dqRelevanceList;
     	this.G_M1_zM = preK;
+    	this._uflMode = uflMode;
     	//this._logDomain = logDomain;
     	
     	//2
@@ -100,32 +114,38 @@ public class K_UFL {
     }
     
     private void ini(){    	
-    	this._nodeNames = new HashSet<String>();
+    	this._cNodeNames = new HashSet<String>();
+    	this._fNodeNames = new HashSet<String>();
     	for(InteractionData intData : this._dataPointSimilarities){
-        	this._nodeNames.add(intData.getFrom());
-        	this._nodeNames.add(intData.getTo());
+        	this._cNodeNames.add(intData.getFrom());
+        	this._fNodeNames.add(intData.getTo());
         }
-        this._N = this._nodeNames.size();
-        this._M = this._nodeNames.size();
+    	if(UFLMode.C_Same_F == _uflMode){
+    		HashSet<String> nodeSet = new HashSet<String>();
+    		nodeSet.addAll(_cNodeNames);
+    		nodeSet.addAll(_fNodeNames);
+    		this._N = nodeSet.size();
+    	    this._M = nodeSet.size();
+    	}else{
+    		this._N = this._cNodeNames.size();
+    		this._M = this._fNodeNames.size();
+    	}       
         
         //cost matrix c_ij
         this._C = new DoubleMatrix2D(this._N, this._M, 0);
         
         for (InteractionData intData : this._dataPointSimilarities) {
-            //System.out.println(intData.getFrom() + " " + intData.getTo() + " " + intData.getSim());           
-            Integer source = Integer.valueOf(intData.getFrom());
-            Integer target = Integer.valueOf(intData.getTo());
-            double c_ij = -intData.getSim();
-            this._C.set(source, target, c_ij);            
+            //System.out.println(intData.getFrom() + " " + intData.getTo() + " " + intData.getSim());          
+            double c_ij = -intData.getSim();            
+            setCost(intData.getFrom(), intData.getTo(), c_ij);
         }        
-        System.out.println("pref: " + constPreferences);
-        //
-        for (int i = 0; i < this._N; i++) {
-        	double c_ii = -constPreferences;
-        	this._C.set(i, i, c_ii);
+        if(UFLMode.C_Same_F == _uflMode){
+        	System.out.println("pref: " + _costPreferences);        
+            for (int i = 0; i < this._N; i++) {
+            	double c_ii = -_costPreferences;
+            	this._C.set(i, i, c_ii);
+            }
         }
-        
-        
         //facility cost f_j
         this._Y = new DoubleMatrix2D(1, this._M, 0);
         for(int j=0; j<this._M; j++){
@@ -137,18 +157,73 @@ public class K_UFL {
         this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
         this._V = new DoubleMatrix2D(1, this._M, 0);
-        this._Gama = new DoubleMatrix2D(1, this._M, 0);       
+        this._Gama = new DoubleMatrix2D(1, this._M, 0);
+        
+        if(debug){
+        	System.out.println("Cost matrix:");
+        	System.out.println(_C.toString());
+        	System.out.println("Y matrix:");
+        	System.out.println(_Y.toString());
+        }
     }	
+    
+    private Integer _customerID = 0;
+    protected Map<String, Integer> _customerIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _customerIDRevMapper = new TreeMap<Integer, String>();
+    
+    private Integer _facilityID = 0;
+    protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
+    
+    protected Integer getCustomerID(String cName) {
+        if (_customerIDMapper.containsKey(cName)) {
+            return _customerIDMapper.get(cName);
+        } else {
+            Integer id = _customerID;
+            _customerIDMapper.put(cName, id);
+            _customerIDRevMapper.put(id, cName);
+            _customerID++;
+            return id;
+        }
+    }
+    
+    protected Integer getFacilityID(String fName){
+    	if(_facilityIDMapper.containsKey(fName)){
+    		return _facilityIDMapper.get(fName);
+    	}else{
+    		Integer id = _facilityID;
+    		_facilityIDMapper.put(fName, id);
+    		_facilityIDRevMapper.put(id, fName);
+    		_facilityID++;
+    		return id;
+    	}
+    }
+    
+    public void setCost(final String from, final String to, final Double sim) {
+
+        Integer cID = getCustomerID(from);
+        Integer fID = getFacilityID(to);
+        if (UFLMode.C_Differ_F == _uflMode) {
+        	_C.set(cID, fID, sim.doubleValue());
+        } else {
+        	_C.set(cID, fID, sim.doubleValue());
+        	_C.set(fID, cID, sim.doubleValue());
+        }
+    }
 	
 	public void computeBeliefs(){
 		DoubleMatrix2D EX;
         EX = this._Alpha.plus(this._Eta).minus(this._C);
         //the indexes of potential exemplars
-        IX = EX.diag().findG(0);
+        IX = EX.diag().findG(0);        
         //
         DoubleMatrix2D EY;
         EY = this._V.minus(this._Y).plus(this._Gama);
         IY = EY.diag().findG(0);
+        if(debug){
+        	System.out.println("Selected Facilities:");
+        	System.out.println(IY.toString());
+        }
 	}
 	
 	public IntegerMatrix1D getSelectedDocs(){
@@ -159,6 +234,10 @@ public class K_UFL {
 	//// Eta ////
 	private void copyEta(){
 		this._oldEta = this._Eta.copy();
+		if(debug){
+        	System.out.println("old Eta:");
+        	System.out.println(_oldEta.toString());
+        }
 	}
 	/*-max_{k uneq j}[alpha_{ik} - c_{ik}]*/
 	private void computeEta(){
@@ -196,6 +275,10 @@ public class K_UFL {
 	//// V ////
 	private void copyV(){
 		this._oldV = this._V.copy();
+		if(debug){
+        	System.out.println("old V:");
+        	System.out.println(_oldV.toString());
+        }
 	}
 	//
 	private void computeV(){
@@ -211,6 +294,10 @@ public class K_UFL {
 	//// Alpha ////
 	private void copyAlpha(){
 		this._oldAlpha = this._Alpha.copy();
+		if(debug){
+        	System.out.println("old Alpha:");
+        	System.out.println(_oldAlpha.toString());
+        }
 	}
 	private void computeAlpha(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
@@ -274,7 +361,13 @@ public class K_UFL {
 		    				this._B.get(zj_minus_1+1, j)+this._V.get(0, j-1)-this._Y.get(0, j-1)));
 	    		}	    		
 	    	}	    	
-	    }		
+	    }	
+	    //
+	    if(debug){
+        	System.out.println("AB update:");
+        	System.out.println(_A.toString());
+        	System.out.println(_B.toString());
+        }
 	}
 	//
 	/*
@@ -287,6 +380,10 @@ public class K_UFL {
 	//// Gama ////
 	private void copyGama(){
 		this._oldGama = this._Gama.copy();
+		if(debug){
+        	System.out.println("old Gama:");
+        	System.out.println(_oldGama.toString());        	
+        }
 	}
 	//
 	private void computeGama(){
@@ -436,5 +533,63 @@ public class K_UFL {
 	public int getIterationTimes(){
 		return this._iterationTimes;
 	}
-
+	//
+	public static void test(){
+    	//4 data points
+    	ArrayList<ArrayList<Double>> datapointList = new ArrayList<ArrayList<Double>>();
+    	ArrayList<Double> dataPoint_1 = new ArrayList<Double>();
+    	dataPoint_1.add(-2.3);
+    	dataPoint_1.add(3.7);
+    	datapointList.add(dataPoint_1);
+    	
+    	ArrayList<Double> dataPoint_2 = new ArrayList<Double>();
+    	dataPoint_2.add(-1.5);
+    	dataPoint_2.add(1.8);
+    	datapointList.add(dataPoint_2);
+    	
+    	ArrayList<Double> dataPoint_3 = new ArrayList<Double>();
+    	dataPoint_3.add(2.5);
+    	dataPoint_3.add(1.8);
+    	datapointList.add(dataPoint_3);
+    	
+    	ArrayList<Double> dataPoint_4 = new ArrayList<Double>();
+    	dataPoint_4.add(4.0);
+    	dataPoint_4.add(1.6);
+    	datapointList.add(dataPoint_4);
+    	//
+    	ArrayList<Double> vList = new ArrayList<Double>();
+    	ArrayList<InteractionData> dataPointInteractions = new ArrayList<InteractionData>();
+    	for(int i=0; i<datapointList.size()-1; i++){
+    		for(int j=i+1; j<datapointList.size(); j++){
+    			double v = APClustering.getSimilarity(datapointList.get(i), datapointList.get(j));
+    			InteractionData interData = new InteractionData(StandardFormat.serialFormat(i, "00"), 
+    					StandardFormat.serialFormat(j, "00"), 
+    					v);
+    			dataPointInteractions.add(interData);
+    			vList.add(v);
+    		}
+    	}    	
+    	//
+    	double lambda = 0.5;
+    	int iterationTimes = 5000;
+    	int noChangeIterSpan = 20;    	
+    	//double preferences = getMedian(vList);
+    	double preferences = -4.0;
+    	int preK = 2;
+    	ArrayList<Double> dqRelevanceList = new ArrayList<Double>();
+    	dqRelevanceList.add(1.0);
+    	dqRelevanceList.add(2.0);
+    	dqRelevanceList.add(1.0);
+    	dqRelevanceList.add(2.0);
+    	////
+    	K_UFL kUFL = new K_UFL(lambda, iterationTimes, noChangeIterSpan, preferences, preK, UFLMode.C_Same_F, dataPointInteractions, dqRelevanceList);
+    	//
+    	kUFL.ini();
+    	kUFL.run();    	
+    }
+	
+	//
+	public static void main(String []args){
+		K_UFL.test();
+	}
 }

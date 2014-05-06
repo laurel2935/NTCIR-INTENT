@@ -46,28 +46,28 @@ import org.archive.ml.clustering.ap.prime.PrimeGraph;
 import org.archive.ml.clustering.ap.smart.IterationData;
 
 public abstract class AffinityPropagationAlgorithm extends AbstractClusterAlgorithm<String> {
+	
+	private static final boolean debug = true;
 
     protected abstract void showInfo();
     //the type of connecting the exemplar
-    public enum AffinityConnectingMethod {
-        PRIME_ALG, FLOYD_ALG, ORIGINAL
-    }
+    public enum AffinityConnectingMethod {PRIME_ALG, FLOYD_ALG, ORIGINAL}
 
-    public enum AffinityGraphMode {
-
-        DIRECTED, UNDIRECTED
-    }
+    public enum AffinityGraphMode {DIRECTED, UNDIRECTED}
     private Random noiseGenerator = new Random();
     private final double epsilon = 0.0000001;
     protected double lambda;
     //
     private int iterations;
     private boolean refine = true;
-    private boolean noise = true;
+    //private boolean noise = true;
+    private boolean noise = false;
     private Integer steps = null;
     private int iteration = 0;
-    protected AffinityConnectingMethod connectingMode = AffinityConnectingMethod.ORIGINAL;
+    //protected AffinityConnectingMethod connectingMode = AffinityConnectingMethod.ORIGINAL;
     //protected AffinityGraphMode graphMode = AffinityGraphMode.DIRECTED;
+    protected AffinityConnectingMethod connectingMode;
+    protected AffinityGraphMode graphMode;
     protected boolean notConverged = true;
     /*
      * Algorithm will stop after the n-th {i.e., convits} iteration without any change in centers (exemplars).
@@ -206,6 +206,10 @@ public abstract class AffinityPropagationAlgorithm extends AbstractClusterAlgori
     public void setConnectingMode(AffinityConnectingMethod connectingMode) {
         this.connectingMode = connectingMode;
     }
+    
+    public void setGraphMode(AffinityGraphMode graphMode){
+    	this.graphMode = graphMode;
+    }
 
     public void setLambda(final double lambda) {
         this.lambda = lambda;
@@ -259,7 +263,7 @@ public abstract class AffinityPropagationAlgorithm extends AbstractClusterAlgori
             generateNoise();
         }
 
-        //   showInfo();
+        //   showInfo();       
 
         for (iteration = 1; iteration <= iters; iteration++) {
 
