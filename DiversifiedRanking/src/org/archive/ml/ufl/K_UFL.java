@@ -16,7 +16,7 @@ import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 
 public class K_UFL {
 	//basic parameters//
-	private static final double INF = 1000000000.0;
+	//private static final double INF = 1000000000.0;
 	private double _lambda = 0.5;
 	private int _iterationTimes = 5000;
 	//thus, the size of iteration-span that without change of exemplar
@@ -32,6 +32,9 @@ public class K_UFL {
     private Collection<String> _nodeNames = new HashSet<String>();
     protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
 	
+    //predefined k
+    Integer G_M1_zM;
+    
 	///////////////////////
 	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
 	///////////////////////
@@ -60,9 +63,9 @@ public class K_UFL {
 	
 	//(M+1)¡ÁM the row corresponds to the state of z_j, the column is the j-th column
 	private DoubleMatrix2D _A;
-	private DoubleMatrix2D _oldA;
+	//private DoubleMatrix2D _oldA;
 	private DoubleMatrix2D _B;
-	private DoubleMatrix2D _oldB;
+	//private DoubleMatrix2D _oldB;
 	
 	//one-row object
 	private DoubleMatrix2D _Gama;
@@ -78,7 +81,7 @@ public class K_UFL {
     private int clustersNumber = 0;
 	
     //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
-    K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferences, 
+    K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferences, Integer preK, 
     		ArrayList<InteractionData> dataPointSimilarities, ArrayList<Double> dqRelevanceList){
     	//1
     	//dataPointSimilarities, for cost, e.g., c_ij, it would be the negative value of each similarity
@@ -89,6 +92,7 @@ public class K_UFL {
     	this._noChangeIterSpan = noChangeIterSpan;
     	this._dataPointSimilarities = dataPointSimilarities;
     	this._dqRelevanceList = dqRelevanceList;
+    	this.G_M1_zM = preK;
     	//this._logDomain = logDomain;
     	
     	//2
@@ -133,9 +137,7 @@ public class K_UFL {
         this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
         this._V = new DoubleMatrix2D(1, this._M, 0);
-        this._Gama = new DoubleMatrix2D(1, this._M, 0);
-        this._A = new DoubleMatrix2D();
-        this._B = new DoubleMatrix2D();
+        this._Gama = new DoubleMatrix2D(1, this._M, 0);       
     }	
 	
 	public void computeBeliefs(){
@@ -170,7 +172,7 @@ public class K_UFL {
 		Alpha_minus_C = this._Alpha.minus(this._C);
 		rMax = Alpha_minus_C.maxr();		
 		for(int i=0; i<this._N; i++){
-			Alpha_minus_C.set(i, (int)rMax.get(i, 0), -INF);
+			Alpha_minus_C.set(i, (int)rMax.get(i, 0), Double.NEGATIVE_INFINITY);
 		}
 		rMax2 = Alpha_minus_C.maxr();
 		
@@ -234,31 +236,53 @@ public class K_UFL {
 	}
 	
 	////  (a,b) update////
+	/*
 	private void copyAB(){
 		this._oldA = this._A.copy();
 		this._oldB = this._B.copy();
-	}	
-	private void computeAB(){
-		/*
-		this._A = new DoubleMatrix2D(this._M+1, this._M+1, 0);
-		for(int j=1; j<this._M+1; j++){
-			//M+1 possible states: from 1 to M+1
-			for(int z_j=1; z_j<=this._M+1; z_j++){
-				
-				double v = Math.max(this._A.get(j-1, z_j),
-						this._A.get(j-1, z_j-1)+this._V.get(0, j)-this._Y.get(0, j));
-				//
-				this._A.set(j, z_j, v);
-			}
-			
-		}
-		*/
+	}
+	*/
+	private void updateAB(){
+		this._A = new DoubleMatrix2D(this._M+1, this._M+1, Double.NEGATIVE_INFINITY);
+	    this._B = new DoubleMatrix2D(this._M+1, this._M+1, Double.NEGATIVE_INFINITY);
+	    //a-update
+	    //a0(z0)=0
+	    this._A.set(0, 0, 0);
+	    for(int j=1; j<=this._M; j++){
+	    	//M+1 possible states for z_j
+	    	for(int zj=0; zj<=this._M; zj++){
+	    		if(0 == zj){
+	    			this._A.set(zj, j, this._A.get(zj, j-1));
+	    		}else{
+	    			this._A.set(zj, j, Math.max(this._A.get(zj, j-1),
+		    				this._A.get(zj-1, j-1)+this._V.get(0, j-1)-this._Y.get(0, j-1)));
+	    		}	    		
+	    	}	    	
+	    }
+	    //b-update
+	    //bM(zM)=G_M1_zM
+	    for(int zM=0; zM<=this._M; zM++){
+	    	this._B.set(zM, this._M, this.G_M1_zM);
+	    }
+	    for(int j=this._M; j>=1; j--){
+	    	for(int zj_minus_1=0; zj_minus_1<=this._M; zj_minus_1++){
+	    		//
+	    		if(this._M == zj_minus_1){
+	    			this._B.set(zj_minus_1, j-1, this._B.get(zj_minus_1, j));
+	    		}else{
+	    			this._B.set(zj_minus_1, j-1, Math.max(this._B.get(zj_minus_1, j),
+		    				this._B.get(zj_minus_1+1, j)+this._V.get(0, j-1)-this._Y.get(0, j-1)));
+	    		}	    		
+	    	}	    	
+	    }		
 	}
 	//
+	/*
 	private void updateAB(){
 		this._A = this._A.mul(1-getLambda()).plus(this._oldA.mul(getLambda()));
 		this._B = this._B.mul(1-getLambda()).plus(this._oldB.mul(getLambda()));
 	}
+	*/
 	
 	//// Gama ////
 	private void copyGama(){
@@ -266,7 +290,27 @@ public class K_UFL {
 	}
 	//
 	private void computeGama(){
-		
+		for(int paperJ=1; paperJ<=this._M; paperJ++){
+			//1st factor
+			double maxMinuend = Double.NEGATIVE_INFINITY;
+			//2nd factor
+			double  maxSubtrahend = Double.NEGATIVE_INFINITY; 
+			for(int z=0; z<=this._M; z++){
+				if(z > 0){
+					double minuendSum = this._A.get(z-1, paperJ-1)+this._B.get(z, paperJ);
+					if(minuendSum > maxMinuend){
+						maxMinuend = minuendSum;
+					}
+				}
+				//
+				double subtrahendSum = this._A.get(z, paperJ-1)+this._B.get(z, paperJ);
+				if(subtrahendSum > maxSubtrahend){
+					maxSubtrahend = subtrahendSum;
+				}				
+			}
+			//
+			this._Gama.set(0, paperJ-1, maxMinuend-maxSubtrahend);
+		}
 	}
 	//
 	private void updateGama(){
@@ -305,8 +349,8 @@ public class K_UFL {
 			this.updateV();
 			
 			//
-			this.copyAB();
-			this.computeAB();
+			//this.copyAB();
+			//this.computeAB();
 			this.updateAB();
 			
 			//
