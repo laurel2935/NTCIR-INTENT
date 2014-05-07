@@ -32,6 +32,8 @@
 
 package org.archive.ml.clustering.ap.matrix;
 
+import java.util.ArrayList;
+
 public class DoubleMatrix2D implements java.io.Serializable {
 
     /**
@@ -99,6 +101,7 @@ public class DoubleMatrix2D implements java.io.Serializable {
         }
         return res;
     }
+   
     /**
      * @return get the diagose matrix1D
      * */

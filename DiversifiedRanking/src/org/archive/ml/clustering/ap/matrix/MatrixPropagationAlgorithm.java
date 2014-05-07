@@ -37,8 +37,6 @@ import java.util.Vector;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm;
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 
-import com.sun.org.apache.bcel.internal.generic.ALOAD;
-
 public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
 	
 	private static final boolean debug = true;
@@ -58,8 +56,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     //previous iteration's responsibility
     private DoubleMatrix2D rold = null;
     //similarity matrix
-    public DoubleMatrix2D S;
-    private double inf = 1000000000.0;
+    public DoubleMatrix2D S;    
     //the number of exemplar
     private int clustersNumber = 0;
 
@@ -67,7 +64,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     public void init() {
         A = new DoubleMatrix2D(N, N, 0);
         R = new DoubleMatrix2D(N, N, 0);
-        S = new DoubleMatrix2D(N, N, -inf);
+        S = new DoubleMatrix2D(N, N, Double.NEGATIVE_INFINITY);
     }
 
     public int getN() {
@@ -162,7 +159,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
         //the r() value should be s()- "the second maximum sum"
         for (int i = 0; i < N; i++) {
             int y = (int) YI.get(i, 0);
-            AS.set(i, y, -inf);
+            AS.set(i, y, Double.NEGATIVE_INFINITY);
         }
         YI2 = AS.maxr();
 
@@ -196,9 +193,8 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
         	System.out.println(aold.toString());
         }
     }
-
-    @Override
-    protected void computeAvailabilities() {
+    //?     
+    protected void computeAvailabilities_change() {
         DoubleMatrix1D dA;
         DoubleMatrix2D rp;
 
@@ -225,6 +221,25 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
         }
         // System.out.println("A-last: "+A.toString());
     }
+    //new
+    protected void computeAvailabilities() {
+    	DoubleMatrix2D maxZero = R.max(0);
+    	for(int k=0; k<N; k++){
+    		maxZero.set(k, k, 0.0);
+    	}
+    	//no kk for both
+    	DoubleMatrix2D cSumNoKK = maxZero.sumEachColumn();
+    	//
+    	double [] row = new double[N];
+    	for(int k=0; k<N; k++){
+    		row[k] = cSumNoKK.get(0, k)+R.get(k, k);
+    	}
+    	DoubleMatrix2D IK = new DoubleMatrix2D(N, row);
+    	this.A = IK.transpose().minus(maxZero).min(0);
+    	for(int k=0; k<N; k++){
+    		this.A.set(k, k, cSumNoKK.get(0, k));
+    	}    	
+    }
 
     @Override
     protected void avgAvailabilities() {
@@ -235,25 +250,38 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
 
     @Override
     protected void computeCenters() {
-        DoubleMatrix2D E;
-        E = R.plus(A);
+        DoubleMatrix2D RA = R.plus(A);
         //
-        DoubleMatrix2D AR = E.maxr();
+        DoubleMatrix2D maxAR = RA.maxr();
         if(debug){        	
-        	System.out.println("!!!!!! centers:");
-        	for(int i=0; i<AR.getN(); i++){
-        		System.out.println(i+" -> "+(int)AR.get(i, 0));        		
+        	System.out.println("Maximum centers:");
+        	for(int i=0; i<maxAR.getN(); i++){
+        		//System.out.println(i+" -> "+(int)AR.get(i, 0));
+        		if(i == (int)maxAR.get(i, 0)){
+        			System.out.print(i+"("+this.idRevMapper.get(i)+")"+"\t");
+        		}
         	}
         	System.out.println();
         }
         //
         //the indexes of potential exemplars
-        I = E.diag().findG(0);
-        clustersNumber = I.size();
-        
+        I = RA.diag().findG(0);
+        clustersNumber = I.size();        
         if(debug){
-        	System.out.println("Current centers:");
-        	System.out.println(I.toString());
+        	System.out.println("Bigger Zero centers:");
+        	for(int eID: I.getVector()){
+        		System.out.print(eID+"("+this.idRevMapper.get(eID)+")"+"\t");
+        	}
+        	System.out.println();
+        }
+        
+        IntegerMatrix1D equalI = RA.diag().findG_WithEqual(0);
+        if(debug){
+        	System.out.println("BiggerAndEqual Zero centers:");
+        	for(int eID: equalI.getVector()){
+        		System.out.print(eID+"("+this.idRevMapper.get(eID)+")"+"\t");
+        	}
+        	System.out.println();
         }
     }
 
@@ -296,7 +324,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
      * **/
     protected Double tryGetSimilarityInt(Integer i, Integer j) {
         double sim = S.get(i.intValue(), j.intValue());
-        if (sim > -inf) {
+        if (sim > Double.NEGATIVE_INFINITY) {
             return sim;
         } else {
             return null;
@@ -306,7 +334,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
     @Override
     protected Double tryGetSimilarity(String from, String to) {
         double sim = S.get(idMapper.get(from), idMapper.get(to));
-        if (sim > -inf) {
+        if (sim > Double.NEGATIVE_INFINITY) {
             return sim;
         } else {
             return null;

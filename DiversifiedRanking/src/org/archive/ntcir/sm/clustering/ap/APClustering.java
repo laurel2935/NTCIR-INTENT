@@ -1,5 +1,6 @@
 package org.archive.ntcir.sm.clustering.ap;
 
+import java.io.BufferedReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -7,6 +8,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.archive.dataset.DataSetDiretory;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityGraphMode;
 import org.archive.ml.clustering.ap.abs.ClusterInteger;
@@ -14,6 +16,7 @@ import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityCon
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.MatrixPropagationAlgorithm;
 import org.archive.util.format.StandardFormat;
+import org.archive.util.io.IOText;
 
 
 public class APClustering {
@@ -47,19 +50,22 @@ public class APClustering {
     
 	ArrayList<InteractionData> dataPointInteractions;
     
-    APClustering(double lambda, int iterations, Integer convits, double preferences, String kind,
-    		ArrayList<InteractionData> Interactions, boolean logDomain, boolean refine, AffinityConnectingMethod connMode, AffinityGraphMode graphMode){
+    APClustering(double lambda, int iterations, Integer convits, double preferences, ArrayList<InteractionData> similarityMatrix){
     	this.lambda = lambda;
         this.iterations = iterations;
         this.preferences = preferences;
-        this.kind = kind;
+        //current case
+        this.kind = "null";
         this.convits = convits;
-        this.dataPointInteractions = Interactions;
-        this.takeLog = logDomain;
-        this.refine = refine;
+        this.dataPointInteractions = similarityMatrix;
+        //because of max-sum, but negative value
+        this.takeLog = false;
+        this.refine = false;
         //this.steps = steps;
-        this.connMode = connMode;
-        this.graphMode = graphMode;
+        //in the context of original AP
+        this.connMode = AffinityConnectingMethod.ORIGINAL;
+        //current case
+        this.graphMode = AffinityGraphMode.UNDIRECTED;
         //
     }
     
@@ -195,17 +201,65 @@ public class APClustering {
     	AffinityGraphMode graphMode = AffinityGraphMode.UNDIRECTED;
     	//double preferences = getMedian(vList);
     	double preferences = -4.0;
-    	APClustering apClustering = new APClustering(lambda, iterations, convits, preferences, kind,
-    			dataPointInteractions, logDomain, refine, connMode, graphMode);
+    	APClustering apClustering = new APClustering(lambda, iterations, convits, preferences, dataPointInteractions);
     	//
     	apClustering.setParemeters();
     	apClustering.run();
     }
-    
+    //
+    public static ArrayList<InteractionData> loadAPExample(){
+    	ArrayList<InteractionData> interList = new ArrayList<InteractionData>();
+    	//load
+    	try {
+			String file = DataSetDiretory.ROOT+"APExample/ToyProblemSimilarities.txt";
+			BufferedReader reader = IOText.getBufferedReader_UTF8(file);
+			String line;
+			String [] array;
+			
+			ArrayList<Double> vList = new ArrayList<Double>();
+			while(null != (line=reader.readLine())){
+				//System.out.println(line);
+				array = line.split("  ");
+				//System.out.println(array[0]+"\t"+array[1]+"\t"+array[2]);				
+				Double v = Double.parseDouble(array[2]);
+				interList.add(new InteractionData(array[0], array[1], v));
+				vList.add(v);
+			}
+			reader.close();
+			if(debug){
+				System.out.println("inters:\t"+interList.size());
+				//System.out.println("Median:\t"+getMedian(vList));
+				//System.out.println(interList.get(0).toString());
+			}
+			
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+    	return interList;
+    }
+    //
+    public static void testAPExample(){    	 
+    	ArrayList<InteractionData> interList = loadAPExample();
+    	//run
+    	double lambda = 0.5;
+    	int iterations = 100;
+    	int convits = 10;
+    	//double preferences = getMedian(vList);
+    	double preferences = -15.561256;
+    	APClustering apClustering = new APClustering(lambda, iterations, convits, preferences, interList);
+    	//
+    	apClustering.setParemeters();
+    	apClustering.run();
+    }
     //
     public static void main(String []args){
-    	//
-    	APClustering.test();
+    	//1
+    	//APClustering.test();
+    	
+    	//2
+    	APClustering.testAPExample();
+    	
     	
     }
 }

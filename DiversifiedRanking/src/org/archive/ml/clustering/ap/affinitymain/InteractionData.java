@@ -28,4 +28,14 @@ public class InteractionData {
     public String getTo() {
         return to;
     }
+    
+    public String toString(){
+    	StringBuffer buffer = new StringBuffer();  
+    	buffer.append(from);
+    	buffer.append("\t");
+    	buffer.append(to);
+    	buffer.append("\t");
+    	buffer.append(sim.toString()); 
+    	return buffer.toString();
+    }
 }

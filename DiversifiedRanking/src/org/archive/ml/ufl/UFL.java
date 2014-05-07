@@ -18,7 +18,9 @@ import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
 import org.archive.util.format.StandardFormat;
 
-public class K_UFL {
+import com.sun.org.apache.bcel.internal.classfile.InnerClass;
+
+public class UFL {
 	
 	private static final boolean debug = true;
 	
@@ -44,9 +46,6 @@ public class K_UFL {
     protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
     
     private UFLMode _uflMode;
-	
-    //predefined k
-    Integer G_M1_zM;
     
 	///////////////////////
 	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
@@ -74,16 +73,6 @@ public class K_UFL {
 	private DoubleMatrix2D _Alpha;
 	private DoubleMatrix2D _oldAlpha;
 	
-	//(M+1)¡ÁM the row corresponds to the state of z_j, the column is the j-th column
-	private DoubleMatrix2D _A;
-	//private DoubleMatrix2D _oldA;
-	private DoubleMatrix2D _B;
-	//private DoubleMatrix2D _oldB;
-	
-	//one-row object
-	private DoubleMatrix2D _Gama;
-	private DoubleMatrix2D _oldGama;
-	
 	//exemplar vector, i.e., the size of I equals the number of exemplars,
     //the value of each element is the exemplar index
     //i.e., the index of the positive element of the diagonal of R+A 
@@ -94,7 +83,7 @@ public class K_UFL {
     private int clustersNumber = 0;
 	
     //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
-    K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferenceCost, Integer preK, UFLMode uflMode, 
+    UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferenceCost, UFLMode uflMode, 
     		ArrayList<InteractionData> costMatrix, ArrayList<Double> fList){
     	//1
     	//dataPointSimilarities, for cost, e.g., c_ij, it would be the negative value of each similarity
@@ -105,8 +94,7 @@ public class K_UFL {
     	this._noChangeIterSpan = noChangeIterSpan;
     	this.preferenceCost = preferenceCost;
     	this._costMatrix = costMatrix;
-    	this._fList = fList;
-    	this.G_M1_zM = preK;
+    	this._fList = fList;    	
     	this._uflMode = uflMode;
     	//this._logDomain = logDomain;    	
     	//2
@@ -156,8 +144,7 @@ public class K_UFL {
         //
         this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
-        this._V = new DoubleMatrix2D(1, this._M, 0);
-        this._Gama = new DoubleMatrix2D(1, this._M, 0);
+        this._V = new DoubleMatrix2D(1, this._M, 0);        
         
         if(debug){
         	System.out.println("Cost matrix:");
@@ -175,30 +162,70 @@ public class K_UFL {
     protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
     protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
     
-    protected Integer getCustomerID(String cName) {
-        if (_customerIDMapper.containsKey(cName)) {
-            return _customerIDMapper.get(cName);
-        } else {
-            Integer id = _customerID;
-            _customerIDMapper.put(cName, id);
-            _customerIDRevMapper.put(id, cName);
-            _customerID++;
-            return id;
-        }
-    }
+    private Integer _cfID = 0;
+    protected Map<String, Integer> _cfIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _cfIDRevMapper = new TreeMap<Integer, String>();
     
-    protected Integer getFacilityID(String fName){
-    	if(_facilityIDMapper.containsKey(fName)){
-    		return _facilityIDMapper.get(fName);
+    protected Integer getCustomerID(String cName) {
+    	if(UFLMode.C_Differ_F == this._uflMode){
+    		if (_customerIDMapper.containsKey(cName)) {
+                return _customerIDMapper.get(cName);
+            } else {
+                Integer id = _customerID;
+                _customerIDMapper.put(cName, id);
+                _customerIDRevMapper.put(id, cName);
+                _customerID++;
+                return id;
+            }
     	}else{
-    		Integer id = _facilityID;
-    		_facilityIDMapper.put(fName, id);
-    		_facilityIDRevMapper.put(id, fName);
-    		_facilityID++;
-    		return id;
+    		if(_cfIDMapper.containsKey(cName)){
+    			return _cfIDMapper.get(cName);
+    		}else{
+    			Integer id = _cfID;
+    			_cfIDMapper.put(cName, id);
+    			_cfIDRevMapper.put(id, cName);
+    			_cfID++;
+    			return id;
+    		}
+    	}        
+    }
+    protected String getCustomerName(Integer cID){
+    	if(UFLMode.C_Differ_F == this._uflMode){    		
+    		return this._customerIDRevMapper.get(cID);
+    	}else{
+    		return this._cfIDRevMapper.get(cID);
     	}
     }
-    
+    protected Integer getFacilityID(String fName){
+    	if(UFLMode.C_Differ_F == _uflMode){
+    		if(_facilityIDMapper.containsKey(fName)){
+        		return _facilityIDMapper.get(fName);
+        	}else{
+        		Integer id = _facilityID;
+        		_facilityIDMapper.put(fName, id);
+        		_facilityIDRevMapper.put(id, fName);
+        		_facilityID++;
+        		return id;
+        	}
+    	}else{
+    		if(_cfIDMapper.containsKey(fName)){
+    			return _cfIDMapper.get(fName);
+    		}else{
+    			Integer id = _cfID;
+    			_cfIDMapper.put(fName, id);
+    			_cfIDRevMapper.put(id, fName);
+    			_cfID++;
+    			return id;
+    		}
+    	}    	
+    }
+    protected String getFacilityName(Integer fID){
+    	if(UFLMode.C_Differ_F == this._uflMode){
+    		return this._facilityIDRevMapper.get(fID);
+    	}else{
+    		return this._cfIDRevMapper.get(fID);
+    	}
+    }
     public void setCost(final String from, final String to, final Double sim) {
 
         Integer cID = getCustomerID(from);
@@ -212,17 +239,44 @@ public class K_UFL {
     }
 	
 	public void computeBeliefs(){
+		if(debug){
+			System.out.println("Computed beliefs:");
+		}
 		DoubleMatrix2D EX;
         EX = this._Alpha.plus(this._Eta).minus(this._C);
         //the indexes of potential exemplars
-        IX = EX.diag().findG(0);        
+        IX = EX.diag().findG(0); 
+        if(debug){
+        	System.out.println("Selected Exemplars:");
+        	for(Integer cID: IX.getVector()){
+        		System.out.print(cID+"("+getCustomerName(cID)+")"+"\t");
+        	}        	
+        	System.out.println();
+        }
         //
-        DoubleMatrix2D EY;
-        EY = this._V.minus(this._Y).plus(this._Gama);
-        IY = EY.diag().findG(0);
+        DoubleMatrix1D EY;
+        EY = this._V.minus(this._Y).getRow(0);
+        IY = EY.findG(0);
         if(debug){
         	System.out.println("Selected Facilities:");
-        	System.out.println(IY.toString());
+        	for(int fID: IY.getVector()){
+        		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
+        	}
+        	System.out.println();
+        }
+        
+        if(debug){
+        	System.out.println("Eta+Ro----------------!");
+        	DoubleMatrix2D AR = this._Eta.minus(this._C).plus(this._Alpha);
+        	DoubleMatrix2D maxAR = AR.maxr();
+        	System.out.println("Maximum exemplars:");
+        	for(int i=0; i<maxAR.getN(); i++){
+        		//System.out.println(i+" -> "+(int)AR.get(i, 0));
+        		if(i == (int)maxAR.get(i, 0)){
+        			System.out.print(i+"("+getCustomerName(i)+")"+"\t");
+        		}
+        	}
+        	System.out.println();
         }
 	}
 	
@@ -239,33 +293,28 @@ public class K_UFL {
         	System.out.println(_oldEta.toString());
         }
 	}
-	/*-max_{k uneq j}[alpha_{ik} - c_{ik}]*/
+	//
 	private void computeEta(){
-		//alpha-c
-		DoubleMatrix2D Alpha_minus_C;
-		//maximum element of each row of Alpha_minus_C
-		DoubleMatrix2D rMax;
-		//for 2nd-maximum element of each row used for the exact maximum element
-		DoubleMatrix2D rMax2;
-		
-		Alpha_minus_C = this._Alpha.minus(this._C);
-		rMax = Alpha_minus_C.maxr();		
+		DoubleMatrix2D Alpha_minus_C = this._Alpha.minus(this._C);
+		DoubleMatrix2D max = Alpha_minus_C.maxr();
 		for(int i=0; i<this._N; i++){
-			Alpha_minus_C.set(i, (int)rMax.get(i, 0), Double.NEGATIVE_INFINITY);
+			Alpha_minus_C.set(i, (int)max.get(i, 0), Double.NEGATIVE_INFINITY);
 		}
-		rMax2 = Alpha_minus_C.maxr();
-		
-		double [] maxElements = new double[this._N];
+		DoubleMatrix2D max2 = Alpha_minus_C.maxr();
+		//
+		double [] sameRow = new double [this._N];
 		for(int i=0; i<this._N; i++){
-			maxElements[i] = rMax.get(i, 1);
+			sameRow[i] = max.get(i, 1);
 		}
-		DoubleMatrix2D maxMatrix = new DoubleMatrix2D(this._M, maxElements);
-		
-		DoubleMatrix2D zeroMatrix = new DoubleMatrix2D(this._N, this._M, 0);
-		this._Eta = zeroMatrix.minus(maxMatrix);
+		//
+		DoubleMatrix2D maxElements = new DoubleMatrix2D(this._M, sameRow);
+		DoubleMatrix2D zeroM = new DoubleMatrix2D(this._N, this._M, 0.0);
+		//before real eta
+		this._Eta = zeroM.minus(maxElements);
+		//real eta
 		for(int i=0; i<this._N; i++){
-			this._Eta.set(i, (int)rMax.get(i, 0), 0.0-rMax2.get(i, 1));
-		}		
+			this._Eta.set(i, (int)max.get(i, 0), 0.0-max2.get(i, 1));
+		}			
 	}
 	//
 	private void updateEta(){
@@ -281,15 +330,30 @@ public class K_UFL {
         }
 	}
 	//
-	private void computeV(){
+	private void computeV_old(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
 		this._V = maxZero.sumEachColumn();		
 	}
+	private void computeV(){
+		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
+		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
+		for(int j=0; j<this._M; j++){
+			maxZero.set(j, j, 0.0);
+		}
+		DoubleMatrix2D cSum = maxZero.sumEachColumn();
+		this._V = new DoubleMatrix2D(1, this._M, 0.0);
+		for(int j=0; j<this._M; j++){
+			this._V.set(0, j, 
+					cSum.get(0, j)+this._Eta.get(j, j)-this._C.get(j, j));
+		}		
+	}
 	//
+	/*
 	private void updateV(){
 		this._V = this._V.mul(1-getLambda()).plus(this._oldV.mul(getLambda()));
 	}
+	*/
 	
 	//// Alpha ////
 	private void copyAlpha(){
@@ -299,15 +363,12 @@ public class K_UFL {
         	System.out.println(_oldAlpha.toString());
         }
 	}
-	private void computeAlpha(){
+	private void computeAlpha_false(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
-		DoubleMatrix2D columnSum = maxZero.sumEachColumn();
-		//
-		//DoubleMatrix2D
-		DoubleMatrix2D Gama_minus_Y = this._Gama.minus(this._Y);
+		DoubleMatrix2D columnSum = maxZero.sumEachColumn();		
 		//the value at ij should not be added
-		DoubleMatrix2D sameColumnVector = Gama_minus_Y.plus(columnSum);
+		DoubleMatrix2D sameColumnVector = columnSum.minus(this._Y);
 		double [] sameColumnArray = new double [this._M];
 		for(int j=0; j<this._M; j++){
 			sameColumnArray[j] = sameColumnVector.get(0, j);
@@ -318,106 +379,35 @@ public class K_UFL {
 		this._Alpha = rightMatrix.min(0);		
 	}
 	//
+	private void computeAlpha(){
+		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
+		DoubleMatrix2D maxZero = Eta_minus_C.max(0);		
+		for(int j=0; j<this._M; j++){
+			maxZero.set(j, j, 0.0);
+		}
+		DoubleMatrix2D maxZeroNoJJ = maxZero.sumEachColumn();
+		//for i=j
+		DoubleMatrix2D IisJ = maxZeroNoJJ.minus(this._Y);
+		//--for i<>j		
+		double [] row = new double [this._M];
+		DoubleMatrix1D etaJJ = this._Eta.diag();
+		DoubleMatrix1D cJJ = this._C.diag();
+		for(int j=0; j<this._M; j++){
+			row[j] = maxZeroNoJJ.get(0, j)+etaJJ.get(j)-cJJ.get(j)-this._Y.get(0, j);
+		}		
+		DoubleMatrix2D reversedM = new DoubleMatrix2D(this._N, row);
+		DoubleMatrix2D rightM = reversedM.transpose();		
+		DoubleMatrix2D rep = rightM.minus(maxZero);
+		this._Alpha = rep.min(0);
+		//
+		for(int i=0; i<this._N; i++){
+			this._Alpha.set(i, i, IisJ.get(0, i));
+		}				
+	}
+	//
 	private void updateAlpha(){
 		this._Alpha = this._Alpha.mul(1-getLambda()).plus(this._oldAlpha.mul(getLambda()));
 	}
-	
-	////  (a,b) update////
-	/*
-	private void copyAB(){
-		this._oldA = this._A.copy();
-		this._oldB = this._B.copy();
-	}
-	*/
-	private void updateAB(){
-		this._A = new DoubleMatrix2D(this._M+1, this._M+1, Double.NEGATIVE_INFINITY);
-	    this._B = new DoubleMatrix2D(this._M+1, this._M+1, Double.NEGATIVE_INFINITY);
-	    //a-update
-	    //a0(z0)=0
-	    this._A.set(0, 0, 0);
-	    for(int j=1; j<=this._M; j++){
-	    	//M+1 possible states for z_j
-	    	for(int zj=0; zj<=this._M; zj++){
-	    		if(0 == zj){
-	    			this._A.set(zj, j, this._A.get(zj, j-1));
-	    		}else{
-	    			this._A.set(zj, j, Math.max(this._A.get(zj, j-1),
-		    				this._A.get(zj-1, j-1)+this._V.get(0, j-1)-this._Y.get(0, j-1)));
-	    		}	    		
-	    	}	    	
-	    }
-	    //b-update
-	    //bM(zM)=G_M1_zM
-	    /*
-	    for(int zM=0; zM<=this._M; zM++){
-	    	this._B.set(zM, this._M, this.G_M1_zM);
-	    }
-	    */
-	    this._B.set(this.G_M1_zM, this._M, this.G_M1_zM);
-	    //
-	    for(int j=this._M; j>=1; j--){
-	    	for(int zj_minus_1=0; zj_minus_1<=this._M; zj_minus_1++){
-	    		//
-	    		if(this._M == zj_minus_1){
-	    			this._B.set(zj_minus_1, j-1, this._B.get(zj_minus_1, j));
-	    		}else{
-	    			this._B.set(zj_minus_1, j-1, Math.max(this._B.get(zj_minus_1, j),
-		    				this._B.get(zj_minus_1+1, j)+this._V.get(0, j-1)-this._Y.get(0, j-1)));
-	    		}	    		
-	    	}	    	
-	    }	
-	    //
-	    if(debug){
-        	System.out.println("AB update:");
-        	System.out.println(_A.toString());
-        	System.out.println(_B.toString());
-        }
-	}
-	//
-	/*
-	private void updateAB(){
-		this._A = this._A.mul(1-getLambda()).plus(this._oldA.mul(getLambda()));
-		this._B = this._B.mul(1-getLambda()).plus(this._oldB.mul(getLambda()));
-	}
-	*/
-	
-	//// Gama ////
-	private void copyGama(){
-		this._oldGama = this._Gama.copy();
-		if(debug){
-        	System.out.println("old Gama:");
-        	System.out.println(_oldGama.toString());        	
-        }
-	}
-	//
-	private void computeGama(){
-		for(int paperJ=1; paperJ<=this._M; paperJ++){
-			//1st factor
-			double maxMinuend = Double.NEGATIVE_INFINITY;
-			//2nd factor
-			double  maxSubtrahend = Double.NEGATIVE_INFINITY; 
-			for(int z=0; z<=this._M; z++){
-				if(z > 0){
-					double minuendSum = this._A.get(z-1, paperJ-1)+this._B.get(z, paperJ);
-					if(minuendSum > maxMinuend){
-						maxMinuend = minuendSum;
-					}
-				}
-				//
-				double subtrahendSum = this._A.get(z, paperJ-1)+this._B.get(z, paperJ);
-				if(subtrahendSum > maxSubtrahend){
-					maxSubtrahend = subtrahendSum;
-				}				
-			}
-			//
-			this._Gama.set(0, paperJ-1, maxMinuend-maxSubtrahend);
-		}
-	}
-	//
-	private void updateGama(){
-		this._Gama = this._Gama.mul(1-getLambda()).plus(this._oldGama.mul(getLambda()));
-	}
-	
 	
 	
 	protected void computeExemplars() {
@@ -448,14 +438,14 @@ public class K_UFL {
         	System.out.println();
         }
         
-        DoubleMatrix2D EY;
-        EY = this._V.minus(this._Y).plus(this._Gama);
-        IY = EY.diag().findG(0);
+        DoubleMatrix1D EY;
+        EY = this._V.minus(this._Y).getRow(0);
+        IY = EY.findG(0);
         if(debug){
         	System.out.println("BiggerZero Facilities:");
         	System.out.println(IY.toString());
         }
-        IntegerMatrix1D equalIY = EY.diag().findG_WithEqual(0);
+        IntegerMatrix1D equalIY = EY.findG_WithEqual(0);
         if(debug){
         	System.out.println("EqualZero Facilities:");
         	System.out.println(equalIY.toString());
@@ -481,18 +471,6 @@ public class K_UFL {
 			//
 			this.copyV();
 			this.computeV();
-			this.updateV();
-			
-			//
-			//this.copyAB();
-			//this.computeAB();
-			this.updateAB();
-			
-			//
-			this.copyGama();
-			this.computeGama();
-			this.updateGama();
-			
 			//
 			computeExemplars();
 			
@@ -502,7 +480,10 @@ public class K_UFL {
 				break;
 			}
 		}
-		
+		//
+		this.copyV();
+		this.computeV();
+		//
 		computeBeliefs();
 	}
 	
@@ -586,24 +567,23 @@ public class K_UFL {
 		//ArrayList<InteractionData> costMatrix = APClustering.loadAPExample();
     	//
     	double lambda = 0.5;
-    	int iterationTimes = 3000;
+    	int iterationTimes = 100;
     	int noChangeIterSpan = 10;    	
     	//double preferences = getMedian(vList);
     	//positive value as a cost value
-    	double costPreferences = 15.561256;
-    	int preK = 3;
+    	double costPreferences = 15.561256;    	
     	ArrayList<Double> fList = new ArrayList<Double>();
     	for(int j=0; j<25; j++){
     		fList.add(0.0);
     	}
     	////
-    	K_UFL kUFL = new K_UFL(lambda, iterationTimes, noChangeIterSpan, costPreferences, preK, UFLMode.C_Same_F, costMatrix, fList);
+    	UFL kUFL = new UFL(lambda, iterationTimes, noChangeIterSpan, costPreferences, UFLMode.C_Same_F, costMatrix, fList);
     	//    	
     	kUFL.run();    	
     }
 	
 	//
 	public static void main(String []args){
-		K_UFL.testAPExample();
+		UFL.testAPExample();
 	}
 }
