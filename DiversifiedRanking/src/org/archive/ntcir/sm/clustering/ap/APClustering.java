@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.archive.dataset.DataSetDiretory;
-import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityGraphMode;
 import org.archive.ml.clustering.ap.abs.ClusterInteger;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
@@ -23,6 +22,7 @@ public class APClustering {
 	
 	private static final boolean debug = true;
 	
+	//Matrix oriented
 	private MatrixPropagationAlgorithm ap = new MatrixPropagationAlgorithm();
     //lambda for damping
     private double lambda;
@@ -243,7 +243,7 @@ public class APClustering {
     	ArrayList<InteractionData> interList = loadAPExample();
     	//run
     	double lambda = 0.5;
-    	int iterations = 100;
+    	int iterations = 5000;
     	int convits = 10;
     	//double preferences = getMedian(vList);
     	double preferences = -15.561256;

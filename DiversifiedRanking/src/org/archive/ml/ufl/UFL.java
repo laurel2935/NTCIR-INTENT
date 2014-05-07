@@ -9,47 +9,60 @@ import java.util.TreeMap;
 import java.util.Vector;
 
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
-import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
-import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityGraphMode;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
-import org.archive.util.format.StandardFormat;
 
-import com.sun.org.apache.bcel.internal.classfile.InnerClass;
+/**
+ * Uncapacitated Facility Location Problem
+ * C: customer && F: facility
+ * 
+ * **/
 
 public class UFL {
 	
 	private static final boolean debug = true;
-	
+	//C is the same as F or not
 	public enum UFLMode {C_Same_F, C_Differ_F}
 	
-	//basic parameters//
-	//private static final double INF = 1000000000.0;
+	
+    //set of node identifier, i.e., names
+    private Collection<String> _cNodeNames;
+    private Collection<String> _fNodeNames;    
+    //for recording inner id
+    private Integer _customerID = 0;
+    protected Map<String, Integer> _customerIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _customerIDRevMapper = new TreeMap<Integer, String>();
+    
+    private Integer _facilityID = 0;
+    protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
+    // for the case of C is the same as F    
+    private Integer _cfID = 0;
+    protected Map<String, Integer> _cfIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _cfIDRevMapper = new TreeMap<Integer, String>();
+    
+    protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
+       
+	///////////////////////
+	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
+	///////////////////////
+    
+    ////Basic Parameters with default values ////	
 	private double _lambda = 0.5;
 	private int _iterationTimes = 5000;
 	//thus, the size of iteration-span that without change of exemplar
-    protected Integer _noChangeIterSpan = null;
-    //given preference
+	protected Integer _noChangeIterSpan = null;    
+	private UFLMode _uflMode;
+	//given preference, used for C is the same as F
     private double preferenceCost;
     //as the cost matrix takes the negative value of similarity matrix, thus ...
     //private boolean _logDomain;
     private ArrayList<InteractionData> _costMatrix;
     //f_j, i.e., negative value of d-q relevance
     private ArrayList<Double> _fList;
-    
-    //set of node identifier, i.e., names
-    private Collection<String> _cNodeNames;
-    private Collection<String> _fNodeNames;
-    protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
-    
-    private UFLMode _uflMode;
-    
-	///////////////////////
-	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
-	///////////////////////
 	
 	//number of customers	0<=i<N
 	private int _N;
@@ -73,10 +86,9 @@ public class UFL {
 	private DoubleMatrix2D _Alpha;
 	private DoubleMatrix2D _oldAlpha;
 	
-	//exemplar vector, i.e., the size of I equals the number of exemplars,
-    //the value of each element is the exemplar index
-    //i.e., the index of the positive element of the diagonal of R+A 
+	//i.e., the index of positive elements in the binary matrix
     private IntegerMatrix1D IX = null;    
+    //i.e., the index of positive elements in the y vector
     private IntegerMatrix1D IY = null;
 	
     //the number of exemplar
@@ -154,17 +166,64 @@ public class UFL {
         }
     }	
     
-    private Integer _customerID = 0;
-    protected Map<String, Integer> _customerIDMapper = new TreeMap<String, Integer>();
-    protected Map<Integer, String> _customerIDRevMapper = new TreeMap<Integer, String>();
     
-    private Integer _facilityID = 0;
-    protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
-    protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
+    public void run(){
+		int itrTimes = getIterationTimes();
+		initConvergence();
+		
+		if(UFLMode.C_Same_F == _uflMode){
+			for(int itr=1; itr<=itrTimes; itr++){
+				//
+				this.copyEta();
+				this.computeEta();
+				this.updateEta();
+				
+				//
+				this.copyAlpha();
+				this.computeAlpha_CFSameCase();
+				this.updateAlpha();
+				
+				//
+				this.copyV();
+				this.computeV_CFSameCase();
+				//
+				computeExemplars();
+				//
+				calculateCovergence();
+				//
+				if(!checkConvergence()){
+					break;
+				}
+			}			
+		}else{
+			for(int itr=1; itr<=itrTimes; itr++){
+				//
+				this.copyEta();
+				this.computeEta();
+				this.updateEta();
+				
+				//
+				this.copyAlpha();
+				this.computeAlpha_CFDifferCase();
+				this.updateAlpha();
+				
+				//
+				this.copyV();
+				this.computeV_CFDifferCase();
+				//
+				computeExemplars();
+				//
+				calculateCovergence();
+				//
+				if(!checkConvergence()){
+					break;
+				}
+			}			
+		}		
+		//
+		computeBeliefs();
+	}
     
-    private Integer _cfID = 0;
-    protected Map<String, Integer> _cfIDMapper = new TreeMap<String, Integer>();
-    protected Map<Integer, String> _cfIDRevMapper = new TreeMap<Integer, String>();
     
     protected Integer getCustomerID(String cName) {
     	if(UFLMode.C_Differ_F == this._uflMode){
@@ -226,18 +285,19 @@ public class UFL {
     		return this._cfIDRevMapper.get(fID);
     	}
     }
-    public void setCost(final String from, final String to, final Double sim) {
+    //
+    public void setCost(final String from, final String to, final Double cost) {
 
         Integer cID = getCustomerID(from);
         Integer fID = getFacilityID(to);
         if (UFLMode.C_Differ_F == _uflMode) {
-        	_C.set(cID, fID, sim.doubleValue());
+        	_C.set(cID, fID, cost.doubleValue());
         } else {
-        	_C.set(cID, fID, sim.doubleValue());
-        	_C.set(fID, cID, sim.doubleValue());
+        	_C.set(cID, fID, cost.doubleValue());
+        	_C.set(fID, cID, cost.doubleValue());
         }
     }
-	
+	//
 	public void computeBeliefs(){
 		if(debug){
 			System.out.println("Computed beliefs:");
@@ -330,12 +390,12 @@ public class UFL {
         }
 	}
 	//
-	private void computeV_old(){
+	private void computeV_CFDifferCase(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
 		this._V = maxZero.sumEachColumn();		
 	}
-	private void computeV(){
+	private void computeV_CFSameCase(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
 		for(int j=0; j<this._M; j++){
@@ -348,7 +408,7 @@ public class UFL {
 					cSum.get(0, j)+this._Eta.get(j, j)-this._C.get(j, j));
 		}		
 	}
-	//
+	//not used as V is only used for computing beliefs
 	/*
 	private void updateV(){
 		this._V = this._V.mul(1-getLambda()).plus(this._oldV.mul(getLambda()));
@@ -363,7 +423,7 @@ public class UFL {
         	System.out.println(_oldAlpha.toString());
         }
 	}
-	private void computeAlpha_false(){
+	private void computeAlpha_CFDifferCase(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
 		DoubleMatrix2D columnSum = maxZero.sumEachColumn();		
@@ -379,7 +439,7 @@ public class UFL {
 		this._Alpha = rightMatrix.min(0);		
 	}
 	//
-	private void computeAlpha(){
+	private void computeAlpha_CFSameCase(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);		
 		for(int j=0; j<this._M; j++){
@@ -409,26 +469,26 @@ public class UFL {
 		this._Alpha = this._Alpha.mul(1-getLambda()).plus(this._oldAlpha.mul(getLambda()));
 	}
 	
-	
+	//
 	protected void computeExemplars() {
         DoubleMatrix2D EX;
         EX = this._Alpha.plus(this._Eta).minus(this._C);
         //the indexes of potential exemplars
         this.IX = EX.diag().findG(0);
         if(debug){
-        	System.out.println("Bigger Zero centers:");
+        	System.out.println("Iterating ... >0 exemplars[X]:");
         	System.out.println(IX.toString());
         }
         this.clustersNumber = this.IX.size();
         IntegerMatrix1D equalIX = EX.diag().findG_WithEqual(0);
         if(debug){
-        	System.out.println("BiggerAndEqual Zero centers:");
+        	System.out.println("Iterating ... >=0 exemplars[X]:");
         	System.out.println(equalIX.toString());
         }
         //
         DoubleMatrix2D maxAR = EX.maxr();
         if(debug){        	
-        	System.out.println("Maximum centers:");
+        	System.out.println("Iterating ... max exemplars[X]:");
         	for(int i=0; i<maxAR.getN(); i++){
         		//System.out.println(i+" -> "+(int)AR.get(i, 0));
         		if(i == (int)maxAR.get(i, 0)){
@@ -442,50 +502,16 @@ public class UFL {
         EY = this._V.minus(this._Y).getRow(0);
         IY = EY.findG(0);
         if(debug){
-        	System.out.println("BiggerZero Facilities:");
+        	System.out.println("Iterating ... >0 Facilities[Y]:");
         	System.out.println(IY.toString());
         }
         IntegerMatrix1D equalIY = EY.findG_WithEqual(0);
         if(debug){
-        	System.out.println("EqualZero Facilities:");
+        	System.out.println("Iterating ... >=0 Facilities[Y]:");
         	System.out.println(equalIY.toString());
         }
     }
 	
-	
-	public void run(){
-		int itrTimes = getIterationTimes();
-		initConvergence();
-		
-		for(int itr=1; itr<=itrTimes; itr++){
-			//
-			this.copyEta();
-			this.computeEta();
-			this.updateEta();
-			
-			//
-			this.copyAlpha();
-			this.computeAlpha();
-			this.updateAlpha();
-			
-			//
-			this.copyV();
-			this.computeV();
-			//
-			computeExemplars();
-			
-			calculateCovergence();
-			
-			if(!checkConvergence()){
-				break;
-			}
-		}
-		//
-		this.copyV();
-		this.computeV();
-		//
-		computeBeliefs();
-	}
 	
 	/**
      * initialize the indicator of convergence vectors
@@ -538,8 +564,6 @@ public class UFL {
     }
 	
 	
-	
-	
 	//
 	public double getLambda(){
 		return this._lambda;
@@ -567,8 +591,8 @@ public class UFL {
 		//ArrayList<InteractionData> costMatrix = APClustering.loadAPExample();
     	//
     	double lambda = 0.5;
-    	int iterationTimes = 100;
-    	int noChangeIterSpan = 10;    	
+    	int iterationTimes = 5000;
+    	int noChangeIterSpan = 50;    	
     	//double preferences = getMedian(vList);
     	//positive value as a cost value
     	double costPreferences = 15.561256;    	

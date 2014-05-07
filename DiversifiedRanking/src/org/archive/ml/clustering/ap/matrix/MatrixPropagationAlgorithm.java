@@ -203,6 +203,7 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
         rp = R.max(0);
         //set correct r(k,k) thus corresponds to r(k,k)+sum_max equation when sum()
         //however should not include r(i,k)
+        //??? having changed R_ii, but [ dA = A.diag();] is later used for set A_ii
         for (int i = 0; i < N; i++) {
             rp.set(i, i, R.get(i, i));
         }

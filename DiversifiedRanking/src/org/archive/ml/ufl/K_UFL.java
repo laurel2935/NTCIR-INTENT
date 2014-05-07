@@ -9,48 +9,58 @@ import java.util.TreeMap;
 import java.util.Vector;
 
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
-import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
-import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityGraphMode;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
-import org.archive.util.format.StandardFormat;
 
 public class K_UFL {
 	
 	private static final boolean debug = true;
-	
+	//C is the same as F or not
 	public enum UFLMode {C_Same_F, C_Differ_F}
 	
-	//basic parameters//
-	//private static final double INF = 1000000000.0;
+	//// Basic Parameters with default values ////	
 	private double _lambda = 0.5;
 	private int _iterationTimes = 5000;
 	//thus, the size of iteration-span that without change of exemplar
     protected Integer _noChangeIterSpan = null;
-    //given preference
-    private double preferenceCost;
+    //given preference for the case of C is the same as F
+    private double preferenceCost;    
+    private UFLMode _uflMode;
+    
+    //set of node identifier, i.e., names
+    private Collection<String> _cNodeNames;
+    private Collection<String> _fNodeNames;
+    //
+    private Integer _customerID = 0;
+    protected Map<String, Integer> _customerIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _customerIDRevMapper = new TreeMap<Integer, String>();
+    //
+    private Integer _facilityID = 0;
+    protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
+    //for the case of C is the same as F
+    private Integer _cfID = 0;
+    protected Map<String, Integer> _cfIDMapper = new TreeMap<String, Integer>();
+    protected Map<Integer, String> _cfIDRevMapper = new TreeMap<Integer, String>();
+    
+    protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
+    
+    
+    
+	///////////////////////
+	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
+	///////////////////////
+    //predefined k
+    Integer G_M1_zM;
+    
     //as the cost matrix takes the negative value of similarity matrix, thus ...
     //private boolean _logDomain;
     private ArrayList<InteractionData> _costMatrix;
     //f_j, i.e., negative value of d-q relevance
     private ArrayList<Double> _fList;
-    
-    //set of node identifier, i.e., names
-    private Collection<String> _cNodeNames;
-    private Collection<String> _fNodeNames;
-    protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
-    
-    private UFLMode _uflMode;
-	
-    //predefined k
-    Integer G_M1_zM;
-    
-	///////////////////////
-	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
-	///////////////////////
 	
 	//number of customers	0<=i<N
 	private int _N;
@@ -167,62 +177,180 @@ public class K_UFL {
         }
     }	
     
-    private Integer _customerID = 0;
-    protected Map<String, Integer> _customerIDMapper = new TreeMap<String, Integer>();
-    protected Map<Integer, String> _customerIDRevMapper = new TreeMap<Integer, String>();
-    
-    private Integer _facilityID = 0;
-    protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
-    protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
+    public void run(){
+		int itrTimes = getIterationTimes();
+		initConvergence();
+		
+		if(UFLMode.C_Same_F == _uflMode){
+			for(int itr=1; itr<=itrTimes; itr++){
+				//
+				this.copyEta();
+				this.computeEta();
+				this.updateEta();
+				
+				//
+				this.copyAlpha();
+				this.computeAlpha_CFSameCase();
+				this.updateAlpha();
+				
+				//
+				this.copyV();
+				this.computeV_CFSameCase();				
+				
+				//
+				//this.copyAB();
+				//this.computeAB();
+				this.updateAB();
+				
+				//
+				this.copyGama();
+				this.computeGama();
+				this.updateGama();
+				
+				//
+				computeExemplars();
+				
+				calculateCovergence();
+				
+				if(!checkConvergence()){
+					break;
+				}
+			}
+		}else{
+			for(int itr=1; itr<=itrTimes; itr++){
+				//
+				this.copyEta();
+				this.computeEta();
+				this.updateEta();
+				
+				//
+				this.copyAlpha();
+				this.computeAlpha_CFDiferCase();
+				this.updateAlpha();
+				
+				//
+				this.copyV();
+				this.computeV_CFDifferCase();				
+				
+				//
+				//this.copyAB();
+				//this.computeAB();
+				this.updateAB();
+				
+				//
+				this.copyGama();
+				this.computeGama();
+				this.updateGama();
+				
+				//
+				computeExemplars();
+				
+				calculateCovergence();
+				
+				if(!checkConvergence()){
+					break;
+				}
+			}
+		}
+		//
+		computeBeliefs();
+	}
     
     protected Integer getCustomerID(String cName) {
-        if (_customerIDMapper.containsKey(cName)) {
-            return _customerIDMapper.get(cName);
-        } else {
-            Integer id = _customerID;
-            _customerIDMapper.put(cName, id);
-            _customerIDRevMapper.put(id, cName);
-            _customerID++;
-            return id;
-        }
-    }
-    
-    protected Integer getFacilityID(String fName){
-    	if(_facilityIDMapper.containsKey(fName)){
-    		return _facilityIDMapper.get(fName);
+    	if(UFLMode.C_Differ_F == this._uflMode){
+    		if (_customerIDMapper.containsKey(cName)) {
+                return _customerIDMapper.get(cName);
+            } else {
+                Integer id = _customerID;
+                _customerIDMapper.put(cName, id);
+                _customerIDRevMapper.put(id, cName);
+                _customerID++;
+                return id;
+            }
     	}else{
-    		Integer id = _facilityID;
-    		_facilityIDMapper.put(fName, id);
-    		_facilityIDRevMapper.put(id, fName);
-    		_facilityID++;
-    		return id;
+    		if(_cfIDMapper.containsKey(cName)){
+    			return _cfIDMapper.get(cName);
+    		}else{
+    			Integer id = _cfID;
+    			_cfIDMapper.put(cName, id);
+    			_cfIDRevMapper.put(id, cName);
+    			_cfID++;
+    			return id;
+    		}
+    	}        
+    }
+    protected String getCustomerName(Integer cID){
+    	if(UFLMode.C_Differ_F == this._uflMode){    		
+    		return this._customerIDRevMapper.get(cID);
+    	}else{
+    		return this._cfIDRevMapper.get(cID);
     	}
     }
-    
-    public void setCost(final String from, final String to, final Double sim) {
+    protected Integer getFacilityID(String fName){
+    	if(UFLMode.C_Differ_F == _uflMode){
+    		if(_facilityIDMapper.containsKey(fName)){
+        		return _facilityIDMapper.get(fName);
+        	}else{
+        		Integer id = _facilityID;
+        		_facilityIDMapper.put(fName, id);
+        		_facilityIDRevMapper.put(id, fName);
+        		_facilityID++;
+        		return id;
+        	}
+    	}else{
+    		if(_cfIDMapper.containsKey(fName)){
+    			return _cfIDMapper.get(fName);
+    		}else{
+    			Integer id = _cfID;
+    			_cfIDMapper.put(fName, id);
+    			_cfIDRevMapper.put(id, fName);
+    			_cfID++;
+    			return id;
+    		}
+    	}    	
+    }
+    protected String getFacilityName(Integer fID){
+    	if(UFLMode.C_Differ_F == this._uflMode){
+    		return this._facilityIDRevMapper.get(fID);
+    	}else{
+    		return this._cfIDRevMapper.get(fID);
+    	}
+    }
+    //
+    public void setCost(final String from, final String to, final Double cost) {
 
         Integer cID = getCustomerID(from);
         Integer fID = getFacilityID(to);
         if (UFLMode.C_Differ_F == _uflMode) {
-        	_C.set(cID, fID, sim.doubleValue());
+        	_C.set(cID, fID, cost.doubleValue());
         } else {
-        	_C.set(cID, fID, sim.doubleValue());
-        	_C.set(fID, cID, sim.doubleValue());
+        	_C.set(cID, fID, cost.doubleValue());
+        	_C.set(fID, cID, cost.doubleValue());
         }
     }
 	
-	public void computeBeliefs(){
+    public void computeBeliefs(){
 		DoubleMatrix2D EX;
         EX = this._Alpha.plus(this._Eta).minus(this._C);
         //the indexes of potential exemplars
-        IX = EX.diag().findG(0);        
+        IX = EX.diag().findG(0); 
+        if(debug){
+        	System.out.println("Final ... >0 Selected Exemplars:");
+        	for(Integer cID: IX.getVector()){
+        		System.out.print(cID+"("+getCustomerName(cID)+")"+"\t");
+        	}        	
+        	System.out.println();
+        }
         //
         DoubleMatrix2D EY;
         EY = this._V.minus(this._Y).plus(this._Gama);
-        IY = EY.diag().findG(0);
+        IY = EY.getRow(0).findG(0);
         if(debug){
-        	System.out.println("Selected Facilities:");
-        	System.out.println(IY.toString());
+        	System.out.println("Final ... >0  Facilities:");
+        	for(int fID: IY.getVector()){
+        		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
+        	}
+        	System.out.println();
         }
 	}
 	
@@ -239,7 +367,7 @@ public class K_UFL {
         	System.out.println(_oldEta.toString());
         }
 	}
-	/*-max_{k uneq j}[alpha_{ik} - c_{ik}]*/
+	//
 	private void computeEta(){
 		//alpha-c
 		DoubleMatrix2D Alpha_minus_C;
@@ -281,15 +409,30 @@ public class K_UFL {
         }
 	}
 	//
-	private void computeV(){
+	private void computeV_CFDifferCase(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
 		this._V = maxZero.sumEachColumn();		
 	}
-	//
+	private void computeV_CFSameCase(){
+		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
+		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
+		for(int j=0; j<this._M; j++){
+			maxZero.set(j, j, 0.0);
+		}
+		DoubleMatrix2D cSum = maxZero.sumEachColumn();
+		this._V = new DoubleMatrix2D(1, this._M, 0.0);
+		for(int j=0; j<this._M; j++){
+			this._V.set(0, j, 
+					cSum.get(0, j)+this._Eta.get(j, j)-this._C.get(j, j));
+		}	
+	}
+	// not used as V is only used for computing beliefs
+	/*
 	private void updateV(){
 		this._V = this._V.mul(1-getLambda()).plus(this._oldV.mul(getLambda()));
 	}
+	*/
 	
 	//// Alpha ////
 	private void copyAlpha(){
@@ -299,7 +442,7 @@ public class K_UFL {
         	System.out.println(_oldAlpha.toString());
         }
 	}
-	private void computeAlpha(){
+	private void computeAlpha_CFDiferCase(){
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
 		DoubleMatrix2D maxZero = Eta_minus_C.max(0);
 		DoubleMatrix2D columnSum = maxZero.sumEachColumn();
@@ -316,6 +459,31 @@ public class K_UFL {
 		DoubleMatrix2D target = transposedTarget.transpose();
 		DoubleMatrix2D rightMatrix = target.minus(maxZero);
 		this._Alpha = rightMatrix.min(0);		
+	}
+	private void computeAlpha_CFSameCase(){
+		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);
+		DoubleMatrix2D maxZero = Eta_minus_C.max(0);		
+		for(int j=0; j<this._M; j++){
+			maxZero.set(j, j, 0.0);
+		}
+		DoubleMatrix2D maxZeroNoJJ = maxZero.sumEachColumn();
+		//for i=j
+		DoubleMatrix2D IisJ = maxZeroNoJJ.minus(this._Y).plus(this._Gama);
+		//--for i<>j		
+		double [] row = new double [this._M];
+		DoubleMatrix1D etaJJ = this._Eta.diag();
+		DoubleMatrix1D cJJ = this._C.diag();
+		for(int j=0; j<this._M; j++){
+			row[j] = maxZeroNoJJ.get(0, j)+etaJJ.get(j)-cJJ.get(j)-this._Y.get(0, j)+this._Gama.get(0, j);
+		}		
+		DoubleMatrix2D reversedM = new DoubleMatrix2D(this._N, row);
+		DoubleMatrix2D rightM = reversedM.transpose();		
+		DoubleMatrix2D rep = rightM.minus(maxZero);
+		this._Alpha = rep.min(0);
+		//
+		for(int i=0; i<this._N; i++){
+			this._Alpha.set(i, i, IisJ.get(0, i));
+		}				
 	}
 	//
 	private void updateAlpha(){
@@ -417,28 +585,26 @@ public class K_UFL {
 	private void updateGama(){
 		this._Gama = this._Gama.mul(1-getLambda()).plus(this._oldGama.mul(getLambda()));
 	}
-	
-	
-	
+		
 	protected void computeExemplars() {
-        DoubleMatrix2D EX;
+		DoubleMatrix2D EX;
         EX = this._Alpha.plus(this._Eta).minus(this._C);
         //the indexes of potential exemplars
         this.IX = EX.diag().findG(0);
         if(debug){
-        	System.out.println("Bigger Zero centers:");
+        	System.out.println("Iterating ... >0 exemplars[X]:");
         	System.out.println(IX.toString());
         }
         this.clustersNumber = this.IX.size();
         IntegerMatrix1D equalIX = EX.diag().findG_WithEqual(0);
         if(debug){
-        	System.out.println("BiggerAndEqual Zero centers:");
+        	System.out.println("Iterating ... >=0 exemplars[X]:");
         	System.out.println(equalIX.toString());
         }
         //
         DoubleMatrix2D maxAR = EX.maxr();
         if(debug){        	
-        	System.out.println("Maximum centers:");
+        	System.out.println("Iterating ... max exemplars[X]:");
         	for(int i=0; i<maxAR.getN(); i++){
         		//System.out.println(i+" -> "+(int)AR.get(i, 0));
         		if(i == (int)maxAR.get(i, 0)){
@@ -448,63 +614,20 @@ public class K_UFL {
         	System.out.println();
         }
         
-        DoubleMatrix2D EY;
-        EY = this._V.minus(this._Y).plus(this._Gama);
-        IY = EY.diag().findG(0);
+        DoubleMatrix1D EY;
+        EY = this._V.minus(this._Y).plus(this._Gama).getRow(0);
+        IY = EY.findG(0);
         if(debug){
-        	System.out.println("BiggerZero Facilities:");
+        	System.out.println("Iterating ... >0 Facilities[Y]:");
         	System.out.println(IY.toString());
         }
-        IntegerMatrix1D equalIY = EY.diag().findG_WithEqual(0);
+        IntegerMatrix1D equalIY = EY.findG_WithEqual(0);
         if(debug){
-        	System.out.println("EqualZero Facilities:");
+        	System.out.println("Iterating ... >= 0 Facilities[Y]:");
         	System.out.println(equalIY.toString());
         }
     }
 	
-	
-	public void run(){
-		int itrTimes = getIterationTimes();
-		initConvergence();
-		
-		for(int itr=1; itr<=itrTimes; itr++){
-			//
-			this.copyEta();
-			this.computeEta();
-			this.updateEta();
-			
-			//
-			this.copyAlpha();
-			this.computeAlpha();
-			this.updateAlpha();
-			
-			//
-			this.copyV();
-			this.computeV();
-			this.updateV();
-			
-			//
-			//this.copyAB();
-			//this.computeAB();
-			this.updateAB();
-			
-			//
-			this.copyGama();
-			this.computeGama();
-			this.updateGama();
-			
-			//
-			computeExemplars();
-			
-			calculateCovergence();
-			
-			if(!checkConvergence()){
-				break;
-			}
-		}
-		
-		computeBeliefs();
-	}
 	
 	/**
      * initialize the indicator of convergence vectors
@@ -557,8 +680,6 @@ public class K_UFL {
     }
 	
 	
-	
-	
 	//
 	public double getLambda(){
 		return this._lambda;
@@ -586,12 +707,12 @@ public class K_UFL {
 		//ArrayList<InteractionData> costMatrix = APClustering.loadAPExample();
     	//
     	double lambda = 0.5;
-    	int iterationTimes = 3000;
-    	int noChangeIterSpan = 10;    	
+    	int iterationTimes = 5000;
+    	int noChangeIterSpan = 20;    	
     	//double preferences = getMedian(vList);
     	//positive value as a cost value
     	double costPreferences = 15.561256;
-    	int preK = 3;
+    	int preK = 10;
     	ArrayList<Double> fList = new ArrayList<Double>();
     	for(int j=0; j<25; j++){
     		fList.add(0.0);
