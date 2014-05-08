@@ -81,7 +81,7 @@ public class CFL {
 	private DoubleMatrix2D _Eta;
 	private DoubleMatrix2D _oldEta;
 	
-	//(M+1)¡ÁM
+	//(N+1)¡ÁM
 	private DoubleMatrix2D _V;
 	private DoubleMatrix2D _oldV;
 	
@@ -153,7 +153,8 @@ public class CFL {
         //
         this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
-        this._V = new DoubleMatrix2D(this._M+1, this._M, 0);        
+        //£¿
+        this._V = new DoubleMatrix2D(this._N+1, this._M, 0);        
         
         if(debug){
         	System.out.println("Cost matrix:");
@@ -309,32 +310,30 @@ public class CFL {
         	System.out.println();
         }
         //
-        /*
-        DoubleMatrix1D EY;
-        EY = this._V.minus(this._Y).getRow(0);
-        IY = EY.findG(0);
-        if(debug){
-        	System.out.println("Selected Facilities:");
-        	for(int fID: IY.getVector()){
-        		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
-        	}
-        	System.out.println();
-        }
-        
-        if(debug){
-        	System.out.println("Eta+Ro----------------!");
-        	DoubleMatrix2D AR = this._Eta.minus(this._C).plus(this._Alpha);
-        	DoubleMatrix2D maxAR = AR.maxr();
-        	System.out.println("Maximum exemplars:");
-        	for(int i=0; i<maxAR.getN(); i++){
-        		//System.out.println(i+" -> "+(int)AR.get(i, 0));
-        		if(i == (int)maxAR.get(i, 0)){
-        			System.out.print(i+"("+getCustomerName(i)+")"+"\t");
+        //uj   
+        ArrayList<Integer> ujList = new ArrayList<Integer>();
+        ArrayList<Integer> idList = new ArrayList<Integer>();
+        for(int j=0; j<this._M; j++){
+        	int uj = 0; double maxV = this._V.get(0, j);
+        	for(int state=1; state<=this._N; state++){
+        		double v = Fj(state)+this._V.get(state, j);
+        		if(v > maxV){
+        			uj = state;
+        			maxV = v;
         		}
         	}
-        	System.out.println();
+        	//
+        	ujList.add(uj);
+        	//
+        	if(uj > 0){
+        		idList.add(j);
+        	}
         }
-        */
+        if(debug){        	
+        	System.out.println("Selected Facilities[Uj]:");        	
+        	System.out.println(ujList);
+        	System.out.println(idList);
+        }        
 	}
 	
 	public IntegerMatrix1D getSelectedDocs(){
@@ -394,8 +393,10 @@ public class CFL {
 			ArrayList<DoubleInt> diList = Mat.getDoubleIntList(jColumn);
 			Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());
 			ArrayList<Double> cumSum = Mat.cumsumDI(diList);
+			//state 0
 			this._V.set(0, j, 0.0);
-			for(int vjState = 1; vjState<=this._M; vjState++){
+			//state {1,...,N}
+			for(int vjState = 1; vjState<=this._N; vjState++){
 				this._V.set(vjState, j, cumSum.get(vjState-1));
 			}
 		}			
@@ -404,15 +405,17 @@ public class CFL {
 		DoubleMatrix2D Eta_minus_C = this._Eta.minus(this._C);	
 		for(int j=0; j<this._M; j++){
 			Vector<Double> jColumn = Eta_minus_C.getColumn(j).getVector();
+			Double jj = jColumn.get(j);
 			jColumn.remove(j);
 			ArrayList<DoubleInt> diList = Mat.getDoubleIntList(jColumn);
 			Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());
+			diList.add(0, new DoubleInt(jj, 0));
 			ArrayList<Double> cumSum = Mat.cumsumDI(diList);
-			this._V.set(0, j, 0.0);
-			double rowJJ = this._Eta.get(j, j)-this._C.get(j, j);
-			this._V.set(1,j, rowJJ);
-			for(int vjState = 2; vjState<=this._M; vjState++){
-				this._V.set(vjState, j, rowJJ+cumSum.get(vjState-2));
+			//state 0
+			this._V.set(0, j, 0.0);		
+			//state {1,...,N}
+			for(int vjState = 1; vjState<=this._N; vjState++){
+				this._V.set(vjState, j, cumSum.get(vjState-1));
 			}
 		}
 	}
@@ -442,28 +445,21 @@ public class CFL {
 				jcol.remove(i);
 				//
 				ArrayList<DoubleInt> diList = Mat.getDoubleIntList(jcol);
-				Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());
-				//ArrayList<Integer> indexList = Mat.getIntList(diList);
-				ArrayList<Double> S = Mat.cumsumDI(diList);
-				//--
-				//ArrayList<Double> pointList = Mat.getPointList(indexList, i);
-				//ArrayList<Double> cumPointList = Mat.cumsumD(pointList);
-				//double minusIJ = this._Eta.get(i, j)-this._C.get(i, j);
-				//ArrayList<Double> tobeMinused = Mat.mul(cumPointList, minusIJ);
-				//ArrayList<Double> S = Mat.minus(Vj, tobeMinused);
+				Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());				
+				ArrayList<Double> delS = Mat.cumsumDI(diList);
 				//
 				int m1 = 0;				
 				double maxV1 = Fj(1);
-				for(int m=1; m<=S.size(); m++){
-					double v1 = S.get(m-1)+Fj(1+m);
+				for(int m=1; m<=delS.size(); m++){
+					double v1 = delS.get(m-1)+Fj(1+m);
 					if(v1 > maxV1){
 						maxV1 = v1;
 					}
 				}
 				int m0 =0;
 				double maxV2 = 0.0;
-				for(int m=1; m<=S.size(); m++){
-					double v2 = S.get(m-1)+Fj(m);
+				for(int m=1; m<=delS.size(); m++){
+					double v2 = delS.get(m-1)+Fj(m);
 					if(v2 > maxV2){
 						maxV2 = v2;						
 					}
@@ -485,8 +481,7 @@ public class CFL {
 					jcol.remove(i);
 					//
 					ArrayList<DoubleInt> diList = Mat.getDoubleIntList(jcol);
-					Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());
-					//ArrayList<Integer> indexList = Mat.getIntList(diList);
+					Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());					
 					ArrayList<Double> S = Mat.cumsumDI(diList);
 					//corresponding to m=0
 					double maxV = Fj(1);
@@ -496,7 +491,7 @@ public class CFL {
 							maxV = v;
 						}
 					}
-					this._Alpha.set(i, j, maxV);	
+					this._Alpha.set(i, j, maxV);
 					
 				}else{
 					Vector<Double> jcol = new Vector<Double>();
@@ -510,29 +505,30 @@ public class CFL {
 					}
 					//
 					ArrayList<DoubleInt> diList = Mat.getDoubleIntList(jcol);
-					Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());
-					//ArrayList<Integer> indexList = Mat.getIntList(diList);
-					ArrayList<Double> S = Mat.cumsumDI(diList);
+					Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());					
+					ArrayList<Double> delS = Mat.cumsumDI(diList);
 					//
-					double maxV1 = Fj(2)+this._Eta.get(j, j)-this._C.get(j, j);
-					for(int m=1; m<=S.size(); m++){
-						double v1 = Fj(m+2)+S.get(m-1);
+					double jj = this._Eta.get(j, j)-this._C.get(j, j);
+					double maxV1 = Fj(2);
+					for(int m=1; m<=delS.size(); m++){
+						double v1 = Fj(m+2)+delS.get(m-1);
 						if(v1 > maxV1){
 							maxV1 = v1;
 						}
 					}
+					maxV1 += jj;
 					//
 					double maxV2 = Fj(2);
-					for(int m=1; m<=S.size(); m++){
-						double v2 = Fj(m+2)+S.get(m-1);
+					for(int m=1; m<=delS.size(); m++){
+						double v2 = Fj(m+2)+delS.get(m-1);
 						if(v2 > maxV2){
 							maxV2 = v2;
 						}
 					}
 					//
 					double maxV3 = Fj(1);
-					for(int m=1; m<=S.size(); m++){
-						double v3 = Fj(1+m)+S.get(m-1);
+					for(int m=1; m<=delS.size(); m++){
+						double v3 = Fj(1+m)+delS.get(m-1);
 						if(v3 > maxV3){
 							maxV3 = v3;
 						}
@@ -549,8 +545,16 @@ public class CFL {
 	}
 	
 	//F_j(u_j) function, i.e., capacitatedCost
+	//it must return a negative value
 	private double Fj(int cNumber){
-		return 1.0;
+		if(0 == cNumber){
+			return 0;
+		}else if(cNumber > 0){
+			return -1.0;
+		}else{
+			new Exception("cNumber error!").printStackTrace();
+			return Double.NEGATIVE_INFINITY;
+		}		
 	}
 	//
 	protected void computeExemplars() {
@@ -580,20 +584,23 @@ public class CFL {
         	}
         	System.out.println();
         }
-        /*
-        DoubleMatrix1D EY;
-        EY = this._V.minus(this._Y).getRow(0);
-        IY = EY.findG(0);
-        if(debug){
-        	System.out.println("Iterating ... >0 Facilities[Y]:");
-        	System.out.println(IY.toString());
+        //uj   
+        ArrayList<Integer> ujList = new ArrayList<Integer>();
+        for(int j=0; j<this._M; j++){
+        	int uj = 0; double maxV = this._V.get(0, j);
+        	for(int state=1; state<=this._N; state++){
+        		double v = Fj(state)+this._V.get(state, j);
+        		if(v > maxV){
+        			uj = state;
+        			maxV = v;
+        		}
+        	}
+        	ujList.add(uj);
         }
-        IntegerMatrix1D equalIY = EY.findG_WithEqual(0);
-        if(debug){
-        	System.out.println("Iterating ... >=0 Facilities[Y]:");
-        	System.out.println(equalIY.toString());
+        if(debug){        	
+        	System.out.println("Iterating ... max facilities[Uj]:");        	
+        	System.out.println(ujList);
         }
-        */
     }
 	
 	
@@ -675,8 +682,8 @@ public class CFL {
 		//ArrayList<InteractionData> costMatrix = APClustering.loadAPExample();
     	//
     	double lambda = 0.5;
-    	int iterationTimes = 50;
-    	int noChangeIterSpan = 5;    	
+    	int iterationTimes = 5000;
+    	int noChangeIterSpan = 10;    	
     	//double preferences = getMedian(vList);
     	//positive value as a cost value
     	double costPreferences = 15.561256;    	
