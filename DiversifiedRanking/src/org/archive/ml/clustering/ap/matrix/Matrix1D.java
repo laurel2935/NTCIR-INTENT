@@ -33,6 +33,7 @@
 
 package org.archive.ml.clustering.ap.matrix;
 
+import java.util.ArrayList;
 import java.util.Vector;
 
 public abstract class Matrix1D<T> implements Matrix1DInterface<T> {
@@ -42,6 +43,13 @@ public abstract class Matrix1D<T> implements Matrix1DInterface<T> {
 
     public Vector<T> getVector() {
         Vector<T> res = new Vector<T>(N);
+        for (int i = 0; i < N; i++) {
+            res.add(i, vector[i]);
+        }
+        return res;
+    }
+    public ArrayList<T> getList() {
+        ArrayList<T> res = new ArrayList<T>(N);
         for (int i = 0; i < N; i++) {
             res.add(i, vector[i]);
         }

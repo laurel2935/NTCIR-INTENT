@@ -84,8 +84,36 @@ public class Mat {
 		}
 		return res;		
 	}
-	
-	
+	/**
+	 * @return A list with the same value of the given size
+	 * **/
+	public static ArrayList<Double> getUniformList(Double v, int size){
+		ArrayList<Double> res = new ArrayList<Double>();
+		for(int i=0; i<size; i++){
+			res.add(v);
+		}
+		return res;
+	}
+	//
+	public static ArrayList<Double> pointwiseMul(ArrayList<Double> aList, ArrayList<Double> bList){
+		ArrayList<Double> res = new ArrayList<Double>();
+		if(aList.size() != bList.size()){
+			new Exception("Un-matched error!").printStackTrace();
+			return null;
+		}
+		for(int i=0; i<aList.size(); i++){
+			res.add(aList.get(i)*bList.get(i));
+		}
+		return res;	
+	}
+	//
+	public static double sum(ArrayList<Double> dList){
+		double sum = 0.0;
+		for(Double d: dList){
+			sum += d.doubleValue();
+		}
+		return sum;
+	}
 	
 	//
 	public static void main(String []args){
