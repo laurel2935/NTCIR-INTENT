@@ -16,6 +16,8 @@ import org.archive.util.tuple.IntStrInt;
 import org.archive.util.tuple.StrInt;
 
 public class IOText {
+	//e.g., line number as the id
+	public static final int STARTID = 1;
 	
 	/**Ä¬ÈÏ±àÂë*/
 	private static final String DEFAULT_ENCODING = "UTF-8";
@@ -100,20 +102,20 @@ public class IOText {
 	 * File format per line: one-column format, and the line count is regarded as the id
 	 * String[usually the text], e.g., userid
 	 */
-	public static HashMap<String, StrInt> loadStrInts_LineFormat_Str(String targetFile, String encoding){
-		HashMap<String, StrInt> elementHashMap = new HashMap<String, StrInt>();
+	public static ArrayList<StrInt> loadStrInts_LineFormat_Str(String targetFile, String encoding){
+		ArrayList<StrInt> uniqueElementList = new ArrayList<StrInt>();
 		try {
 			BufferedReader reader = getBufferedReader(targetFile, encoding);
 			String line;	
-			int lineCount = 1;
+			int lineID = STARTID;
 			while(null != (line=reader.readLine())){
 				if(line.length() > 0){	
-					elementHashMap.put(line, new StrInt(line, lineCount));					
-					lineCount++;
+					uniqueElementList.add(new StrInt(line, lineID));					
+					lineID++;
 				}				
 			}
 			reader.close();
-			return elementHashMap;			
+			return uniqueElementList;			
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();
@@ -125,28 +127,28 @@ public class IOText {
 	 * For unique files, i.e., line format: integer \t string
 	 * while the line number that starts from 1 is regarded as the id  
 	 * **/
-	public static HashMap<String, IntStrInt> loadUniqueElements_LineFormat_IntTabStr(
+	public static ArrayList<IntStrInt> loadUniqueElements_LineFormat_IntTabStr(
 			String targetFile, String encoding){
 		//
-		HashMap<String, IntStrInt> elementHashMap = new HashMap<String, IntStrInt>();		
+		ArrayList<IntStrInt> uniqueElementList = new ArrayList<IntStrInt>();		
 		try {
 			BufferedReader reader = getBufferedReader(targetFile, encoding);
 			String line;
 			//String [] array;
-			int lineCount = 1;
+			int lineID = STARTID;
 			while(null != (line=reader.readLine())){
 				if(line.length() > 0){					
 					int tabIndex = line.indexOf("\t");
-					String intString = line.substring(0, tabIndex);
+					String freString = line.substring(0, tabIndex);
 					String elementString = line.substring(tabIndex+1);
 					//id, text, frequency
-					IntStrInt intStrInt = new IntStrInt(lineCount, elementString, Integer.parseInt(intString));
-					elementHashMap.put(elementString, intStrInt);					
-					lineCount++;					
+					IntStrInt intStrInt = new IntStrInt(lineID, elementString, Integer.parseInt(freString));
+					uniqueElementList.add(intStrInt);					
+					lineID++;					
 				}				
 			}
 			reader.close();
-			return elementHashMap;			
+			return uniqueElementList;			
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();

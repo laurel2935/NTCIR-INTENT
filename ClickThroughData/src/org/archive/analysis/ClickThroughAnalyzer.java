@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
@@ -11,6 +13,7 @@ import java.util.Iterator;
 import java.util.Vector;
 import java.util.Map.Entry;
 
+import org.apache.lucene.analysis.tokenattributes.FlagsAttributeImpl;
 import org.apache.lucene.util.Version;
 import org.archive.clickgraph.LogEdge;
 import org.archive.clickgraph.LogNode;
@@ -21,9 +24,11 @@ import org.archive.comon.ClickThroughDataVersion.ElementType;
 import org.archive.comon.ClickThroughDataVersion.LogVersion;
 import org.archive.comon.DataDirectory;
 import org.archive.nlp.tokenizer.Tokenizer;
+import org.archive.structure.ClickTime;
 import org.archive.structure.Record;
 import org.archive.structure.AOLRecord;
 import org.archive.structure.SogouQRecord2008;
+import org.archive.structure.SogouQRecord2012;
 import org.archive.util.Language.Lang;
 import org.archive.util.format.StandardFormat;
 import org.archive.util.io.IOText;
@@ -32,18 +37,34 @@ import org.archive.util.tuple.StrInt;
 import org.archive.util.tuple.StrStrEdge;
 import org.archive.util.tuple.StrStrInt;
 
+import com.sun.xml.internal.ws.policy.privateutil.PolicyUtils.Collections;
+
 import edu.uci.ics.jung.graph.Graph;
 import edu.uci.ics.jung.graph.UndirectedSparseGraph;
 import edu.uci.ics.jung.graph.util.Pair;
 
 
 public class ClickThroughAnalyzer {
-	private static String TabSeparator = "\t";
+	private static boolean DEBUG = true;
+	//
+	public static final int STARTID = 1;
+	public static final String TabSeparator = "\t";
+	//for session segmentation, i.e., 30 minutes
+	private static final int SessionSegmentationThreshold = 30;
 	//unique files: AOL, SogouQ2008, SogouQ2012
-	private static HashMap<String, IntStrInt> UniqueQTextMap = null;
-	private static HashMap<String, StrInt> UniqueUserIDMap = null;
-	private static HashMap<String, IntStrInt> UniqueClickUrlMap = null;
-	private static HashMap<String, IntStrInt> UniqueWordMap = null;
+	//for id access, and id starts from "1"
+	private static Hashtable<String, Integer> UniqueQTextTable = null;
+	private static Hashtable<String, Integer> UniqueUserIDTable = null;
+	private static Hashtable<String, Integer> UniqueClickUrlTable = null;
+	private static Hashtable<String, Integer> UniqueWordTable = null;
+	//for accessing multiple fields	
+	private static ArrayList<IntStrInt> UniqueQTextList = null;
+	private static ArrayList<StrInt> UniqueUserIDList = null;
+	private static ArrayList<IntStrInt> UniqueClickUrlList = null;
+	private static ArrayList<IntStrInt> UniqueWordList = null;
+	
+	
+	
 	
 	//
 	//query-document bipartite graph, records click information between clicked documents and queries
@@ -69,14 +90,20 @@ public class ClickThroughAnalyzer {
 	 * recordMap of one unit file
 	 * **/
 	private static HashMap<String, Vector<Record>> getRecordMapPerUnit(int unitSerial, LogVersion version){
+		//
 		//target file
 		String unit = StandardFormat.serialFormat(unitSerial, "00");
-		String dir = DataDirectory.RawDataRoot+DataDirectory.RawData[version.ordinal()];
+		String dir = null;
 		String unitFile = null;
-		if(LogVersion.AOL == version){
-			unitFile = dir + "user-ct-test-collection-"+unit+".txt";	
+		if(LogVersion.AOL == version){			
+			dir = DataDirectory.SessionSegmentationRoot+version.toString()+"/";			
+			unitFile = dir + version.toString()+"_Sessioned_"+SessionSegmentationThreshold+"_"+unit+".txt";	
 		}else if(LogVersion.SogouQ2008 == version){
-			unitFile = dir + "access_log.200608"+unit+".decode.filter";
+			dir = DataDirectory.RawDataRoot+DataDirectory.RawData[version.ordinal()];
+			unitFile = dir + "SogouQ2008_Ordered_UTF8_"+unit+".txt";
+		}else if(LogVersion.SogouQ2012 == version){
+			dir = DataDirectory.SessionSegmentationRoot+version.toString()+"/";	
+			unitFile = dir + version.toString()+"_Sessioned_"+SessionSegmentationThreshold+"_"+unit+".txt";
 		}		
 		//recordMap of one unit file
 		HashMap<String, Vector<Record>> unitRecordMap = new HashMap<String, Vector<Record>>();
@@ -85,22 +112,20 @@ public class ClickThroughAnalyzer {
     		File file = new File(unitFile);
 			if(file.exists()){	
 				System.out.println("loading...\t"+unitFile);
-				BufferedReader reader = IOText.getBufferedReader(unitFile, "GBK");
+				BufferedReader reader = IOText.getBufferedReader_UTF8(unitFile);
 				//
 				String recordLine = null;
 				//int count = 0;
-				Record record = null;
-				//overlook the first line, which is attribute names
-				if(LogVersion.AOL == version){
-					reader.readLine();
-				}
+				Record record = null;				
 				while(null!=(recordLine=reader.readLine())){
 					//System.out.println(count++);					
 					try{							
 						if(LogVersion.AOL == version){
-							record = new AOLRecord(unit, recordLine);	
+							record = new AOLRecord(recordLine, true);	
 						}else if(LogVersion.SogouQ2008 == version){
-							record = new SogouQRecord2008(unit, recordLine);
+							record = new SogouQRecord2008(recordLine);
+						}else if(LogVersion.SogouQ2012 == version){
+							record = new SogouQRecord2012(recordLine, true);
 						}
 					}catch(Exception ee){
 						System.out.println("invalid record-line exist in "+unit);
@@ -154,9 +179,11 @@ public class ClickThroughAnalyzer {
 			urlDirFile.mkdirs();
 		}		
 		//
-		String qFile = qDir+version.toString()+"_UniqueQuery_"+StandardFormat.serialFormat(unitSerial, "00")+".txt";		
-		String userIDFile = userIDDir+version.toString()+"_UniqueUserID_"+StandardFormat.serialFormat(unitSerial, "00")+".txt";		
-		String urlFile = urlDir+version.toString()+"_UniqueUrl_"+StandardFormat.serialFormat(unitSerial, "00")+".txt";
+		String qFile = null, userIDFile = null, urlFile = null;
+		qFile = qDir+version.toString()+"_UniqueQuery_"+StandardFormat.serialFormat(unitSerial, "00")+".txt";		
+		userIDFile = userIDDir+version.toString()+"_UniqueUserID_"+StandardFormat.serialFormat(unitSerial, "00")+".txt";		
+		urlFile = urlDir+version.toString()+"_UniqueUrl_"+StandardFormat.serialFormat(unitSerial, "00")+".txt";
+		//
 		//
 		try{
 			BufferedWriter queryWriter = IOText.getBufferedWriter_UTF8(qFile);
@@ -208,14 +235,16 @@ public class ClickThroughAnalyzer {
 			userIDWriter.close();
 			//for query			
 			for(StrInt queryInstance: queryTable.values()){
-				queryWriter.write(queryInstance.second+TabSeparator+queryInstance.first);
+				queryWriter.write(queryInstance.second+TabSeparator
+						+queryInstance.first);
 				queryWriter.newLine();
 			}			
 			queryWriter.flush();
 			queryWriter.close();
 			//for clicked url
 			for(StrInt urlInstance: urlTable.values()){
-				urlWriter.write(urlInstance.second+TabSeparator+urlInstance.first);
+				urlWriter.write(urlInstance.second+TabSeparator
+						+urlInstance.first);
 				urlWriter.newLine();
 			}
 			urlWriter.flush();
@@ -236,6 +265,10 @@ public class ClickThroughAnalyzer {
 			for(int i=1; i<=31; i++){
 				getUniqueElementsPerUnit(i, LogVersion.SogouQ2008);
 			}
+		}else if(LogVersion.SogouQ2012 == version){
+			for(int i=1; i<=10; i++){
+				getUniqueElementsPerUnit(i, LogVersion.SogouQ2012);
+			}			
 		}		
 	}
 	//
@@ -272,7 +305,8 @@ public class ClickThroughAnalyzer {
 		return elementVector;
 	}
 	//
-	private static Vector<StrInt> getUniqueElementsPerSpan(int unitStart, int unitEnd, LogVersion version, ElementType elementType){
+	private static Vector<StrInt> getUniqueElementsPerSpan(int unitStart, int unitEnd, 
+			LogVersion version, ElementType elementType){
 		//input
 		String inputDir = null, inputFilePrefix = null;
 		String rootDir = DataDirectory.UniqueElementRoot+DataDirectory.Unique_PerUnit[version.ordinal()];	
@@ -288,7 +322,7 @@ public class ClickThroughAnalyzer {
 			inputFilePrefix = version.toString()+"_UniqueUrl_";
 		}
 		//collector
-		int maxStrID = 0;
+		int maxStrID = STARTID;
 		HashMap<String, Integer> elementMapPerSpan = new HashMap<String, Integer>();
 		Vector<StrInt> elementVectorPerSpan = new Vector<StrInt>();
 		//
@@ -330,6 +364,10 @@ public class ClickThroughAnalyzer {
 			uniqueUserID_All = getUniqueElementsPerSpan(1, 31, LogVersion.SogouQ2008, ElementType.UserID);
 			uniqueQuery_All = getUniqueElementsPerSpan(1, 31, LogVersion.SogouQ2008, ElementType.Query);
 			uniqueClickUrl_All = getUniqueElementsPerSpan(1, 31, LogVersion.SogouQ2008, ElementType.ClickUrl);			
+		}else if(LogVersion.SogouQ2012 == version){
+			uniqueUserID_All = getUniqueElementsPerSpan(1, 10, LogVersion.SogouQ2012, ElementType.UserID);			
+			uniqueQuery_All = getUniqueElementsPerSpan(1, 10, LogVersion.SogouQ2012, ElementType.Query);			
+			uniqueClickUrl_All = getUniqueElementsPerSpan(1, 10, LogVersion.SogouQ2012, ElementType.ClickUrl);	
 		}
 		//output
 		try {
@@ -348,7 +386,8 @@ public class ClickThroughAnalyzer {
 			//for query
 			queryWriter = IOText.getBufferedWriter_UTF8(outputDir+uniqueQuery_AllFile);
 			for(StrInt element: uniqueQuery_All){
-				queryWriter.write(element.getSecond()+TabSeparator+element.getFirst());
+				queryWriter.write(element.getSecond()+TabSeparator
+						+element.getFirst());
 				queryWriter.newLine();
 			}
 			queryWriter.flush();
@@ -356,7 +395,8 @@ public class ClickThroughAnalyzer {
 			//for clickUrl
 			urlWriter = IOText.getBufferedWriter_UTF8(outputDir+uniqueClickUrl_AllFile);
 			for(StrInt element: uniqueClickUrl_All){
-				urlWriter.write(element.getSecond()+TabSeparator+element.getFirst());
+				urlWriter.write(element.getSecond()+TabSeparator
+						+element.getFirst());
 				urlWriter.newLine();
 			}
 			urlWriter.flush();
@@ -371,11 +411,11 @@ public class ClickThroughAnalyzer {
 	//////////////////////////
 	private static void loadUniqueQText(LogVersion version, String encoding){
 		String dir = DataDirectory.UniqueElementRoot+DataDirectory.Unique_All[version.ordinal()];		
-		String uniqueQuery_AllFile = version.toString()+"_UniqueQuery_All.txt";
+		String uniqueQuery_AllFile = version.toString()+"_UniqueQuery_All.txt";		
 		//
-		UniqueQTextMap = IOText.loadUniqueElements_LineFormat_IntTabStr(dir+uniqueQuery_AllFile, encoding);
+		UniqueQTextList = IOText.loadUniqueElements_LineFormat_IntTabStr(dir+uniqueQuery_AllFile, encoding);
 		//
-		if(null == UniqueQTextMap){
+		if(null == UniqueQTextList){
 			new Exception("Loading Error!").printStackTrace();
 		}		
 	}
@@ -383,78 +423,94 @@ public class ClickThroughAnalyzer {
 		String dir = DataDirectory.UniqueElementRoot+DataDirectory.Unique_All[version.ordinal()];		
 		String uniqueUserID_AllFile = version.toString()+"_UniqueUserID_All.txt";
 		//
-		UniqueUserIDMap = IOText.loadStrInts_LineFormat_Str(dir+uniqueUserID_AllFile, encoding);
+		UniqueUserIDList = IOText.loadStrInts_LineFormat_Str(dir+uniqueUserID_AllFile, encoding);
 		//
-		if(null == UniqueUserIDMap){
+		if(null == UniqueUserIDList){
 			new Exception("Loading Error!").printStackTrace();
 		}		
 	}
-	private static void loadUniqueClickUrlMap(LogVersion version, String encoding){
+	private static void loadUniqueClickUrl(LogVersion version, String encoding){
 		String dir = DataDirectory.UniqueElementRoot+DataDirectory.Unique_All[version.ordinal()];		
-		String uniqueClickUrl_AllFile = version.toString()+"_UniqueClickUrl_All.txt"; 
+		String uniqueClickUrl_AllFile = version.toString()+"_UniqueClickUrl_All.txt"; 		
 		//
-		UniqueClickUrlMap = IOText.loadUniqueElements_LineFormat_IntTabStr(dir+uniqueClickUrl_AllFile, encoding);
+		UniqueClickUrlList = IOText.loadUniqueElements_LineFormat_IntTabStr(dir+uniqueClickUrl_AllFile, encoding);
 		//
-		if(null == UniqueClickUrlMap){
+		if(null == UniqueClickUrlList){
 			new Exception("Loading Error!").printStackTrace();
 		}		
 	}
 	//
 	private static Integer getSessionID(LogVersion version, String userIDStr){		
-		if(null == UniqueUserIDMap){
-			loadUniqueUserID(version, "UTF-8");
+		if(null == UniqueUserIDTable){
+			if(null == UniqueUserIDList){
+				loadUniqueUserID(version, "UTF-8");
+			}
+			//
+			UniqueUserIDTable = new Hashtable<String, Integer>();
+			for(int id=STARTID; id<=UniqueUserIDList.size(); id++){
+				UniqueUserIDTable.put(UniqueUserIDList.get(id-1).getFirst(), id);
+			}			
 		}
-		StrInt uniqueUserID = UniqueUserIDMap.get(userIDStr);
-		return null==uniqueUserID? null:uniqueUserID.getSecond();					
+		return UniqueUserIDTable.get(userIDStr);						
 	}
-	private static Integer getQTextID(LogVersion version, String qText){		
-		if(null == UniqueQTextMap){
-			loadUniqueQText(version, "UTF-8");
-		}
+	private static Integer getQTextID(LogVersion version, String qText){	
+		if(null == UniqueQTextTable){
+			if(null==UniqueQTextList){
+				loadUniqueQText(version, "UTF-8");
+			}
+			//
+			UniqueQTextTable = new Hashtable<String, Integer>();
+			for(int id=STARTID; id<=UniqueQTextList.size(); id++){
+				UniqueQTextTable.put(UniqueQTextList.get(id-1).getSecond(), id);
+			}
+		}		
 		//
-		IntStrInt uniqueQ = UniqueQTextMap.get(qText);
-		return null==uniqueQ? null:uniqueQ.getFirst();
+		return UniqueQTextTable.get(qText);		
 	}
 	private static Integer getClickUrlID(LogVersion version, String urlStr){
-		if(null == UniqueClickUrlMap){
-			loadUniqueClickUrlMap(version, "UTF-8");
+		if(null == UniqueClickUrlTable){
+			if(null == UniqueClickUrlList){
+				loadUniqueClickUrl(version, "UTF-8");;
+			}			
+			UniqueClickUrlTable = new Hashtable<String, Integer>();
+			for(int id=STARTID; id<=UniqueClickUrlList.size(); id++){
+				UniqueClickUrlTable.put(UniqueClickUrlList.get(id-1).getSecond(), id);
+			}
 		}
 		//
-		IntStrInt uniqueClickUrl = UniqueClickUrlMap.get(urlStr);
-		return null==uniqueClickUrl? null:uniqueClickUrl.getFirst();					
+		return UniqueClickUrlTable.get(urlStr);							
 	}
 	private static Integer getWordID(LogVersion version, String wordStr){
-		if(null == UniqueWordMap){
-			loadUniqueWord(version, "UTF-8");
-			return UniqueWordMap.get(wordStr).getFirst();
-		}else{
-			return UniqueWordMap.get(wordStr).getFirst();
+		if(null == UniqueWordTable){
+			if(null == UniqueWordList){
+				loadUniqueWord(version, "UTF-8");
+			}
+			//
+			UniqueWordTable = new Hashtable<String, Integer>();
+			for(int id=STARTID; id<=UniqueWordList.size(); id++){
+				UniqueWordTable.put(UniqueWordList.get(id-1).getSecond(), id);
+			}
 		}
+		return UniqueWordTable.get(wordStr);
 	}
 	//
 	private static int getUniqueNumberOfQuery(LogVersion version){
-		if(null == UniqueQTextMap){
+		if(null==UniqueQTextList){
 			loadUniqueQText(version, "UTF-8");
-			return UniqueQTextMap.size();
-		}else{
-			return UniqueQTextMap.size();
-		}	
+		}
+		return UniqueQTextList.size();		
 	}
 	private static int getUniqueNumberOfUserID(LogVersion version){
-		if(null == UniqueUserIDMap){
-			loadUniqueUserID(version, "UTF-8");
-			return UniqueUserIDMap.size();
-		}else{
-			return UniqueUserIDMap.size();
-		}		
+		if(null == UniqueUserIDList){
+			loadUniqueUserID(version, "UTF-8");			
+		}
+		return UniqueUserIDList.size();
 	}
 	private static int getUniqueNumberOfClickUrl(LogVersion version){
-		if(null == UniqueClickUrlMap){
-			loadUniqueClickUrlMap(version, "UTF-8");
-			return UniqueClickUrlMap.size();
-		}else{
-			return UniqueClickUrlMap.size();
-		}		
+		if(null == UniqueClickUrlList){
+			loadUniqueClickUrl(version, "UTF-8");
+		}
+		return UniqueClickUrlList.size();
 	}
 	
 	
@@ -471,21 +527,27 @@ public class ClickThroughAnalyzer {
 				convertToDigitalUnitClickThrough(i, version);
 			}
 		}else if(LogVersion.SogouQ2012 == version){
-			
+			for(int i=1; i<=10; i++){
+				convertToDigitalUnitClickThrough(i, version);
+			}			
 		}		
 	}
 	//
 	private static void convertToDigitalUnitClickThrough(int unitSerial, LogVersion version){
+		//
 		//target file
 		String unit = StandardFormat.serialFormat(unitSerial, "00");
-		String dir = DataDirectory.RawDataRoot+DataDirectory.RawData[version.ordinal()];
+		String dir = null;
 		String unitFile = null;
 		if(LogVersion.AOL == version){
-			unitFile = dir + "user-ct-test-collection-"+unit+".txt";	
+			dir = DataDirectory.SessionSegmentationRoot+version.toString()+"/";			
+			unitFile = dir + version.toString()+"_Sessioned_"+SessionSegmentationThreshold+"_"+unit+".txt";				
 		}else if(LogVersion.SogouQ2008 == version){
-			unitFile = dir + "access_log.200608"+unit+".decode.filter";
+			dir = DataDirectory.RawDataRoot + DataDirectory.RawData[version.ordinal()];
+			unitFile = dir + "SogouQ2008_Ordered_UTF8_"+unit+".txt";
 		}else if(LogVersion.SogouQ2012 == version){
-			
+			dir = DataDirectory.SessionSegmentationRoot+version.toString()+"/";	
+			unitFile = dir + version.toString()+"_Sessioned_"+SessionSegmentationThreshold+"_"+unit+".txt";	
 		}
 		//output
 		String outputDir = DataDirectory.DigitalFormatRoot+DataDirectory.DigitalFormat[version.ordinal()];	
@@ -496,24 +558,22 @@ public class ClickThroughAnalyzer {
 			if(!outputDirFile.exists()){
 				outputDirFile.mkdirs();
 			}
+			//
 			String digitalUnitFileName = outputDir+version.toString()+"_DigitalLog_"+unit+".txt";
+			//
 			BufferedWriter dWriter = IOText.getBufferedWriter_UTF8(digitalUnitFileName);
 			//
     		File fileExist = new File(unitFile);
 			if(fileExist.exists()){	
 				System.out.println("reading...\t"+unitFile);
-				BufferedReader reader = IOText.getBufferedReader(unitFile, "GBK");
+				BufferedReader reader = IOText.getBufferedReader_UTF8(unitFile);
 				//
-				String recordLine = null;	
-				//jump the first line which is attribute names
-				if(LogVersion.AOL == version){
-					recordLine=reader.readLine();
-				}
+				String recordLine = null;					
 				while(null != (recordLine=reader.readLine())){
 					if(LogVersion.AOL == version){
 						AOLRecord aolRecord = null;
 						try{
-							aolRecord = new AOLRecord(unit, recordLine);
+							aolRecord = new AOLRecord(recordLine, false);
 						}catch(Exception ee){
 							System.out.println("invalid record-line exist in "+unit);
 							System.out.println(recordLine);																
@@ -549,7 +609,7 @@ public class ClickThroughAnalyzer {
 					}else if(LogVersion.SogouQ2008 == version){
 						SogouQRecord2008 record2008 = null;
 						try {
-							record2008 = new SogouQRecord2008(unit, recordLine);
+							record2008 = new SogouQRecord2008(recordLine);
 						}catch(Exception ee){
 							System.out.println("invalid record-line exist in "+unit);
 							System.out.println(recordLine);								
@@ -579,16 +639,38 @@ public class ClickThroughAnalyzer {
 							}
 						}						
 					}else if(LogVersion.SogouQ2012 == version){	
-						/*
-						if(null!= record && record.validRecord()){
-							
+						SogouQRecord2012 record2012 = null;
+						try {
+							record2012 = new SogouQRecord2012(recordLine, false);
+						}catch(Exception ee){
+							System.out.println("invalid record-line exist in "+unit);
+							System.out.println(recordLine);								
+							continue;
 						}
-						*/
-						//
-						//Integer sessionID = this.getSessionID(version, record.getUserID().toString());						
-						//Integer qID = this.getQTextID(version, record.getQueryText());
-						//Integer docID = this.getClickUrlID(version, record.getClickUrl());
-						//							
+						//				
+						if(null!=record2012 && record2012.validRecord()){
+							Integer sessionID = getSessionID(version, record2012.getUserID());						
+							Integer qID = getQTextID(version, record2012.getQueryText());
+							Integer docID = getClickUrlID(version, record2012.getClickUrl());
+							//
+							if(null!=sessionID && null!=qID && null!=docID){
+								dWriter.write(record2012.getQueryTime()+TabSeparator
+										+sessionID+TabSeparator
+										+qID+TabSeparator
+										+record2012.getItemRank()+TabSeparator
+										+record2012.getClickOrder()+TabSeparator
+										+docID);
+								dWriter.newLine();
+							}else{
+								if(null==sessionID){
+									System.out.println("Null sessionid:\t"+recordLine);
+								}else if(null == qID){
+									System.out.println("Null qid:\t"+recordLine);
+								}else{
+									System.out.println("Null docid:\t"+recordLine);
+								}							
+							}
+						}						
 					}else{
 						new Exception("Version Error!").printStackTrace();
 					}
@@ -603,12 +685,14 @@ public class ClickThroughAnalyzer {
 		}
 	}
 	//session-id -> set of records as a unit
-	private static HashMap<String, Vector<Record>> loadDigitalUnitClickThrough(int unitSerial, LogVersion version){
+	private static Vector<Vector<Record>> loadDigitalUnitClickThroughSessions(int unitSerial, LogVersion version){
 		String unit = StandardFormat.serialFormat(unitSerial, "00");
-		String outputDir = DataDirectory.DigitalFormatRoot+DataDirectory.DigitalFormat[version.ordinal()];		
-		String digitalUnitFileName = outputDir+version.toString()+"_DigitalLog_"+unit+".txt";
+		String inputDir = DataDirectory.DigitalFormatRoot+DataDirectory.DigitalFormat[version.ordinal()];
 		//
-		HashMap<String, Vector<Record>> digitalUnitClickThroughMap = new HashMap<String, Vector<Record>>();
+		String digitalUnitFileName  = inputDir+version.toString()+"_DigitalLog_"+unit+".txt";				
+		//buffering distinct sessions
+		Vector<Vector<Record>> digitalUnitClickThroughSessions = new Vector<Vector<Record>>();
+		Hashtable<String, Integer> sessionTable = new Hashtable<String, Integer>();		
 		//		
 		File file = new File(digitalUnitFileName);
 		if(file.exists()){
@@ -622,49 +706,53 @@ public class ClickThroughAnalyzer {
 				while(null != (line=reader.readLine())){
 					if(LogVersion.AOL == version){
 						//digital construct
-						record = new AOLRecord(line);	
+						record = new AOLRecord(line, true);	
 					}else if(LogVersion.SogouQ2008 == version){
 						//digital construct
 						record = new SogouQRecord2008(line);
 					}else if(LogVersion.SogouQ2012 == version){
 						//using digital construct
+						record = new SogouQRecord2012(line, true);
 					}else{
 						new Exception("Version Error!").printStackTrace();
 					}				
 					//
 					if(null != record){
-						if(digitalUnitClickThroughMap.containsKey(record.getUserID())){
-							digitalUnitClickThroughMap.get(record.getUserID()).add(record);
+						String userID = record.getUserID();
+						if(sessionTable.containsKey(userID)){
+							digitalUnitClickThroughSessions.get(sessionTable.get(userID)).add(record);
 						}else{
+							//new id
+							sessionTable.put(userID, digitalUnitClickThroughSessions.size());
+							//
 							Vector<Record> drVec = new Vector<Record>();
 							drVec.add(record);
-							digitalUnitClickThroughMap.put(record.getUserID(), drVec);
-						}
+							digitalUnitClickThroughSessions.add(drVec);
+						}						
 					}else{
 						System.out.println("Null DigitalRecord!");
 					}
-				}
-				//
+				}				
 				reader.close();
 			}catch(Exception e){
 				e.printStackTrace();
 			}
 		}
 		//
-		return digitalUnitClickThroughMap;				
+		return digitalUnitClickThroughSessions;				
 	}
 	///////////////////////////
 	//query-level 
 	///////////////////////////
-	private static void ini_D_Q_GraphNodes(LogVersion version){
+	private static void ini_Q_D_GraphNodes(LogVersion version){
 		int queryNodeNumber = getUniqueNumberOfQuery(version);
-		for(int i=0; i<queryNodeNumber; i++){			
-			Q_D_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Query));
+		for(int id=STARTID; id<=queryNodeNumber; id++){			
+			Q_D_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Query));
 		}
 		//
 		int docNodeNumber = getUniqueNumberOfClickUrl(version);
-		for(int j=0; j<docNodeNumber; j++){
-			Q_D_Graph.addVertex(new LogNode(Integer.toString(j), LogNode.NodeType.Doc));
+		for(int id=STARTID; id<=docNodeNumber; id++){
+			Q_D_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Doc));
 		}
 	}
 	//for aol due to day by day operation
@@ -672,20 +760,12 @@ public class ClickThroughAnalyzer {
 		Q_D_Graph = null;
 		Q_D_Graph = new UndirectedSparseGraph<LogNode, LogEdge>(); 
 		//
-		int queryNodeNumber = getUniqueNumberOfQuery(version);
-		for(int i=0; i<queryNodeNumber; i++){			
-			Q_D_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Query));
-		}
-		//
-		int docNodeNumber = getUniqueNumberOfClickUrl(version);
-		for(int j=0; j<docNodeNumber; j++){
-			Q_D_Graph.addVertex(new LogNode(Integer.toString(j), LogNode.NodeType.Doc));
-		}
+		ini_Q_D_GraphNodes(version);
 	}
 	private static void ini_Q_Q_CoSessionGraphNodes(LogVersion version){
 		int queryNodeNumber = getUniqueNumberOfQuery(version);
-		for(int i=0; i<queryNodeNumber; i++){
-			Q_Q_CoSession_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Query));
+		for(int id=STARTID; id<=queryNodeNumber; id++){
+			Q_Q_CoSession_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Query));
 		}
 	}
 	//for aol due to day by day operation
@@ -693,55 +773,46 @@ public class ClickThroughAnalyzer {
 		Q_Q_CoSession_Graph = null;
 		Q_Q_CoSession_Graph = new UndirectedSparseGraph<LogNode, LogEdge>(); 
 		//
-		int queryNodeNumber = getUniqueNumberOfQuery(version);
-		for(int i=0; i<queryNodeNumber; i++){
-			Q_Q_CoSession_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Query));
-		}
+		ini_Q_Q_CoSessionGraphNodes(version);
 	}
 	//
 	private static void ini_QQAttributeGraphNodes(LogVersion version){
 		int queryNodeNumber = getUniqueNumberOfQuery(version);
-		for(int i=0; i<queryNodeNumber; i++){
-			Q_Q_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Query));
+		for(int id=STARTID; id<=queryNodeNumber; id++){
+			Q_Q_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Query));
 		}
 	}
-	//click information between query-query query-document given the time span
-	private static void buildGraph_QQCoSession_QQCoClick_DQ(LogVersion version, int fromDay, int toDay){		
+		
+	
+	//-0
+	private static void generateGraphFile_QQCoSession(LogVersion version){
+		ini_Q_Q_CoSessionGraphNodes(version);
 		//
-		HashMap<String, Vector<Record>> digitalUnitClickThroughMap;
+		int from, to;
+		if(LogVersion.SogouQ2008 == version){		
+			from=1;
+			to=31;					
+		}else{
+			from=1;
+			to=10;
+		}
 		//
-		LogNode qNode=null, docNode=null;
-		for(int k=fromDay; k<=toDay; k++){
-			digitalUnitClickThroughMap = loadDigitalUnitClickThrough(k, version);
-			//
-			int count = 1;
-			for(Entry<String, Vector<Record>> entry: digitalUnitClickThroughMap.entrySet()){
+		Vector<Vector<Record>> digitalUnitClickThroughSessions = null;
+		for(int unitSerial=from; unitSerial<=to; unitSerial++){
+			//load unit digital clickthrough file
+			digitalUnitClickThroughSessions = loadDigitalUnitClickThroughSessions(unitSerial, version);
+			int count = 1;				
+			for(Vector<Record> drVec: digitalUnitClickThroughSessions){
+				if(count%10000 == 0){
+					System.out.println(count);
+				}
 				count++;
-				if(count%100000 == 0){
-					System.out.println((count));
-				}				
 				//session-range queries
-				HashSet<String> sessionQSet = new HashSet<String>();
-				//
-				Vector<Record> drVec = entry.getValue();
-				for(Record dr: drVec){
-					//
+				HashSet<String> sessionQSet = new HashSet<String>();					
+				for(Record dr: drVec){				
 					if(!sessionQSet.contains(dr.getQueryText())){
 						sessionQSet.add(dr.getQueryText());
-					}
-					//1 query - clicked document
-					if(null != dr.getClickUrl()){
-						qNode = new LogNode(dr.getQueryText(), LogNode.NodeType.Query);
-						docNode = new LogNode(dr.getClickUrl(), LogNode.NodeType.Doc);
-						//
-						LogEdge d_qEdge = Q_D_Graph.findEdge(qNode, docNode);
-						if(null==d_qEdge){
-							d_qEdge = new LogEdge(LogEdge.EdgeType.QDoc);
-							Q_D_Graph.addEdge(d_qEdge, qNode, docNode);
-						}else{
-							d_qEdge.upCount();
-						}
-					}
+					}				
 				}
 				//
 				String [] coSessionQArray = sessionQSet.toArray(new String[1]);
@@ -760,400 +831,85 @@ public class ClickThroughAnalyzer {
 					}
 				}
 			}
-		}			
-	}
-	private static void outputGraph_QQCoSession_QQCoClick_DQ(LogVersion version){
-		String dir = DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()];				
-		//
-		try{
-			File dirFile = new File(dir);
-			if(!dirFile.exists()){
-				dirFile.mkdirs();
+		}	
+		//output
+		String outputDir = DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()];
+		try{	
+			File outputDirFile = new File(outputDir);
+			if(!outputDirFile.exists()){
+				outputDirFile.mkdirs();
 			}
-			String q_q_CoSessionFile = 
-				dir+"Query_Query_CoSession.txt";
-			String q_q_CoClickFile = 
-				dir+"Query_Query_CoClick.txt";		
-			String d_q_GraphFile = 
-				dir+"Query_Doc_Graph.txt";			
-			
-			//co-session
-			BufferedWriter q_q_CoSessionWriter = IOText.getBufferedWriter_UTF8(q_q_CoSessionFile);			
+			//
+			String qqCoSessionFile = outputDir+"Query_Query_CoSession.txt";
+			BufferedWriter qqCoSessionWriter = IOText.getBufferedWriter_UTF8(qqCoSessionFile);			
 			//++
 			for(LogEdge edge: Q_Q_CoSession_Graph.getEdges()){
 				Pair<LogNode> pair = Q_Q_CoSession_Graph.getEndpoints(edge);
 				LogNode firstNode = pair.getFirst();
 				LogNode secondNode = pair.getSecond();
 				//
-				q_q_CoSessionWriter.write(firstNode.getID()+TabSeparator
+				qqCoSessionWriter.write(firstNode.getID()+TabSeparator
 						+secondNode.getID()+TabSeparator
 						+Integer.toString(edge.getCount()));
-				q_q_CoSessionWriter.newLine();				
+				qqCoSessionWriter.newLine();				
 			}
 			//++			
-			q_q_CoSessionWriter.flush();
-			q_q_CoSessionWriter.close();
-			//co-click
-			BufferedWriter q_q_CoClickWriter = IOText.getBufferedWriter_UTF8(q_q_CoClickFile);
-			for(LogNode node: Q_D_Graph.getVertices()){
-				//doc node
-				if(node.getType() == LogNode.NodeType.Doc){
-					LogNode [] coClickQArray = Q_D_Graph.getNeighbors(node).toArray(new LogNode[1]);
-					//
-					for(int i=0; i<coClickQArray.length-1; i++){
-						//
-						LogEdge formerEdge = Q_D_Graph.findEdge(node, coClickQArray[i]);
-						//
-						for(int j=i+1; j<coClickQArray.length; j++){
-							//
-							LogEdge latterEdge = Q_D_Graph.findEdge(node, coClickQArray[j]);
-							//
-							int coFre = Math.min(formerEdge.getCount(), latterEdge.getCount());
-							//
-							q_q_CoClickWriter.write(coClickQArray[i].getID()+TabSeparator
-									+coClickQArray[j].getID()+TabSeparator
-									+Integer.toString(coFre));
-							q_q_CoClickWriter.newLine();
-						}				
-					}
-				}
-			}
-			//
-			q_q_CoClickWriter.flush();
-			q_q_CoClickWriter.close();
-			//--
-			//d-q file
-			BufferedWriter d_q_Writer = IOText.getBufferedWriter_UTF8(d_q_GraphFile);
-			for(LogEdge edge: Q_D_Graph.getEdges()){
-				Pair<LogNode> pair = Q_D_Graph.getEndpoints(edge);
-				LogNode firstNode = pair.getFirst();
-				LogNode secondNode = pair.getSecond();
-				//put query at the first position
-				if(firstNode.getType() == LogNode.NodeType.Query){
-					d_q_Writer.write(firstNode.getID()+TabSeparator
-							+secondNode.getID()+TabSeparator
-							+edge.getCount());
-					d_q_Writer.newLine();
-				}else{
-					d_q_Writer.write(secondNode.getID()+TabSeparator
-							+firstNode.getID()+TabSeparator
-							+edge.getCount());
-					d_q_Writer.newLine();
-				}
-			}
-			//--
-			/*
-			for(LogNode node: this.D_Q_Graph.getVertices()){
-				if(node.getType() == LogNode.NodeType.Doc){
-					d_q_Writer.write(node.getID());
-					for(LogNode nNode: this.D_Q_Graph.getNeighbors(node)){
-						LogEdge edge = this.D_Q_Graph.findEdge(node, nNode);
-						d_q_Writer.write(Separator+nNode.getID()+":"+edge.getCount());
-					}
-					d_q_Writer.newLine();
-				}				
-			}
-			*/
-			//--			
-			d_q_Writer.flush();
-			d_q_Writer.close();			
+			qqCoSessionWriter.flush();
+			qqCoSessionWriter.close();					
 		}catch(Exception e){
 			e.printStackTrace();
 		}
 	}
-	//
-	private static void mergeUnitGraph_QQCoSession_QQCoClick_DQ(LogVersion version){		
-		if(LogVersion.AOL == version){
-			//total
-			HashMap<StrStrEdge, StrStrInt> qqCoSessionMap = new HashMap<StrStrEdge, StrStrInt>();
-			HashMap<StrStrEdge, StrStrInt> qqCoClickMap = new HashMap<StrStrEdge, StrStrInt>();
-			//because of query-document order
-			HashMap<org.archive.util.tuple.Pair<String, String>, StrStrInt> dqMap = 
-				new HashMap<org.archive.util.tuple.Pair<String, String>, StrStrInt>();					
-			//unit files
-			String unitDir = DataDirectory.ClickThroughGraphRoot+DataDirectory.UnitGraphFile[version.ordinal()];
-			String line;
-			String [] array;		
-			File unitDirFile = new File(unitDir);
-			File [] unitFileList = unitDirFile.listFiles();
-			for(File unitFile: unitFileList){
-				String pathString = unitFile.getAbsolutePath();
-				try {
-					if(pathString.indexOf("Query_Query_CoSession") > 0){
-						System.out.println("merging:\t"+pathString);
-						BufferedReader unitQQCoSessionReader = IOText.getBufferedReader_UTF8(pathString);			
-						while(null != (line=unitQQCoSessionReader.readLine())){
-							if(line.length() > 0){					
-								array = line.split(TabSeparator);
-								StrStrEdge edge = new StrStrEdge(array[0], array[1]);
-								if(qqCoSessionMap.containsKey(edge)){
-									qqCoSessionMap.get(edge).upThird(Integer.parseInt(array[2]));
-								}else{
-									qqCoSessionMap.put(edge, new StrStrInt(array[0], array[1], Integer.parseInt(array[2])));
-								}											
-							}				
-						}
-						unitQQCoSessionReader.close();
-					}else if(pathString.indexOf("Query_Query_CoClick") > 0){
-						System.out.println("merging:\t"+pathString);
-						BufferedReader unitQQCoClickReader = IOText.getBufferedReader_UTF8(pathString);
-						while(null != (line=unitQQCoClickReader.readLine())){
-							if(line.length() > 0){
-								array = line.split(TabSeparator);
-								StrStrEdge edge = new StrStrEdge(array[0], array[1]);
-								if(qqCoClickMap.containsKey(edge)){
-									qqCoClickMap.get(edge).upThird(Integer.parseInt(array[2]));
-								}else{
-									qqCoClickMap.put(edge, new StrStrInt(array[0], array[1], Integer.parseInt(array[2])));
-								}
-							}
-						}
-						unitQQCoClickReader.close();
-					}else if(pathString.indexOf("Query_Doc_Graph") > 0){
-						System.out.println("merging:\t"+pathString);
-						BufferedReader unitDQReader = IOText.getBufferedReader_UTF8(pathString);
-						while(null != (line=unitDQReader.readLine())){
-							if(line.length() > 0){
-								array = line.split(TabSeparator);
-								org.archive.util.tuple.Pair<String, String> edge = 
-									new org.archive.util.tuple.Pair<String, String>(array[0], array[1]);
-								if(dqMap.containsKey(edge)){
-									dqMap.get(edge).upThird(Integer.parseInt(array[2]));
-								}else{
-									dqMap.put(edge, new StrStrInt(array[0], array[1], Integer.parseInt(array[2])));
-								}
-							}
-						}
-						unitDQReader.close();	
-					}else{
-						new Exception("Unexcepted File Error!").printStackTrace();
-					}
-				} catch (Exception e) {
-					// TODO: handle exception
-					e.printStackTrace();
-				}				
-			}			
-			//final output			
-			String outputDir = DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()];
-			try {
-				File dirFile = new File(outputDir);
-				if(!dirFile.exists()){
-					dirFile.mkdirs();
-				}
-				//
-				String qqCoSessionFile = outputDir+"Query_Query_CoSession.txt";
-				BufferedWriter qqCoSessionWriter = IOText.getBufferedWriter_UTF8(qqCoSessionFile);
-				for(Entry<StrStrEdge, StrStrInt> entry: qqCoSessionMap.entrySet()){
-					StrStrInt e = entry.getValue();
-					qqCoSessionWriter.write(e.first+TabSeparator
-							+e.second+TabSeparator
-							+e.third);
-					qqCoSessionWriter.newLine();
-				}
-				qqCoSessionWriter.flush();
-				qqCoSessionWriter.close();
-				//
-				String qqCoClickFile = outputDir+"Query_Query_CoClick.txt";
-				BufferedWriter qqCoClickWriter = IOText.getBufferedWriter_UTF8(qqCoClickFile);
-				for(Entry<StrStrEdge, StrStrInt> entry: qqCoClickMap.entrySet()){
-					StrStrInt e = entry.getValue();
-					qqCoClickWriter.write(e.first+TabSeparator
-							+e.second+TabSeparator
-							+e.third);
-					qqCoClickWriter.newLine();
-				}
-				qqCoClickWriter.flush();
-				qqCoClickWriter.close();
-				//
-				String dqGraphFile = outputDir+"Query_Doc_Graph.txt";
-				BufferedWriter dqWriter = IOText.getBufferedWriter_UTF8(dqGraphFile);
-				for(Entry<org.archive.util.tuple.Pair<String, String>, StrStrInt> entry: dqMap.entrySet()){
-					StrStrInt e = entry.getValue();
-					dqWriter.write(e.first+TabSeparator
-							+e.second+TabSeparator
-							+e.third);
-					dqWriter.newLine();
-				}
-				dqWriter.flush();
-				dqWriter.close();				
-			} catch (Exception e) {
-				// TODO: handle exception
-				e.printStackTrace();
-			}
+	//-1
+	private static void generateGraphFile_QQCoClick(LogVersion version){
+		ini_Q_D_GraphNodes(version);
+		//
+		int from, to;
+		if(LogVersion.SogouQ2008 == version){		
+			from=1;
+			to=31;					
 		}else{
-			new Exception("Versin Error!").printStackTrace();
+			from=1;
+			to=10;
 		}
-	}
-	
-	//
-	private static void buildUnitGraph_QQCoSession_QQCoClick_DQ(LogVersion version, int unitSerial){
-		//load unit digital clickthrough file
-		HashMap<String, Vector<Record>>  digitalUnitClickThroughMap = loadDigitalUnitClickThrough(unitSerial, version);		
 		//
-		//unit files output
-		String outputDir = DataDirectory.ClickThroughGraphRoot+DataDirectory.UnitGraphFile[version.ordinal()];
-		String unit = StandardFormat.serialFormat(unitSerial, "00");
-		//
-		int count = 1;
-		int segmentSerial = 1;
-		LogNode qNode=null, docNode=null;
-		for(Entry<String, Vector<Record>> entry: digitalUnitClickThroughMap.entrySet()){
-			//segment file
-			if(count%10000 == 0){
-				//generate segment files
-				try{
-					File outputDirFile = new File(outputDir);
-					if(!outputDirFile.exists()){
-						outputDirFile.mkdirs();
-					}
-					//
-					String segment = StandardFormat.serialFormat(segmentSerial, "00");
-					segmentSerial++;
-					//
-					String qqCoSessionFile = outputDir+"Query_Query_CoSession_"+unit+"_"+segment+".txt";
-					String qqCoClickFile = outputDir+"Query_Query_CoClick_"+unit+"_"+segment+".txt";		
-					String dqGraphFile = outputDir+"Query_Doc_Graph_"+unit+"_"+segment+".txt";			
-					
-					//co-session
-					BufferedWriter qqCoSessionWriter = IOText.getBufferedWriter_UTF8(qqCoSessionFile);					
-					for(LogEdge edge: Q_Q_CoSession_Graph.getEdges()){
-						Pair<LogNode> pair = Q_Q_CoSession_Graph.getEndpoints(edge);
-						LogNode firstNode = pair.getFirst();
-						LogNode secondNode = pair.getSecond();
+		for(int unitSerial=from; unitSerial<=to; unitSerial++){
+			//load unit digital clickthrough file
+			Vector<Vector<Record>> digitalUnitClickThroughSessions = loadDigitalUnitClickThroughSessions(unitSerial, version);
+			//
+			int count = 1;		
+			LogNode qNode=null, docNode=null;
+			for(Vector<Record> drVec: digitalUnitClickThroughSessions){
+				if(count%10000 == 0){
+					System.out.println(count);
+				}
+				count++;
+				for(Record dr: drVec){
+					//1 query - clicked document
+					if(null != dr.getClickUrl()){
+						qNode = new LogNode(dr.getQueryText(), LogNode.NodeType.Query);
+						docNode = new LogNode(dr.getClickUrl(), LogNode.NodeType.Doc);
 						//
-						qqCoSessionWriter.write(firstNode.getID()+TabSeparator
-								+secondNode.getID()+TabSeparator
-								+Integer.toString(edge.getCount()));
-						qqCoSessionWriter.newLine();				
-					}								
-					qqCoSessionWriter.flush();
-					qqCoSessionWriter.close();
-					//co-click
-					BufferedWriter qqCoClickWriter = IOText.getBufferedWriter_UTF8(qqCoClickFile);
-					for(LogNode node: Q_D_Graph.getVertices()){
-						//doc node
-						if(node.getType() == LogNode.NodeType.Doc){
-							LogNode [] coClickQArray = Q_D_Graph.getNeighbors(node).toArray(new LogNode[1]);
-							//
-							for(int i=0; i<coClickQArray.length-1; i++){
-								//
-								LogEdge formerEdge = Q_D_Graph.findEdge(node, coClickQArray[i]);
-								//
-								for(int j=i+1; j<coClickQArray.length; j++){
-									//
-									LogEdge latterEdge = Q_D_Graph.findEdge(node, coClickQArray[j]);
-									//
-									int coFre = Math.min(formerEdge.getCount(), latterEdge.getCount());
-									//
-									qqCoClickWriter.write(coClickQArray[i].getID()+TabSeparator
-											+coClickQArray[j].getID()+TabSeparator
-											+Integer.toString(coFre));
-									qqCoClickWriter.newLine();
-								}				
-							}
-						}
-					}					
-					qqCoClickWriter.flush();
-					qqCoClickWriter.close();
-					//--
-					//d-q file
-					BufferedWriter dqWriter = IOText.getBufferedWriter_UTF8(dqGraphFile);
-					for(LogEdge edge: Q_D_Graph.getEdges()){
-						Pair<LogNode> pair = Q_D_Graph.getEndpoints(edge);
-						LogNode firstNode = pair.getFirst();
-						LogNode secondNode = pair.getSecond();
-						//put query at the first position
-						if(firstNode.getType() == LogNode.NodeType.Query){
-							dqWriter.write(firstNode.getID()+TabSeparator
-									+secondNode.getID()+TabSeparator
-									+edge.getCount());
-							dqWriter.newLine();
+						LogEdge d_qEdge = Q_D_Graph.findEdge(qNode, docNode);
+						if(null==d_qEdge){
+							d_qEdge = new LogEdge(LogEdge.EdgeType.QDoc);
+							Q_D_Graph.addEdge(d_qEdge, qNode, docNode);
 						}else{
-							dqWriter.write(secondNode.getID()+TabSeparator
-									+firstNode.getID()+TabSeparator
-									+edge.getCount());
-							dqWriter.newLine();
+							d_qEdge.upCount();
 						}
-					}							
-					dqWriter.flush();
-					dqWriter.close();			
-				}catch(Exception e){
-					e.printStackTrace();
-				}	
-				//
-				refresh_D_Q_GraphNodes(version);
-				refresh_Q_Q_CoSessionGraphNodes(version);
-			}
-			//--
-			//session-range queries
-			HashSet<String> sessionQSet = new HashSet<String>();
-			//
-			Vector<Record> drVec = entry.getValue();
-			for(Record dr: drVec){
-				//
-				if(!sessionQSet.contains(dr.getQueryText())){
-					sessionQSet.add(dr.getQueryText());
-				}
-				//1 query - clicked document
-				if(null != dr.getClickUrl()){
-					qNode = new LogNode(dr.getQueryText(), LogNode.NodeType.Query);
-					docNode = new LogNode(dr.getClickUrl(), LogNode.NodeType.Doc);
-					//
-					LogEdge d_qEdge = Q_D_Graph.findEdge(qNode, docNode);
-					if(null==d_qEdge){
-						d_qEdge = new LogEdge(LogEdge.EdgeType.QDoc);
-						Q_D_Graph.addEdge(d_qEdge, qNode, docNode);
-					}else{
-						d_qEdge.upCount();
 					}
-				}
-			}
-			//
-			String [] coSessionQArray = sessionQSet.toArray(new String[1]);
-			for(int i=0; i<coSessionQArray.length-1; i++){
-				LogNode fNode = new LogNode(coSessionQArray[i], LogNode.NodeType.Query);
-				for(int j=i+1; j<coSessionQArray.length; j++){
-					LogNode lNode = new LogNode(coSessionQArray[j], LogNode.NodeType.Query);
-					//
-					LogEdge q_qEdge = Q_Q_CoSession_Graph.findEdge(fNode, lNode);
-					if(null == q_qEdge){
-						q_qEdge = new LogEdge(LogEdge.EdgeType.QQ);
-						Q_Q_CoSession_Graph.addEdge(q_qEdge, fNode, lNode);
-					}else{
-						q_qEdge.upCount();
-					}				
-				}
-			}
+				}			
+			}	
 		}		
-		//remaining output
+		//output
 		try{			
-			String segment = StandardFormat.serialFormat(segmentSerial, "00");
-			//
-			String q_q_CoSessionFile = 
-				outputDir+"Query_Query_CoSession_"+unit+"_"+segment+".txt";
-			String q_q_CoClickFile = 
-				outputDir+"Query_Query_CoClick_"+unit+"_"+segment+".txt";		
-			String d_q_GraphFile = 
-				outputDir+"Query_Doc_Graph_"+unit+"_"+segment+".txt";			
-			
-			//co-session
-			BufferedWriter q_q_CoSessionWriter = IOText.getBufferedWriter_UTF8(q_q_CoSessionFile);			
-			//++
-			for(LogEdge edge: Q_Q_CoSession_Graph.getEdges()){
-				Pair<LogNode> pair = Q_Q_CoSession_Graph.getEndpoints(edge);
-				LogNode firstNode = pair.getFirst();
-				LogNode secondNode = pair.getSecond();
-				//
-				q_q_CoSessionWriter.write(firstNode.getID()+TabSeparator
-						+secondNode.getID()+TabSeparator
-						+Integer.toString(edge.getCount()));
-				q_q_CoSessionWriter.newLine();				
+			String outputDir = DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()];
+			File outputDirFile = new File(outputDir);
+			if(!outputDirFile.exists()){
+				outputDirFile.mkdirs();
 			}
-			//++			
-			q_q_CoSessionWriter.flush();
-			q_q_CoSessionWriter.close();
-			//co-click
-			BufferedWriter q_q_CoClickWriter = IOText.getBufferedWriter_UTF8(q_q_CoClickFile);
+			String qqCoClickFile = outputDir+"Query_Query_CoClick.txt";				
+			BufferedWriter qqCoClickWriter = IOText.getBufferedWriter_UTF8(qqCoClickFile);
 			for(LogNode node: Q_D_Graph.getVertices()){
 				//doc node
 				if(node.getType() == LogNode.NodeType.Doc){
@@ -1161,101 +917,31 @@ public class ClickThroughAnalyzer {
 					//
 					for(int i=0; i<coClickQArray.length-1; i++){
 						//
-						LogEdge formerEdge = Q_D_Graph.findEdge(node, coClickQArray[i]);
+						LogEdge formerEdge = Q_D_Graph.findEdge(coClickQArray[i], node);
 						//
 						for(int j=i+1; j<coClickQArray.length; j++){
 							//
-							LogEdge latterEdge = Q_D_Graph.findEdge(node, coClickQArray[j]);
+							LogEdge latterEdge = Q_D_Graph.findEdge(coClickQArray[j], node);
 							//
 							int coFre = Math.min(formerEdge.getCount(), latterEdge.getCount());
 							//
-							q_q_CoClickWriter.write(coClickQArray[i].getID()+TabSeparator
+							qqCoClickWriter.write(coClickQArray[i].getID()+TabSeparator
 									+coClickQArray[j].getID()+TabSeparator
 									+Integer.toString(coFre));
-							q_q_CoClickWriter.newLine();
+							qqCoClickWriter.newLine();
 						}				
 					}
 				}
 			}
 			//
-			q_q_CoClickWriter.flush();
-			q_q_CoClickWriter.close();
-			//--
-			//d-q file
-			BufferedWriter d_q_Writer = IOText.getBufferedWriter_UTF8(d_q_GraphFile);
-			for(LogEdge edge: Q_D_Graph.getEdges()){
-				Pair<LogNode> pair = Q_D_Graph.getEndpoints(edge);
-				LogNode firstNode = pair.getFirst();
-				LogNode secondNode = pair.getSecond();
-				//put query at the first position
-				if(firstNode.getType() == LogNode.NodeType.Query){
-					d_q_Writer.write(firstNode.getID()+TabSeparator
-							+secondNode.getID()+TabSeparator
-							+edge.getCount());
-					d_q_Writer.newLine();
-				}else{
-					d_q_Writer.write(secondNode.getID()+TabSeparator
-							+firstNode.getID()+TabSeparator
-							+edge.getCount());
-					d_q_Writer.newLine();
-				}
-			}
-			//--
-			/*
-			for(LogNode node: this.D_Q_Graph.getVertices()){
-				if(node.getType() == LogNode.NodeType.Doc){
-					d_q_Writer.write(node.getID());
-					for(LogNode nNode: this.D_Q_Graph.getNeighbors(node)){
-						LogEdge edge = this.D_Q_Graph.findEdge(node, nNode);
-						d_q_Writer.write(Separator+nNode.getID()+":"+edge.getCount());
-					}
-					d_q_Writer.newLine();
-				}				
-			}
-			*/
-			//--			
-			d_q_Writer.flush();
-			d_q_Writer.close();			
+			qqCoClickWriter.flush();
+			qqCoClickWriter.close();				
 		}catch(Exception e){
 			e.printStackTrace();
 		}
 	}
-	//
-	/**
-	 * generate the QueryCoSessioinGraph, QueryDocGraph
-	 * **/
-	public static void generateFiles_QQCoSessioin_QQCoClick_QDGraph(LogVersion version){
-		
-		if(LogVersion.AOL == version){			
-			//step-1: generate unit graph files
-			for(int unitSerial=1; unitSerial<=10; unitSerial++){
-				refresh_D_Q_GraphNodes(version);
-				refresh_Q_Q_CoSessionGraphNodes(version);
-				//
-				buildUnitGraph_QQCoSession_QQCoClick_DQ(version, unitSerial);
-			}
-			//step-2: aggregate the unit graph files	
-			
-		}else if(LogVersion.SogouQ2008 == version){
-			ini_D_Q_GraphNodes(version);
-			ini_Q_Q_CoSessionGraphNodes(version);
-			//all days in one operation
-			buildGraph_QQCoSession_QQCoClick_DQ(version, 1, 31);
-			//
-			outputGraph_QQCoSession_QQCoClick_DQ(version);
-		}else if(LogVersion.SogouQ2012 == version){
-			ini_D_Q_GraphNodes(version);
-			ini_Q_Q_CoSessionGraphNodes(version);
-			//all days in one operation
-			buildGraph_QQCoSession_QQCoClick_DQ(version, -1, -1);
-			//
-			outputGraph_QQCoSession_QQCoClick_DQ(version);
-		}else{
-			new Exception("Version Error!").printStackTrace();
-		}
-	}
-	//
-	private static void generateFiles_QQAttributeGraph(LogVersion version){
+	//-2
+	private static void generateGraphFile_QQAttribute(LogVersion version){
 		ini_QQAttributeGraphNodes(version);
 		//
 		String line;
@@ -1338,7 +1024,9 @@ public class ClickThroughAnalyzer {
 		}
 	}
 	//
-	public static void loadQ_Q_AttributeGraph(LogVersion version){
+	
+	
+	public static void load_QQAttributeGraph(LogVersion version){
 		ini_QQAttributeGraphNodes(version);
 		//
 		try{
@@ -1396,142 +1084,51 @@ public class ClickThroughAnalyzer {
 		return null;
 	}
 	
+	
 	////////////////////////////////
 	//word-level
 	///////////////////////////////	
-	public static void parsingQueriesToWords(LogVersion version){		
-		loadUniqueQText(version, "UTF-8");		
-		//
-		String uniqueWordFile = 
-			DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"UniqueWord.txt";
-    	String wordToSourceQFile = 
-    		DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_SourceQueries.txt";
-    	String queryToMemberWordsFile = 
-    		DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Query_MemberWords.txt";
-		//word id
-    	int wordID = 1;
-    	Hashtable<String, Integer> wordTable = new Hashtable<String, Integer>();
-    	Vector<UserWord> wordNodeVec = new Vector<UserWord>();
-    	//    	
-    	ArrayList<String> words;
-		//
-    	try {
-    		//query to member words
-    		BufferedWriter queryToMemberWordsWriter = IOText.getBufferedWriter_UTF8(queryToMemberWordsFile);
-    		//
-    		for(Entry<String, IntStrInt> entry: UniqueQTextMap.entrySet()){
-    			IntStrInt uniqueQ = entry.getValue();
-    			//
-    			if(LogVersion.AOL == version){
-    				words = Tokenizer.qSegment(uniqueQ.getSecond(), Lang.English);
-    			}else{
-    				words = Tokenizer.qSegment(uniqueQ.getSecond(), Lang.Chinese);
-    			}
-    			
-    			if(null!=words){
-    				//distinct composing words
-    				HashSet<String> wordSet = new HashSet<String>();
-    				for(String word: words){
-    					if(!wordSet.contains(word)){
-    						wordSet.add(word);
-    					}
-    				}
-    				//record source query and log frequency
-    				for(Iterator<String> itr = wordSet.iterator(); itr.hasNext();){
-    					String w = itr.next();
-    					if(wordTable.containsKey(w)){
-    						int id = wordTable.get(w);
-    						//
-    						UserWord wNode = wordNodeVec.get(id);
-    						//
-    						wNode.addFre(uniqueQ.getThird());
-    						wNode.addSourceQ(uniqueQ.getFirst());
-    					}else{    						
-    						wordTable.put(w, wordID++);
-    						//
-    						UserWord wNode = new UserWord(w, uniqueQ.getThird(), uniqueQ.getFirst());
-    						wordNodeVec.add(wNode);
-    					}
-    				}
-    				//record q to words
-    				queryToMemberWordsWriter.write(Integer.toString(uniqueQ.getFirst()));
-    				for(Iterator<String> itr=wordSet.iterator(); itr.hasNext();){
-    					String w = itr.next();
-    					int wid = wordTable.get(w);
-    					queryToMemberWordsWriter.write(TabSeparator+Integer.toString(wid));        					
-    				}
-    				queryToMemberWordsWriter.newLine();
-    			} 
-    		}
-    		queryToMemberWordsWriter.flush();
-    		queryToMemberWordsWriter.close();
-    		//unique words and word to source queries    		
-    		BufferedWriter uniqueWordsWriter = IOText.getBufferedWriter_UTF8(uniqueWordFile);
-    		BufferedWriter wordToSourceQWriter = IOText.getBufferedWriter_UTF8(wordToSourceQFile);
-			//
-    		UserWord wNode;
-    		Vector<Integer> sourceQList;
-    		for(int i=0; i<wordNodeVec.size(); i++){
-    			wNode = wordNodeVec.get(i);
-    			sourceQList = wNode.sourceQList;
-    			//to word small text
-    			uniqueWordsWriter.write(wNode.logFre+TabSeparator+wNode.word);
-    			uniqueWordsWriter.newLine();
-    			//to word-query small text
-    			//wordToQuerySmallTextWriter.write(Integer.toString(i));
-    			for(Integer sQID: sourceQList){
-    				wordToSourceQWriter.write(Integer.toString(i)+TabSeparator+sQID.toString());
-    				wordToSourceQWriter.newLine();
-    			}
-    			//wordToQuerySmallTextWriter.newLine();
-    		}    		
-    		//
-    		uniqueWordsWriter.flush();
-    		uniqueWordsWriter.close();
-    		//
-    		wordToSourceQWriter.flush();
-    		wordToSourceQWriter.close();
-		} catch (Exception e) {
-			// TODO: handle exception
-		}
-	}
-	//
 	private static void loadUniqueWord(LogVersion version, String encoding){		
 		String uniqueWordFile = 
 			DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"UniqueWord.txt";
 		//
-		UniqueWordMap = IOText.loadUniqueElements_LineFormat_IntTabStr(uniqueWordFile, encoding);
+		UniqueWordList = IOText.loadUniqueElements_LineFormat_IntTabStr(uniqueWordFile, encoding);
 		//
-		if(null == UniqueWordMap){
+		if(null == UniqueWordList){
 			new Exception("Loading Error!").printStackTrace();
 		}		
 	}
-	//
 	private static int getUniqueNumberOfWord(LogVersion version){
-		if(null == UniqueWordMap){
-			loadUniqueWord(version, "UTF-8");
-			return UniqueWordMap.size();
-		}else{
-			return UniqueWordMap.size();
-		}	
+		if(null == UniqueWordList){
+			loadUniqueWord(version, "UTF-8");			
+		}
+		//
+		return UniqueWordList.size();
+	}
+	private static void ini_W_W_GraphNodes(LogVersion version){
+		int wordNodeNumber = getUniqueNumberOfWord(version);
+		for(int id=STARTID; id<=wordNodeNumber; id++){
+			W_W_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Word));
+		}
 	}
 	private static void ini_Q_W_GraphNodes(LogVersion version){
 		int queryNodeNumber = getUniqueNumberOfQuery(version);
-		for(int i=0; i<queryNodeNumber; i++){
-			Q_W_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Query));
+		for(int id=STARTID; id<=queryNodeNumber; id++){
+			Q_W_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Query));
 		}
 		//
 		int wordNodeNumber = getUniqueNumberOfWord(version);
-		for(int i=0; i<wordNodeNumber; i++){
-			Q_W_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Word));
+		for(int id=STARTID; id<=wordNodeNumber; id++){
+			Q_W_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Word));
 		}
 	}
 	private static void ini_Q_Q_CoClickGraphNodes(LogVersion version){
 		int queryNodeNumber = getUniqueNumberOfQuery(version);
-		for(int i=0; i<queryNodeNumber; i++){
-			CoClick_Q_Q_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Query));
+		for(int id=STARTID; id<=queryNodeNumber; id++){
+			CoClick_Q_Q_Graph.addVertex(new LogNode(Integer.toString(id), LogNode.NodeType.Query));
 		}
 	}
+	//not quantified edge
 	private static void loadQ_W_Graph(LogVersion version){
 		ini_Q_W_GraphNodes(version);
 		//
@@ -1569,7 +1166,6 @@ public class ClickThroughAnalyzer {
 		}
 		*/
 	}
-	//
 	public static void loadQ_Q_CoSessionGraph(LogVersion version){
 		ini_Q_Q_CoSessionGraphNodes(version);
 		//
@@ -1585,19 +1181,17 @@ public class ClickThroughAnalyzer {
 					array = line.split(TabSeparator);
 					if(array.length > 1){
 						LogNode sNode = new LogNode(array[0], LogNode.NodeType.Query);
-						for(int i=1; i<array.length; i++){
-							String [] strFre = array[i].split(":");
-							String tStr = strFre[0];
-							int fre = Integer.parseInt(strFre[1]);
-							//
-							LogNode tNode = new LogNode(tStr, LogNode.NodeType.Query);
-							LogEdge edge = Q_Q_CoSession_Graph.findEdge(sNode, tNode);
-							if(edge == null){
-								edge = new LogEdge(LogEdge.EdgeType.QQ);
-								edge.setCount(fre);
-								Q_Q_CoSession_Graph.addEdge(edge, sNode, tNode);
-							}
-						}
+						LogNode tNode = new LogNode(array[1], LogNode.NodeType.Query);
+						int fre = Integer.parseInt(array[2]);
+						//						
+						LogEdge edge = Q_Q_CoSession_Graph.findEdge(sNode, tNode);
+						if(edge == null){
+							edge = new LogEdge(LogEdge.EdgeType.QQ);
+							edge.setCount(fre);
+							Q_Q_CoSession_Graph.addEdge(edge, sNode, tNode);
+						}else{
+							edge.upCount(fre);
+						}						
 					}
 				}
 			}
@@ -1606,7 +1200,6 @@ public class ClickThroughAnalyzer {
 			e.printStackTrace();
 		}
 	}
-	//
 	private static void loadCoClick_Q_Q_Graph(LogVersion version){
 		ini_Q_Q_CoClickGraphNodes(version);
 		try{
@@ -1631,21 +1224,114 @@ public class ClickThroughAnalyzer {
 			e.printStackTrace();
 		}
 	}
-	private static void generateWordCoParentFile(LogVersion version){
+	
+	//0
+	public static void parsingQueriesToWords(LogVersion version){		
+		loadUniqueQText(version, "UTF-8");		
+		//
+		String uniqueWordFile = 
+			DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"UniqueWord.txt";
+    	String wordToSourceQFile = 
+    		DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_SourceQueries.txt";
+    	String queryToMemberWordsFile = 
+    		DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Query_MemberWords.txt";
+		//
+    	Hashtable<String, Integer> wordTable = new Hashtable<String, Integer>();
+    	Vector<UserWord> wordNodeVec = new Vector<UserWord>();
+    	//    	
+    	ArrayList<String> words;
+		//
+    	try {
+    		//query to member words
+    		BufferedWriter queryToMemberWordsWriter = IOText.getBufferedWriter_UTF8(queryToMemberWordsFile);
+    		//
+    		for(IntStrInt ununiqueQuery: UniqueQTextList){    			
+    			if(LogVersion.AOL == version){
+    				words = Tokenizer.qSegment(ununiqueQuery.getSecond(), Lang.English);
+    			}else{
+    				words = Tokenizer.qSegment(ununiqueQuery.getSecond(), Lang.Chinese);
+    			}
+    			//
+    			if(null!=words){
+    				//distinct composing words
+    				HashSet<String> wordSet = new HashSet<String>();
+    				for(String word: words){
+    					if(!wordSet.contains(word)){
+    						wordSet.add(word);
+    					}
+    				}
+    				//record source query and log frequency
+    				for(Iterator<String> itr = wordSet.iterator(); itr.hasNext();){
+    					String w = itr.next();
+    					if(wordTable.containsKey(w)){
+    						int id = wordTable.get(w);    						
+    						UserWord wNode = wordNodeVec.get(id);    						
+    						wNode.addFre(ununiqueQuery.getThird());
+    						wNode.addSourceQ(ununiqueQuery.getFirst());
+    					}else{    						
+    						wordTable.put(w, wordNodeVec.size());
+    						//
+    						UserWord wNode = new UserWord(w, ununiqueQuery.getThird(), ununiqueQuery.getFirst());
+    						wordNodeVec.add(wNode);
+    					}
+    				}
+    				//record q to words
+    				queryToMemberWordsWriter.write(Integer.toString(ununiqueQuery.getFirst()));
+    				for(Iterator<String> itr=wordSet.iterator(); itr.hasNext();){
+    					String w = itr.next();
+    					int wid = wordTable.get(w);
+    					queryToMemberWordsWriter.write(TabSeparator+Integer.toString(wid+1));        					
+    				}
+    				queryToMemberWordsWriter.newLine();
+    			} 
+    		}
+    		queryToMemberWordsWriter.flush();
+    		queryToMemberWordsWriter.close();
+    		//unique words and word to source queries    		
+    		BufferedWriter uniqueWordsWriter = IOText.getBufferedWriter_UTF8(uniqueWordFile);
+    		BufferedWriter wordToSourceQWriter = IOText.getBufferedWriter_UTF8(wordToSourceQFile);
+			//
+    		UserWord wNode;
+    		Vector<Integer> sourceQList;
+    		for(int id=1; id<=wordNodeVec.size(); id++){
+    			wNode = wordNodeVec.get(id-1);
+    			sourceQList = wNode.sourceQList;
+    			//to word small text
+    			uniqueWordsWriter.write(wNode.logFre+TabSeparator+wNode.word);
+    			uniqueWordsWriter.newLine();
+    			//to word-query small text
+    			//wordToQuerySmallTextWriter.write(Integer.toString(i));
+    			for(Integer sQID: sourceQList){
+    				wordToSourceQWriter.write(Integer.toString(id)+TabSeparator+sQID.toString());
+    				wordToSourceQWriter.newLine();
+    			}
+    			//wordToQuerySmallTextWriter.newLine();
+    		}    		
+    		//
+    		uniqueWordsWriter.flush();
+    		uniqueWordsWriter.close();
+    		//
+    		wordToSourceQWriter.flush();
+    		wordToSourceQWriter.close();
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+	}
+	//
+	//1	
+	private static void generateUnmergedFile_WordCoParent(LogVersion version){
+		if(null == UniqueQTextList){
+			loadUniqueQText(version, "UTF-8");
+		}
 		//
 		loadQ_W_Graph(version);
 		//co-parent
 		try{
 			String wwCoParentFile = 
-				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoParent.txt";
+				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoParent_Unmerged.txt";
 			BufferedWriter wwCoParentWriter = IOText.getBufferedWriter_UTF8(wwCoParentFile);
-			//
-			int queryNodeNumber = getUniqueNumberOfQuery(version);
-			//for using UniqueQTextMap
-			loadUniqueQText(version, "UTF-8");
-			for(Entry<String, IntStrInt> entry: UniqueQTextMap.entrySet()){
-				IntStrInt uniqueQ = entry.getValue();
-				//
+			//			
+			for(IntStrInt uniqueQ: UniqueQTextList){				
 				LogNode qNode = new LogNode(Integer.toString(uniqueQ.getFirst()), LogNode.NodeType.Query);
 				//
 				LogNode [] wNodeArray = Q_W_Graph.getNeighbors(qNode).toArray(new LogNode[1]);
@@ -1672,7 +1358,8 @@ public class ClickThroughAnalyzer {
 			e.printStackTrace();
 		}		
 	}
-	private static void generateWordCoSessionFile(LogVersion version){
+	//2
+	private static void generateUnmergedFile_WordCoSession(LogVersion version){
 		//query co-session
 		loadQ_Q_CoSessionGraph(version);
 		//query with its consisting words
@@ -1680,7 +1367,7 @@ public class ClickThroughAnalyzer {
 		//
 		try{
 			String w_w_CoSessionFile = 
-				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoSession.txt";
+				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoSession_Unmerged.txt";
 			//			
 			BufferedWriter wwCoSessionWriter = IOText.getBufferedWriter_UTF8(w_w_CoSessionFile);
 			//
@@ -1708,13 +1395,14 @@ public class ClickThroughAnalyzer {
 			e.printStackTrace();
 		}				
 	}
-	private static void generateWordCoClickFile(LogVersion version){		
+	//3
+	private static void generateUnmergedFile_WordCoClick(LogVersion version){		
 		//
 		loadQ_W_Graph(version);		
 		loadCoClick_Q_Q_Graph(version);
 		//
 		String w_w_CoClickFile = 
-			DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoClick.txt";
+			DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoClick_Unmerged.txt";
 		try{
 			BufferedWriter w_w_Writer = IOText.getBufferedWriter_UTF8(w_w_CoClickFile);
 			//
@@ -1727,7 +1415,8 @@ public class ClickThroughAnalyzer {
 					for(LogNode sWNode: Q_W_Graph.getNeighbors(secondNode)){
 						if(!fWNode.equals(sWNode)){
 							w_w_Writer.write(fWNode.getID()+TabSeparator
-									+sWNode.getID()+TabSeparator+Integer.toString(edge.getCount()));
+									+sWNode.getID()+TabSeparator
+									+Integer.toString(edge.getCount()));
 							//
 							w_w_Writer.newLine();
 						}
@@ -1741,21 +1430,15 @@ public class ClickThroughAnalyzer {
 			e.printStackTrace();
 		}		
 	}
-	//
-	private static void ini_W_W_GraphNodes(LogVersion version){
-		int wordNodeNumber = getUniqueNumberOfWord(version);
-		for(int i=0; i<wordNodeNumber; i++){
-			W_W_Graph.addVertex(new LogNode(Integer.toString(i), LogNode.NodeType.Word));
-		}
-	}
-	public void generateGraphFile_W_W(LogVersion version){
+	//4	
+	public static void generateFile_WWAttributeGraph(LogVersion version){
 		ini_W_W_GraphNodes(version);
 		//
 		String line;
 		String[] array;		
 		try{
 			String wwCoParentFile = 
-				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoParent.txt";
+				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoParent_Unmerged.txt";
 			BufferedReader coParentReader = IOText.getBufferedReader_UTF8(wwCoParentFile);
 			//			
 			while(null != (line=coParentReader.readLine())){
@@ -1766,13 +1449,13 @@ public class ClickThroughAnalyzer {
 						LogNode secondNode = new LogNode(array[1], LogNode.NodeType.Word);
 						int fre = Integer.parseInt(array[2]);
 						//
-						WordEdge edge = this.W_W_Graph.findEdge(firstNode, secondNode);
+						WordEdge edge = W_W_Graph.findEdge(firstNode, secondNode);
 						if(null != edge){
 							edge.upAttributeCount(WordEdge.WCoType.CoParent, fre);
 						}else{
 							edge = new WordEdge();
 							edge.upAttributeCount(WordEdge.WCoType.CoParent, fre);
-							this.W_W_Graph.addEdge(edge, firstNode, secondNode);
+							W_W_Graph.addEdge(edge, firstNode, secondNode);
 						}						
 					}
 				}
@@ -1780,7 +1463,7 @@ public class ClickThroughAnalyzer {
 			coParentReader.close();
 			//co-session
 			String w_w_CoSessionFile = 
-				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoSession.txt";
+				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoSession_Unmerged.txt";
 			BufferedReader coSessionReader = IOText.getBufferedReader_UTF8(w_w_CoSessionFile);
 			//			
 			while(null != (line=coSessionReader.readLine())){
@@ -1790,20 +1473,20 @@ public class ClickThroughAnalyzer {
 					LogNode secondNode = new LogNode(array[1], LogNode.NodeType.Word);
 					int fre = Integer.parseInt(array[2]);
 					//
-					WordEdge edge = this.W_W_Graph.findEdge(firstNode, secondNode);
+					WordEdge edge = W_W_Graph.findEdge(firstNode, secondNode);
 					if(null != edge){
 						edge.upAttributeCount(WordEdge.WCoType.CoSession, fre);
 					}else{
 						edge = new WordEdge();
 						edge.upAttributeCount(WordEdge.WCoType.CoSession, fre);
-						this.W_W_Graph.addEdge(edge, firstNode, secondNode);
+						W_W_Graph.addEdge(edge, firstNode, secondNode);
 					}
 				}
 			}
 			coSessionReader.close();
 			//co-click
 			String w_w_CoClickFile = 
-				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoClick.txt";
+				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_CoClick_Unmerged.txt";
 			BufferedReader coClickReader = IOText.getBufferedReader_UTF8(w_w_CoClickFile);
 			//
 			while(null != (line=coClickReader.readLine())){
@@ -1812,13 +1495,13 @@ public class ClickThroughAnalyzer {
 					LogNode firstNode = new LogNode(array[0], LogNode.NodeType.Word);
 					LogNode secondNode = new LogNode(array[1], LogNode.NodeType.Word);
 					int fre = Integer.parseInt(array[2]);
-					WordEdge edge = this.W_W_Graph.findEdge(firstNode, secondNode);
+					WordEdge edge = W_W_Graph.findEdge(firstNode, secondNode);
 					if(null!=edge){
 						edge.upAttributeCount(WordEdge.WCoType.CoClick, fre);
 					}else{
 						edge = new WordEdge();
 						edge.upAttributeCount(WordEdge.WCoType.CoClick, fre);
-						this.W_W_Graph.addEdge(edge, firstNode, secondNode);
+						W_W_Graph.addEdge(edge, firstNode, secondNode);
 					}
 				}
 			}
@@ -1829,8 +1512,8 @@ public class ClickThroughAnalyzer {
 				DataDirectory.ClickThroughGraphRoot+DataDirectory.GraphFile[version.ordinal()]+"Word_Word_Attribute.txt";
 			BufferedWriter wwWriter = IOText.getBufferedWriter_UTF8(w_w_AttributeFile);
 			//
-			for(WordEdge wEdge: this.W_W_Graph.getEdges()){
-				Pair<LogNode> pair = this.W_W_Graph.getEndpoints(wEdge);
+			for(WordEdge wEdge: W_W_Graph.getEdges()){
+				Pair<LogNode> pair = W_W_Graph.getEndpoints(wEdge);
 				LogNode firstNode = pair.getFirst();
 				LogNode secondNode = pair.getSecond();
 				int [] attributes = wEdge.getCoArray();
@@ -1849,7 +1532,7 @@ public class ClickThroughAnalyzer {
 		}		
 	}
 	//
-	private static void loadW_W_AttributeGraph(LogVersion version){
+	private static void load_WWAttributeGraph(LogVersion version){
 		ini_W_W_GraphNodes(version);
 		//
 		try{
@@ -1890,7 +1573,7 @@ public class ClickThroughAnalyzer {
 		Integer wID_2 = getWordID(version, word_2);
 		if(null!=wID_1 && null!=wID_2 && wID_1!=wID_2){
 			if(null == W_W_Graph){
-				loadW_W_AttributeGraph(version);
+				load_WWAttributeGraph(version);
 			}
 			//
 			LogNode firstNode = new LogNode(wID_1.toString(), LogNode.NodeType.Word);
@@ -1904,28 +1587,538 @@ public class ClickThroughAnalyzer {
 	}
 	
 	
-	public static void main(String []args){
-		//ClickThroughAnalyzer clickThroughAnalyzer = new ClickThroughAnalyzer();
+	
+	//////////////////////////////////
+	//PreProcess: session segmentation
+	//(1): AOL clickthrough: time threshold 30 min;
+	//(2): SogouQ2008: the same cookie id in a day;
+	//(3): SogouQ2012: the same cookie id in a day;
+	//////////////////////////////////
+	/** analysis for SogouQ2012 session identification
+	//用户ID是根据用户使用浏览器访问搜索引擎时的Cookie信息自动赋值，即同一次使用浏览器输入的不同查询对应同一个用户ID
+	20111230000009	96994a0480e7e1edcaef67b20d8816b7	伟大导演	1	1	http://movie.douban.com/review/1128960/
+	20111230000135	96994a0480e7e1edcaef67b20d8816b7	伟大导演	2	2	http://www.mtime.com/news/2009/02/20/1404845.html
+	20111230000149	96994a0480e7e1edcaef67b20d8816b7	伟大导演	5	3	http://i.mtime.com/1449171/blog/4297703/
+	20111230000439	96994a0480e7e1edcaef67b20d8816b7	伟大导演	9	4	http://news.xinhuanet.com/newmedia/2007-08/14/content_6527307.htm
+	//
+	 * **/
+	
+	////////////////////////////////////////////
+	//Get ordered clickthrough SogouQ
+	////////////////////////////////////////////
+	//sogouQ2008 in descending order by click order due to no query time included
+	//sogouQ2012 in descending order by query time
+	private static void getOrderedSogouQ2012(){
+		//input file		
+		String inputDir = DataDirectory.RawDataRoot;
+		String unitFile = inputDir + "SogouQ2012_Original/querylog";			
+		//recordMap of one unit file
+		HashMap<String, Vector<SogouQRecord2012>> recordMap = new HashMap<String, Vector<SogouQRecord2012>>();
+		//
+		try{		
+			//input
+    		File file = new File(unitFile);
+			if(file.exists()){	
+				System.out.println("loading...\t"+unitFile);
+				BufferedReader reader = IOText.getBufferedReader(unitFile, "GBK");
+				//
+				String recordLine = null;				
+				SogouQRecord2012 record = null;				
+				while(null!=(recordLine=reader.readLine())){
+					//System.out.println(count++);					
+					try{							
+						record = new SogouQRecord2012(recordLine, false);
+					}catch(Exception ee){
+						System.out.println("invalid record-line exist!");
+						System.out.println(recordLine);
+						System.out.println();
+						recordLine=null;
+						record=null;
+						continue;
+					}
+					//
+					if(null!=record && record.validRecord()){
+						if(recordMap.containsKey(record.getUserID())){
+							recordMap.get(record.getUserID()).add(record);
+						}else{
+							Vector<SogouQRecord2012> recordVec = new Vector<SogouQRecord2012>();
+							recordVec.add(record);
+							recordMap.put(record.getUserID(), recordVec);
+						}
+					}																
+				}
+				reader.close();
+				reader=null;				
+			}
+			//sort and output
+			String outputDir = DataDirectory.OrderedSogouQRoot+"SogouQ2012/";
+			File dirFile = new File(outputDir);
+			if(!dirFile.exists()){
+				dirFile.mkdirs();
+			}
+			String targetFile = outputDir + "SogouQ2012_Ordered_UTF8.txt";
+			BufferedWriter writer = IOText.getBufferedWriter_UTF8(targetFile);
+			//
+			for(Entry<String, Vector<SogouQRecord2012>> entry: recordMap.entrySet()){				
+				//
+				Vector<SogouQRecord2012> recordVec = entry.getValue();
+				java.util.Collections.sort(recordVec);
+				//no specific session segmentation, just for the same user
+				for(SogouQRecord2012 r: recordVec){
+					//
+					writer.write(r.getQueryTime()+TabSeparator
+							+r.getUserID()+TabSeparator
+							+r.getQueryText()+TabSeparator
+							+r.getItemRank()+TabSeparator
+							+r.getClickOrder()+TabSeparator
+							+r.getClickUrl());
+					//
+					writer.newLine();
+				}			
+			}
+			//
+			writer.flush();
+			writer.close();
+		}catch(Exception e){
+			e.printStackTrace();
+		}		
+	}
+	private static void getOrderedSogouQ2008(int unitSerial){
+		String unit = StandardFormat.serialFormat(unitSerial, "00");
+		//sort and output
+		String outputDir = DataDirectory.OrderedSogouQRoot+LogVersion.SogouQ2008.toString()+"/";
+		File dirFile = new File(outputDir);
+		if(!dirFile.exists()){
+			dirFile.mkdirs();
+		}
+		//
+		String targetFile = outputDir + LogVersion.SogouQ2008.toString() +"_Ordered_UTF8_"+unit+".txt";
+			
+		//input				
+		String inputDir = DataDirectory.RawDataRoot+DataDirectory.RawData[LogVersion.SogouQ2008.ordinal()];
+		String unitFile = inputDir + "access_log.200608"+unit+".decode.filter";									
+		//recordMap of one unit file
+		HashMap<String, Vector<SogouQRecord2008>> recordMap = new HashMap<String, Vector<SogouQRecord2008>>();
+		//
+		try{		
+			//input
+    		File file = new File(unitFile);
+			if(file.exists()){	
+				System.out.println("loading...\t"+unitFile);
+				BufferedReader reader = IOText.getBufferedReader(unitFile, "GBK");
+				//
+				String recordLine = null;				
+				SogouQRecord2008 record = null;				
+				while(null!=(recordLine=reader.readLine())){
+					//System.out.println(count++);					
+					try{							
+						record = new SogouQRecord2008(unit, recordLine);
+					}catch(Exception ee){
+						System.out.println("invalid record-line exist!");
+						System.out.println(recordLine);
+						System.out.println();
+						recordLine=null;
+						record=null;
+						continue;
+					}
+					//
+					if(null!=record && record.validRecord()){
+						if(recordMap.containsKey(record.getUserID())){
+							recordMap.get(record.getUserID()).add(record);
+						}else{
+							Vector<SogouQRecord2008> recordVec = new Vector<SogouQRecord2008>();
+							recordVec.add(record);
+							recordMap.put(record.getUserID(), recordVec);
+						}
+					}																
+				}
+				reader.close();
+				reader=null;				
+			}
+			//
+			BufferedWriter writer = IOText.getBufferedWriter_UTF8(targetFile);
+			//
+			for(Entry<String, Vector<SogouQRecord2008>> entry: recordMap.entrySet()){				
+				//
+				Vector<SogouQRecord2008> recordVec = entry.getValue();
+				java.util.Collections.sort(recordVec);
+				//no specific session segmentation, just for the same user
+				for(SogouQRecord2008 r: recordVec){
+					//
+					writer.write(r.getUserID()+TabSeparator
+							+r.getQueryText()+TabSeparator
+							+r.getItemRank()+TabSeparator
+							+r.getClickOrder()+TabSeparator
+							+r.getClickUrl());
+					//
+					writer.newLine();
+				}			
+			}
+			//
+			writer.flush();
+			writer.close();
+		}catch(Exception e){
+			e.printStackTrace();
+		}		
+	}
+	public static void getOrderedSogouQ(LogVersion version){
+		if(LogVersion.SogouQ2008 == version){
+			for(int i=1; i<=31; i++){
+				getOrderedSogouQ2008(i);
+			}
+		}else if(LogVersion.SogouQ2012 == version){
+			getOrderedSogouQ2012();
+		}		
+	}
+	
+	/////////////////////////////////////
+	//segment SogouQ2012 into 10 units
+	/////////////////////////////////////
+	public static String getUserID(String record){
+		String [] fields = record.split(ClickThroughAnalyzer.TabSeparator);
+		if(6 == fields.length){
+			return fields[1];
+		}else{
+			System.out.println("bad line!");
+			return null;
+		}		
+	}
+	public static void splitSogouQ2012(){
+		String orderedSogouQ2012 = "E:/Data_Log/DataSource_Analyzed/OrderedSogouQ/SogouQ2012/SogouQ2012_Ordered_UTF8.txt";
+		String outputDir = "E:/Data_Log/DataSource_Raw/SogouQ2012/";
 		
+		int unitSerial = 1;
+		String outputFile = "SogouQ2012-Collection-UTF8-"+StandardFormat.serialFormat(unitSerial, "00")+".txt";
+		try {
+			BufferedReader reader = IOText.getBufferedReader_UTF8(orderedSogouQ2012);
+			String record = null;
+			BufferedWriter writer = IOText.getBufferedWriter_UTF8(outputDir+outputFile);
+			Vector<String> vec = new Vector<String>();
+			//
+			int count = 1;
+			int unitSize = 4500000;
+			while(null != (record=reader.readLine())){
+				if(count%unitSize==0 || vec.size()>0){
+					if(vec.size() > 0){
+						if(getUserID(record).equals(getUserID(vec.get(0)))){
+							writer.write(vec.get(0));
+							writer.newLine();
+							//
+							vec.clear();
+							vec.add(record);							
+						}else{
+							writer.write(vec.get(0));
+							writer.newLine();
+							writer.flush();
+							writer.close();
+							writer = null;
+							vec.clear();
+							//
+							unitSerial++;
+							outputFile = "SogouQ2012-Collection-UTF8-"+StandardFormat.serialFormat(unitSerial, "00")+".txt";
+							writer = IOText.getBufferedWriter_UTF8(outputDir+outputFile);
+							writer.write(record);
+							writer.newLine();
+						}
+					}else if(count%unitSize == 0){
+						vec.add(record);
+					}
+				}else{
+					writer.write(record);
+					writer.newLine();
+				}
+				//
+				count++;
+			}
+			//
+			reader.close();
+			//
+			writer.flush();
+			writer.close();					
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	//////////////////////////////////////
+	//perform simple session segmentation
+	//////////////////////////////////////
+	public static void performSessionSegmentation(LogVersion version){
+		if(LogVersion.AOL == version){
+			for(int i=1; i<=10; i++){
+				segmentSessions(i, version);				
+			}
+		}else if(LogVersion.SogouQ2012 == version){
+			for(int i=1; i<=10; i++){
+				segmentSessions(i, version);				
+			}			
+		}else{
+			new Exception("Version error!").printStackTrace();
+		}
+	}
+	//
+	private static void segmentSessions(int unitSerial, LogVersion version){		
+		//input file
+		String unit = StandardFormat.serialFormat(unitSerial, "00");
+		String dir = DataDirectory.RawDataRoot+DataDirectory.RawData[version.ordinal()];
+		String inputFile = null;
+		if(LogVersion.AOL == version){			
+			inputFile = dir + "user-ct-test-collection-"+unit+".txt";
+		}else if (LogVersion.SogouQ2012 == version) {					
+			inputFile = dir + "SogouQ2012-Collection-UTF8-"+unit+".txt";
+		}
+		//
+		try{	
+			//output
+			String outputDir = DataDirectory.SessionSegmentationRoot+version.toString()+"/";
+			File outputDirFile = new File(outputDir);
+			if(!outputDirFile.exists()){
+				outputDirFile.mkdirs();
+			}
+			String outputFile = outputDir + version.toString()+"_Sessioned_"+SessionSegmentationThreshold+"_"+unit+".txt";		
+			//
+			BufferedWriter writer = IOText.getBufferedWriter_UTF8(outputFile);
+			//
+    		File file = new File(inputFile);
+			if(file.exists()){	
+				System.out.println("loading...\t"+inputFile);
+				BufferedReader reader = null;	
+				if(LogVersion.AOL == version){			
+					reader = IOText.getBufferedReader(inputFile, "GBK");	
+				}else if (LogVersion.SogouQ2012 == version) {					
+					reader = IOText.getBufferedReader_UTF8(inputFile);	
+				}
+				String recordLine = null;
+				
+				//
+				if(LogVersion.AOL == version){
+					//
+					AOLRecord formerRecord = null, newRecord = null;
+					Date referenceDate = null;
+					//overlook the first line, which is attribute names
+					reader.readLine();
+					//first record
+					int sessionID = STARTID;
+					recordLine = reader.readLine();
+					formerRecord = new AOLRecord(recordLine, false);
+					referenceDate = formerRecord.getDateQueryTime();
+					if(!formerRecord.hasClickEvent()){
+						//
+						writer.write(unit+"-"+formerRecord.getUserID()+"-"+sessionID+TabSeparator
+								+formerRecord.getQueryText()+TabSeparator
+								+formerRecord.getQueryTime());
+						//
+						writer.newLine();
+					}else{
+						//
+						writer.write(unit+"-"+formerRecord.getUserID()+"-"+sessionID+TabSeparator
+								+formerRecord.getQueryText()+TabSeparator
+								+formerRecord.getQueryTime()+TabSeparator
+								+formerRecord.getItemRank()+TabSeparator
+								+formerRecord.getClickUrl());
+						//
+						writer.newLine();
+					}					
+					//
+					while(null!=(recordLine=reader.readLine())){
+						newRecord = new AOLRecord(recordLine, false);
+						try {
+							if(!newRecord.getUserID().equals(formerRecord.getUserID())){
+								sessionID = STARTID;
+								if(newRecord.hasClickEvent()){
+									writer.write(unit+"-"+newRecord.getUserID()+"-"+sessionID+TabSeparator
+											+newRecord.getQueryText()+TabSeparator
+											+newRecord.getQueryTime()+TabSeparator
+											+newRecord.getItemRank()+TabSeparator
+											+newRecord.getClickUrl());
+									//
+									writer.newLine();
+								}else{								
+									writer.write(unit+"-"+newRecord.getUserID()+"-"+sessionID+TabSeparator
+											+newRecord.getQueryText()+TabSeparator
+											+newRecord.getQueryTime());
+									//
+									writer.newLine();
+								}
+								//
+								formerRecord = newRecord;
+								referenceDate = newRecord.getDateQueryTime();
+							}else if(ClickTime.getTimeSpan_MM(referenceDate, newRecord.getDateQueryTime()) 
+									<= SessionSegmentationThreshold){
+								//same session
+								if(newRecord.hasClickEvent()){
+									writer.write(unit+"-"+newRecord.getUserID()+"-"+sessionID+TabSeparator
+											+newRecord.getQueryText()+TabSeparator
+											+newRecord.getQueryTime()+TabSeparator
+											+newRecord.getItemRank()+TabSeparator
+											+newRecord.getClickUrl());								
+									writer.newLine();
+								}else{								
+									writer.write(unit+"-"+newRecord.getUserID()+"-"+sessionID+TabSeparator
+											+newRecord.getQueryText()+TabSeparator
+											+newRecord.getQueryTime());								
+									writer.newLine();
+								}							
+							}else{
+								//same user id, but another session
+								sessionID++;
+								//
+								if(newRecord.hasClickEvent()){
+									writer.write(unit+"-"+newRecord.getUserID()+"-"+sessionID+TabSeparator
+											+newRecord.getQueryText()+TabSeparator
+											+newRecord.getQueryTime()+TabSeparator
+											+newRecord.getItemRank()+TabSeparator
+											+newRecord.getClickUrl());								
+									writer.newLine();
+								}else{								
+									writer.write(unit+"-"+newRecord.getUserID()+"-"+sessionID+TabSeparator
+											+newRecord.getQueryText()+TabSeparator
+											+newRecord.getQueryTime());								
+									writer.newLine();
+								}
+								//
+								referenceDate = newRecord.getDateQueryTime();							
+							}
+						} catch (Exception e) {
+							// TODO: handle exception
+							System.out.println(recordLine);
+						}																									
+					}
+					//over
+				}else if(LogVersion.SogouQ2012 == version){
+					//
+					SogouQRecord2012 formerRecord = null, newRecord = null;
+					Date referenceDate = null;					
+					//first record
+					int sessionID = STARTID;
+					recordLine = reader.readLine();
+					formerRecord = new SogouQRecord2012(recordLine, false);
+					referenceDate = formerRecord.getDateQueryTime();
+					if(formerRecord.validRecord()){						
+						writer.write(formerRecord.getQueryTime()+TabSeparator
+								+formerRecord.getUserID()+"-"+sessionID+TabSeparator
+								+formerRecord.getQueryText()+TabSeparator
+								+formerRecord.getItemRank()+TabSeparator
+								+formerRecord.getClickOrder()+TabSeparator
+								+formerRecord.getClickUrl());						
+						writer.newLine();
+					}				
+					//
+					while(null!=(recordLine=reader.readLine())){
+						newRecord = new SogouQRecord2012(recordLine, false);
+						//						
+						if(!newRecord.getUserID().equals(formerRecord.getUserID())){
+							sessionID = STARTID;
+							//
+							if(newRecord.validRecord()){						
+								writer.write(newRecord.getQueryTime()+TabSeparator
+										+newRecord.getUserID()+"-"+sessionID+TabSeparator
+										+newRecord.getQueryText()+TabSeparator
+										+newRecord.getItemRank()+TabSeparator
+										+newRecord.getClickOrder()+TabSeparator
+										+newRecord.getClickUrl());						
+								writer.newLine();
+							}
+							//
+							formerRecord = newRecord;
+							referenceDate = newRecord.getDateQueryTime();
+						}else if(ClickTime.getTimeSpan_MM(referenceDate, newRecord.getDateQueryTime()) 
+								<= SessionSegmentationThreshold){
+							if(ClickTime.getTimeSpan_MM(referenceDate, newRecord.getDateQueryTime()) 
+									< 0){
+								System.out.println(recordLine);
+							}
+							//same session
+							if(newRecord.validRecord()){						
+								writer.write(newRecord.getQueryTime()+TabSeparator
+										+newRecord.getUserID()+"-"+sessionID+TabSeparator
+										+newRecord.getQueryText()+TabSeparator
+										+newRecord.getItemRank()+TabSeparator
+										+newRecord.getClickOrder()+TabSeparator
+										+newRecord.getClickUrl());						
+								writer.newLine();
+							}						
+						}else{
+							//same user id, but another session
+							sessionID++;
+							//
+							if(newRecord.validRecord()){						
+								writer.write(newRecord.getQueryTime()+TabSeparator
+										+newRecord.getUserID()+"-"+sessionID+TabSeparator
+										+newRecord.getQueryText()+TabSeparator
+										+newRecord.getItemRank()+TabSeparator
+										+newRecord.getClickOrder()+TabSeparator
+										+newRecord.getClickUrl());						
+								writer.newLine();
+							}
+							//
+							referenceDate = newRecord.getDateQueryTime();							
+						}																											
+					}
+				}
+				//
+				reader.close();
+				reader=null;	
+				//
+				writer.flush();
+				writer.close();
+			}
+		}catch(Exception e){
+			e.printStackTrace();
+		}		
+	}
+	
+	public static void main(String []args){
+		/** get ordered files **/
+		//ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2012);
+		
+		/** split SogouQ2012 **/
+		//ClickThroughAnalyzer.splitSogouQ2012();
+		
+		/** session segmentation **/
+		//ClickThroughAnalyzer.performSessionSegmentation(LogVersion.AOL);
+		//ClickThroughAnalyzer.performSessionSegmentation(LogVersion.SogouQ2012);
+		
+			
 		//1 get the distinct element per unit file from the whole query log
 		///*
 		//ClickThroughAnalyzer.getUniqueElementsPerUnit(LogVersion.AOL);
 		//ClickThroughAnalyzer.getUniqueElementsPerUnit(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.getUniqueElementsPerUnit(LogVersion.SogouQ2012);
 		//*/
 		
 		//2 get the distinct elements at the level of the whole query log
 		///*
 		//ClickThroughAnalyzer.getUniqueElementsForAll(LogVersion.AOL);
 		//ClickThroughAnalyzer.getUniqueElementsForAll(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.getUniqueElementsForAll(LogVersion.SogouQ2012);
 		//*/
 		
 		//3 convert to digital format
 		//ClickThroughAnalyzer.convertToDigitalUnitClickThrough(LogVersion.AOL);
 		//ClickThroughAnalyzer.convertToDigitalUnitClickThrough(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.convertToDigitalUnitClickThrough(LogVersion.SogouQ2012);
+		
+		//4 QQCoSession
+		//ClickThroughAnalyzer.generateGraphFile_QQCoSession(LogVersion.AOL);
+		//ClickThroughAnalyzer.generateGraphFile_QQCoSession(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.generateGraphFile_QQCoSession(LogVersion.SogouQ2012);
+		
+		//5	QQCoClick	
+		ClickThroughAnalyzer.generateGraphFile_QQCoClick(LogVersion.AOL);
+		//ClickThroughAnalyzer.generateGraphFile_QQCoClick(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.generateGraphFile_QQCoClick(LogVersion.SogouQ2012);
+		
+		//6 
+		//ClickThroughAnalyzer.generateGraphFile_QQAttribute(LogVersion.AOL);
+		//ClickThroughAnalyzer.generateGraphFile_QQAttribute(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.generateGraphFile_QQAttribute(LogVersion.SogouQ2012);
 		
 		//4 generate query-level co-session, co-click files
 		//ClickThroughAnalyzer.generateFiles_QQCoSessioin_QQCoClick_QDGraph(LogVersion.AOL);
 		//ClickThroughAnalyzer.generateFiles_QQCoSessioin_QQCoClick_QDGraph(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.generateFiles_QQCoSessioin_QQCoClick_QDGraph(LogVersion.SogouQ2012);
 		
 		//4.5 only for aol
 		//ClickThroughAnalyzer.mergeUnitGraph_QQCoSession_QQCoClick_DQ(LogVersion.AOL);
@@ -1934,7 +2127,7 @@ public class ClickThroughAnalyzer {
 		//ClickThroughAnalyzer.generateFiles_QQAttributeGraph(LogVersion.SogouQ2008);
 		
 		//6 parsing queries into fine-grained granularity: words
-		ClickThroughAnalyzer.parsingQueriesToWords(LogVersion.SogouQ2008);
+		//ClickThroughAnalyzer.parsingQueriesToWords(LogVersion.SogouQ2008);
 		
 		//System.out.println("test!");
 		
