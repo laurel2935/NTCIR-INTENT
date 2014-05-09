@@ -276,18 +276,25 @@ public class DCKUFL {
     }
 	
     
-    public void computeBeliefs(){
-		DoubleMatrix2D AlphaEta = this._Alpha.plus(this._Eta);
-		DoubleMatrix2D maxMatrix = AlphaEta.maxc();
+    public void computeBeliefs(){    	
+		DoubleMatrix2D AlphaEtaR = this._Alpha.plus(this._Eta).plus(this._R);
 		
 		ArrayList<Integer> colList = new ArrayList<Integer>();
         ArrayList<Integer> rowList = new ArrayList<Integer>();
 		for(int j=0; j<this._M; j++){
-			if(maxMatrix.get(1, j) >= 0){	
-				colList.add(j);
-				rowList.add((int)maxMatrix.get(0, j));
+			boolean already = false;
+			for(int i=0; i<this._N; i++){
+				if(AlphaEtaR.get(i, j) >= 0){
+					if(already){
+						new Exception("Multiple use error!").printStackTrace();
+					}
+					colList.add(j);
+					rowList.add(i);
+					already = true;
+				}
 			}
-		}
+		}		
+		
 		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
 		for(int k=0; k<colList.size(); k++){
 			this._JfForIcMatrix.set(0, k, colList.get(k));
@@ -371,8 +378,9 @@ public class DCKUFL {
 	}
 	//
 	private void computeEta(){
+		DoubleMatrix2D AlphaR = this._Alpha.plus(this._R);
 		for(int i=0; i<this._N; i++){
-			Vector<Double> IRow = this._Alpha.getRow(i).getVector();
+			Vector<Double> IRow = AlphaR.getRow(i).getVector();
 			for(int j=0; j<this._M; j++){
 				Vector<Double> irow = new Vector<Double>();
 				irow.addAll(IRow);
@@ -419,11 +427,13 @@ public class DCKUFL {
 	}
 	//
 	private void computeV(){
+		DoubleMatrix2D EtaR = this._Eta.plus(this._R);
+		//
 		for(int j=0; j<this._M; j++){
 			double maxVk = Double.NEGATIVE_INFINITY;
 			for(int k=0; k<this._N; k++){
 				//double vk = commonOperate(k, j)+this._Eta.get(k, j);
-				double vk = _JforI_ScoreMatrix.get(k, j)+this._Eta.get(k, j);
+				double vk = _JforI_ScoreMatrix.get(k, j) + EtaR.get(k, j);
 				if(vk > maxVk){
 					maxVk = vk;
 				}
@@ -444,8 +454,7 @@ public class DCKUFL {
 				_JforI_ScoreMatrix.set(i, j, noIforJcol(i,j));
 			}
 		}
-	}
-	double [] useIScoreList = new double [this._N];
+	}	
 	//
 	private double noIforJcol(int iRow, int jCol){
 		//all 1.0 vector with a size of this._S.getN()-1
@@ -485,6 +494,8 @@ public class DCKUFL {
 	private void computeAlpha(){
 		for(int j=0; j<this._M; j++){
 			double gama_j = this._Gama.get(0, j);
+			DoubleMatrix2D EtaR = this._Eta.plus(this._R);
+			//
 			for(int i=0; i<this._N; i++){
 				//double iRow_jColumn_sum = commonOperate(i,j);
 				double noIforJcolSum = _JforI_ScoreMatrix.get(i, j);
@@ -494,7 +505,7 @@ public class DCKUFL {
 					if(k != i){
 						//double v2 = commonOperate(k, j)+this._Eta.get(k, j);
 						double noKforJcolSum = _JforI_ScoreMatrix.get(k, j);
-						double v2 = noKforJcolSum + this._Eta.get(k, j);
+						double v2 = noKforJcolSum + EtaR.get(k, j);
 						if(v2 > maxV2){
 							maxV2 = v2;
 						}
@@ -617,8 +628,9 @@ public class DCKUFL {
 	}
 	//
 	private void computeH(){
+		DoubleMatrix2D AlphaR = this._Alpha.plus(this._R);
 		for(int i=0; i<this._N; i++){
-			Vector<Double> aIRow = this._Alpha.getRow(i).getVector();
+			Vector<Double> aIRow = AlphaR.getRow(i).getVector();
 			ArrayList<DoubleInt> diList = Mat.getDoubleIntList(aIRow);
 			Collections.sort(diList, new PairComparatorByFirst_Desc<Double, Integer>());
 			ArrayList<Double> S = Mat.cumsumDI(diList);
@@ -631,21 +643,30 @@ public class DCKUFL {
 	}
 	
 	protected void computeExemplars() {
-		DoubleMatrix2D AlphaEta = this._Alpha.plus(this._Eta);
-		DoubleMatrix2D maxMatrix = AlphaEta.maxc();		
+		DoubleMatrix2D AlphaEtaR = this._Alpha.plus(this._Eta).plus(this._R);
+		
 		ArrayList<Integer> colList = new ArrayList<Integer>();
         ArrayList<Integer> rowList = new ArrayList<Integer>();
 		for(int j=0; j<this._M; j++){
-			if(maxMatrix.get(1, j) >= 0){	
-				colList.add(j);
-				rowList.add((int)maxMatrix.get(0, j));
+			boolean already = false;
+			for(int i=0; i<this._N; i++){
+				if(AlphaEtaR.get(i, j) >= 0){
+					if(already){
+						new Exception("Multiple use error!").printStackTrace();
+					}
+					colList.add(j);
+					rowList.add(i);
+					already = true;
+				}
 			}
-		}
+		}		
+		
 		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
 		for(int k=0; k<colList.size(); k++){
 			this._JfForIcMatrix.set(0, k, colList.get(k));
 			this._JfForIcMatrix.set(1, k, rowList.get(k));
-		}		
+		}
+		
         if(debug){
         	System.out.println("Iterating ... max Selected Exemplars[X]:");
         	printSDMatrix();
