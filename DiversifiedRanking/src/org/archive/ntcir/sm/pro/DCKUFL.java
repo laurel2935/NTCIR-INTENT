@@ -10,14 +10,16 @@ import java.util.Random;
 import java.util.TreeMap;
 import java.util.Vector;
 
-import org.archive.ml.clustering.ap.abs.ConvitsVector;
+import org.archive.ml.clustering.ap.abs.ConvitsVector2D;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix2D;
 import org.archive.ml.ufl.Mat;
+import org.archive.util.tuple.BooleanInt;
 import org.archive.util.tuple.DoubleInt;
+import org.archive.util.tuple.IntInt;
 import org.archive.util.tuple.PairComparatorByFirst_Desc;
 
 public class DCKUFL {
@@ -28,8 +30,7 @@ public class DCKUFL {
 	private double _lambda = 0.5;
 	private int _iterationTimes = 5000;
 	//thus, the size of iteration-span that without change of exemplar
-    protected Integer _noChangeIterSpan = null;
-    
+    protected Integer _noChangeIterSpan = null;    
     
     //set of node identifier, i.e., names
     private Collection<String> _cNodeNames;
@@ -43,7 +44,6 @@ public class DCKUFL {
     protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
     protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
     
-    protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
      
 	///////////////////////
 	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
@@ -99,11 +99,12 @@ public class DCKUFL {
 	private DoubleMatrix2D _H;
 	private DoubleMatrix2D _oldH;
 	
-	//exemplar vector, i.e., the size of I equals the number of exemplars,
-    //the value of each element is the exemplar index
-    //i.e., the index of the positive element of the diagonal of R+A 
-	//!!! not that this time is the column
-    private IntegerMatrix2D _sdX = null;    
+	//one ConvitsVector2D for each potential exemplar
+    protected Map<Integer, ConvitsVector2D> _convitsVectorMap = new HashMap<Integer, ConvitsVector2D>();
+	//2-row integer matrix
+	//1st-row: column-id
+	//2nd-row: target-row-id
+    private IntegerMatrix2D _JfForIcMatrix = null;    
     private IntegerMatrix1D _fY = null;
 	
     //the number of exemplar
@@ -278,12 +279,20 @@ public class DCKUFL {
     public void computeBeliefs(){
 		DoubleMatrix2D AlphaEta = this._Alpha.plus(this._Eta);
 		DoubleMatrix2D maxMatrix = AlphaEta.maxc();
-		this._sdX = new IntegerMatrix2D(this._N, _M, 0);
+		
+		ArrayList<Integer> colList = new ArrayList<Integer>();
+        ArrayList<Integer> rowList = new ArrayList<Integer>();
 		for(int j=0; j<this._M; j++){
-			if(maxMatrix.get(1, j) >= 0){				
-				this._sdX.set((int)maxMatrix.get(0, j), j, 1);
+			if(maxMatrix.get(1, j) >= 0){	
+				colList.add(j);
+				rowList.add((int)maxMatrix.get(0, j));
 			}
-		}				
+		}
+		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
+		for(int k=0; k<colList.size(); k++){
+			this._JfForIcMatrix.set(0, k, colList.get(k));
+			this._JfForIcMatrix.set(1, k, rowList.get(k));
+		}						
         if(debug){
         	System.out.println("Final ... max Selected Exemplars:");
         	printSDMatrix();
@@ -298,26 +307,36 @@ public class DCKUFL {
         	}
         	System.out.println();
         }
+        //ui      
+        ArrayList<IntInt> uiList = new ArrayList<IntInt>();        
+        for(int i=0; i<this._N; i++){
+        	int ui = 0; double maxV = this._H.get(i, 0)+Fi(i, 0);
+        	for(int state=1; state<=this._M; state++){
+        		double v = Fi(i, state) + this._H.get(i, state);
+        		if(v > maxV){
+        			ui = state;
+        			maxV = v;
+        		}
+        	}
+        	//
+        	uiList.add(new IntInt(i, ui));        	
+        }
+        if(debug){        	
+        	System.out.println("Selected Facilities[Ui]:"); 
+        	for(IntInt intInt: uiList){
+        		System.out.println(intInt.toString());
+        	}        	
+        } 
 	}
     
     public void printSDMatrix() {
-        ArrayList<Integer> colList = new ArrayList<Integer>();
-        ArrayList<Integer> rowList = new ArrayList<Integer>();
-        for (int i = 0; i < _N; i++) {
-        	for (int j = 0; j < _M; j++) {
-            	if(this._sdX.get(i, j) > 0){
-            		rowList.add(i);
-            		colList.add(j);            		
-            	}
-            }
-        }
-        //
-        for(int k=0; k<colList.size(); k++){
-        	System.out.print(colList.get(k)+" ");
+    	int exeNum = this._JfForIcMatrix.getM();
+        for(int k=0; k<exeNum; k++){
+        	System.out.print(this._JfForIcMatrix.get(0, k)+" ");
         }
         System.out.println();
-        for(int k=0; k<rowList.size(); k++){
-        	System.out.print(rowList.get(k)+" ");
+        for(int k=0; k<exeNum; k++){
+        	System.out.print(this._JfForIcMatrix.get(1, k)+" ");
         }
         System.out.println();
     }
@@ -613,21 +632,30 @@ public class DCKUFL {
 	
 	protected void computeExemplars() {
 		DoubleMatrix2D AlphaEta = this._Alpha.plus(this._Eta);
-		DoubleMatrix2D maxMatrix = AlphaEta.maxc();
-		this._sdX = new IntegerMatrix2D(this._N, _M, 0);
+		DoubleMatrix2D maxMatrix = AlphaEta.maxc();		
+		ArrayList<Integer> colList = new ArrayList<Integer>();
+        ArrayList<Integer> rowList = new ArrayList<Integer>();
 		for(int j=0; j<this._M; j++){
-			if(maxMatrix.get(1, j) >= 0){				
-				this._sdX.set((int)maxMatrix.get(0, j), j, 1);
+			if(maxMatrix.get(1, j) >= 0){	
+				colList.add(j);
+				rowList.add((int)maxMatrix.get(0, j));
 			}
-		}				
+		}
+		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
+		for(int k=0; k<colList.size(); k++){
+			this._JfForIcMatrix.set(0, k, colList.get(k));
+			this._JfForIcMatrix.set(1, k, rowList.get(k));
+		}		
         if(debug){
-        	System.out.println("Iterating ... max Selected Exemplars:");
+        	System.out.println("Iterating ... max Selected Exemplars[X]:");
         	printSDMatrix();
         }		
         //        
         DoubleMatrix1D EY = this._V.plus(this._Gama).getRow(0);
         this._fY = EY.findG(0);
+        
         this.clustersNumber = this._fY.size();  
+        
         if(debug){
         	System.out.println("Iterating ... >0 Facilities[Y]:");
         	System.out.println(this._fY.toString());
@@ -647,25 +675,29 @@ public class DCKUFL {
         //System.out.println("S: " + S.toString());
         if (this._noChangeIterSpan != null) {
             for (int j = 0; j < this._M; j++) {
-                ConvitsVector vec = new ConvitsVector(this._noChangeIterSpan.intValue(), Integer.valueOf(j));
-                vec.init();
-                this.convitsVectors.put(Integer.valueOf(j), vec);
+            	ConvitsVector2D convitsVector = new ConvitsVector2D(this._noChangeIterSpan.intValue(), Integer.valueOf(j));
+            	convitsVector.init();                
+                this._convitsVectorMap.put(Integer.valueOf(j), convitsVector);
             }
         }
     }
     //
     protected void calculateCovergence() {
         if (this._noChangeIterSpan != null) {
-            Vector<Integer> c = this._fY.getVector();
+            Vector<Integer>  colExemplars = this._JfForIcMatrix.getRow(0);
+            //false cases:
             for (int j = 0; j < this._M; j++) {
                 Integer ex = Integer.valueOf(j);
                 //after each iteration, examine whether each node is an exemplar,
                 //then check the sequential true or false value of each node to determine convergence!
-                if (c.contains(ex)) {
-                	this.convitsVectors.get(ex).addCovits(true);
-                } else {
-                	this.convitsVectors.get(ex).addCovits(false);
+                if (!colExemplars.contains(ex)) {
+                	this._convitsVectorMap.get(ex).addCovits(new BooleanInt(false, -1));
+                	//this._convitsVectorMap.get(ex).addCovits(new BooleanInt(true, second));
                 }
+            }
+            //true cases:
+            for(int k=0; k<this._JfForIcMatrix.getM(); k++){
+            	this._convitsVectorMap.get(_JfForIcMatrix.get(0, k)).addCovits(new BooleanInt(true, _JfForIcMatrix.get(1, k)));
             }
         }
     }
@@ -681,15 +713,14 @@ public class DCKUFL {
         if (this._noChangeIterSpan == null) {
             return true;
         } else {
-            for (ConvitsVector vec : convitsVectors.values()) {
-                if (vec.checkConvits() == false) {
+            for (ConvitsVector2D convitsVector : _convitsVectorMap.values()) {
+                if (convitsVector.checkConvits() == false) {
                     return true;
                 }
             }
         }
         return false;
-    }
-	
+    }	
 	
 	//
 	public double getLambda(){

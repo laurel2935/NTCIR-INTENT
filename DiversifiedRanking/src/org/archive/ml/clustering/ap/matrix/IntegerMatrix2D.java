@@ -1,5 +1,7 @@
 package org.archive.ml.clustering.ap.matrix;
 
+import java.util.Vector;
+
 public class IntegerMatrix2D {
 	
 	private static final long serialVersionUID = 1L;
@@ -30,6 +32,30 @@ public class IntegerMatrix2D {
     public Integer get(final int i, final int j) {
         return matrix[i][j];
     }
+    public int getM() {
+        return M;
+    }
+
+    public void setM(final int M) {
+        this.M = M;
+    }
+
+    public int getN() {
+        return N;
+    }
+
+    public void setN(final int N) {
+        this.N = N;
+    }
+    
+    public Vector<Integer> getRow(final int i) {
+    	Vector<Integer> iRow = new Vector<Integer>();        
+        for (int j = 0; j < M; j++) {
+        	iRow.add(this.matrix[i][j]);            
+        }
+        return iRow;
+    }
+    
     
     public String toString() {
         StringBuffer res = new StringBuffer();
