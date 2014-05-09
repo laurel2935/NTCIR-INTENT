@@ -11,15 +11,12 @@ import java.util.TreeMap;
 import java.util.Vector;
 
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
-import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
-import org.archive.ml.ufl.K_UFL;
-import org.archive.ml.ufl.K_UFL.UFLMode;
+import org.archive.ml.clustering.ap.matrix.IntegerMatrix2D;
 import org.archive.ml.ufl.Mat;
-import org.archive.ntcir.sm.clustering.ap.APClustering;
 import org.archive.util.tuple.DoubleInt;
 import org.archive.util.tuple.PairComparatorByFirst_Desc;
 
@@ -47,9 +44,7 @@ public class DCKUFL {
     protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
     
     protected Map<Integer, ConvitsVector> convitsVectors = new HashMap<Integer, ConvitsVector>();
-    
-    
-    
+     
 	///////////////////////
 	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
 	///////////////////////
@@ -74,7 +69,10 @@ public class DCKUFL {
 	//1×N one-row capacity vector corresponding to each subtopic
 	private DoubleMatrix1D _capList;
 	
-		
+	//if document j is selected for subtopic i, the corresponding score:
+	//p_i*r_ij + \sum_{k<>i}{(1 - s_ki) * (p_i*r_ij - p_k*r_kj)}, i.e., W_ij = JforI_ScoreMatrix(i,j)
+	private DoubleMatrix2D _JforI_ScoreMatrix;
+			
 	//N×M
 	private DoubleMatrix2D _Eta;
 	private DoubleMatrix2D _oldEta;
@@ -104,8 +102,9 @@ public class DCKUFL {
 	//exemplar vector, i.e., the size of I equals the number of exemplars,
     //the value of each element is the exemplar index
     //i.e., the index of the positive element of the diagonal of R+A 
-    private IntegerMatrix1D IX = null;    
-    private IntegerMatrix1D IY = null;
+	//!!! not that this time is the column
+    private IntegerMatrix2D _sdX = null;    
+    private IntegerMatrix1D _fY = null;
 	
     //the number of exemplar
     private int clustersNumber = 0;
@@ -124,6 +123,9 @@ public class DCKUFL {
     	this._capList = capList;
     	this._P = p;
     	this._S = simMatrix;
+    	//
+    	_JforI_ScoreMatrix = new DoubleMatrix2D(_N, _M, 0);
+    	this.getJforI_ScoreMatrix();
     	
     	this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
@@ -132,8 +134,17 @@ public class DCKUFL {
         this._H = new DoubleMatrix2D(this._N,this._M+1, 0);
         
         if(debug){
-        	System.out.println("Rele matrix:");
-        	System.out.println(_R.toString());        	
+        	System.out.println("Popularity for subtopics:");
+        	System.out.println(_P.toString());  
+        	
+        	System.out.println("Rele matrix between subtopic <-> documents:");
+        	System.out.println(_R.toString());  
+        	
+        	System.out.println("Sim matrix between subtopics:");
+        	System.out.println(_S.toString());  
+        	
+        	System.out.println("Capacity for matrix:");
+        	System.out.println(_capList.toString());  
         }
     }
 	
@@ -263,33 +274,56 @@ public class DCKUFL {
         _R.set(cID, fID, cost.doubleValue());
     }
 	
+    
     public void computeBeliefs(){
-		DoubleMatrix2D EX;
-        EX = this._Alpha.plus(this._Eta);
-        //the indexes of potential exemplars
-        IX = EX.diag().findG(0); 
+		DoubleMatrix2D AlphaEta = this._Alpha.plus(this._Eta);
+		DoubleMatrix2D maxMatrix = AlphaEta.maxc();
+		this._sdX = new IntegerMatrix2D(this._N, _M, 0);
+		for(int j=0; j<this._M; j++){
+			if(maxMatrix.get(1, j) >= 0){				
+				this._sdX.set((int)maxMatrix.get(0, j), j, 1);
+			}
+		}				
         if(debug){
-        	System.out.println("Final ... >0 Selected Exemplars:");
-        	for(Integer cID: IX.getVector()){
-        		System.out.print(cID+"("+getCustomerName(cID)+")"+"\t");
-        	}        	
-        	System.out.println();
+        	System.out.println("Final ... max Selected Exemplars:");
+        	printSDMatrix();
         }
         //
-        DoubleMatrix2D EY;
-        EY = this._V.plus(this._Gama);
-        IY = EY.getRow(0).findG(0);
+        DoubleMatrix2D EY = this._V.plus(this._Gama);
+        this._fY = EY.getRow(0).findG(0);
         if(debug){
         	System.out.println("Final ... >0  Facilities:");
-        	for(int fID: IY.getVector()){
+        	for(int fID: this._fY.getVector()){
         		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
         	}
         	System.out.println();
         }
 	}
+    
+    public void printSDMatrix() {
+        ArrayList<Integer> colList = new ArrayList<Integer>();
+        ArrayList<Integer> rowList = new ArrayList<Integer>();
+        for (int i = 0; i < _N; i++) {
+        	for (int j = 0; j < _M; j++) {
+            	if(this._sdX.get(i, j) > 0){
+            		rowList.add(i);
+            		colList.add(j);            		
+            	}
+            }
+        }
+        //
+        for(int k=0; k<colList.size(); k++){
+        	System.out.print(colList.get(k)+" ");
+        }
+        System.out.println();
+        for(int k=0; k<rowList.size(); k++){
+        	System.out.print(rowList.get(k)+" ");
+        }
+        System.out.println();
+    }
 	
 	public IntegerMatrix1D getSelectedDocs(){
-		return this.IY;
+		return this._fY;
 	}	
 	//return a negative value
 	private double Fi(int i, int fNumber){
@@ -369,7 +403,8 @@ public class DCKUFL {
 		for(int j=0; j<this._M; j++){
 			double maxVk = Double.NEGATIVE_INFINITY;
 			for(int k=0; k<this._N; k++){
-				double vk = commonOperate(k, j)+this._Eta.get(k, j);
+				//double vk = commonOperate(k, j)+this._Eta.get(k, j);
+				double vk = _JforI_ScoreMatrix.get(k, j)+this._Eta.get(k, j);
 				if(vk > maxVk){
 					maxVk = vk;
 				}
@@ -382,27 +417,42 @@ public class DCKUFL {
 	private void updateV(){
 		this._V = this._V.mul(1-getLambda()).plus(this._oldV.mul(getLambda()));
 	}
-	*/
-	
+	*/	
+	//for accelerating
+	private void getJforI_ScoreMatrix(){
+		for(int j=0; j<this._M; j++){
+			for(int i=0; i<this._N; i++){
+				_JforI_ScoreMatrix.set(i, j, noIforJcol(i,j));
+			}
+		}
+	}
+	double [] useIScoreList = new double [this._N];
 	//
-	private double commonOperate(int rowI, int columnJ){
+	private double noIforJcol(int iRow, int jCol){
+		//all 1.0 vector with a size of this._S.getN()-1
 		ArrayList<Double> oneUniList = Mat.getUniformList(1.0, this._S.getN()-1);
-		ArrayList<Double> sICoL = this._S.getColumn(rowI).getList();
-		sICoL.remove(rowI);
+		//as a symmetric matrix of S 
+		ArrayList<Double> sICoL = this._S.getColumn(iRow).getList();
+		sICoL.remove(iRow);
+		//i.e., 1-s_ki
 		ArrayList<Double> minus_1 = Mat.minus(oneUniList, sICoL);
 		//
-		double PiRij = this._P.get(rowI)*this._R.get(rowI, columnJ);
+		double PiRij = this._P.get(iRow)*this._R.get(iRow, jCol);
+		//all PiRij vector with a size of this._R.getN()-1
 		ArrayList<Double> pi_rij_UniList = Mat.getUniformList(PiRij, this._R.getN()-1);
-		ArrayList<Double> rJCol = this._R.getColumn(columnJ).getList();
-		rJCol.remove(rowI);
+		ArrayList<Double> rJCol = this._R.getColumn(jCol).getList();
+		rJCol.remove(iRow);
 		ArrayList<Double> pList = this._P.getList();
-		pList.remove(rowI);
-		ArrayList<Double> pk_rkj_List = Mat.pointwiseMul(rJCol, pList);
+		pList.remove(iRow);
+		//i.e., p_k*r_kj
+		ArrayList<Double> pk_rkj_List = Mat.pointwiseMul(pList, rJCol);
+		//i.e., p_i*r_ij - p_k*r_kj
 		ArrayList<Double> minus_2 = Mat.minus(pi_rij_UniList, pk_rkj_List);
-		//
+		//i.e., (1-s_ki)*[p_i*r_ij - p_k*r_kj]
 		ArrayList<Double> mulList = Mat.pointwiseMul(minus_1, minus_2);
-		double desiredSum = Mat.sum(mulList)+PiRij;
-		return desiredSum;
+		//noIforJcol
+		double noIforJcolSum = Mat.sum(mulList)+PiRij;
+		return noIforJcolSum;
 	}
 	
 	//// Alpha ////
@@ -417,20 +467,23 @@ public class DCKUFL {
 		for(int j=0; j<this._M; j++){
 			double gama_j = this._Gama.get(0, j);
 			for(int i=0; i<this._N; i++){
-				double iRow_jColumn_sum = commonOperate(i,j);
+				//double iRow_jColumn_sum = commonOperate(i,j);
+				double noIforJcolSum = _JforI_ScoreMatrix.get(i, j);
 				//
 				double maxV2 = Double.NEGATIVE_INFINITY;
 				for(int k=0; k<this._N; k++){
 					if(k != i){
-						double v2 = commonOperate(k, j)+this._Eta.get(k, j);
+						//double v2 = commonOperate(k, j)+this._Eta.get(k, j);
+						double noKforJcolSum = _JforI_ScoreMatrix.get(k, j);
+						double v2 = noKforJcolSum + this._Eta.get(k, j);
 						if(v2 > maxV2){
 							maxV2 = v2;
 						}
 					}
 				}				
 				//
-				this._Alpha.set(i, j, Math.min(iRow_jColumn_sum+gama_j,
-						iRow_jColumn_sum-maxV2));
+				this._Alpha.set(i, j, Math.min(noIforJcolSum+gama_j,
+						noIforJcolSum-maxV2));
 			}
 		}	
 	}	
@@ -559,39 +612,25 @@ public class DCKUFL {
 	}
 	
 	protected void computeExemplars() {
-		DoubleMatrix2D EX;
-        EX = this._Alpha.plus(this._Eta);
-        //the indexes of potential exemplars
-        this.IX = EX.diag().findG(0);
+		DoubleMatrix2D AlphaEta = this._Alpha.plus(this._Eta);
+		DoubleMatrix2D maxMatrix = AlphaEta.maxc();
+		this._sdX = new IntegerMatrix2D(this._N, _M, 0);
+		for(int j=0; j<this._M; j++){
+			if(maxMatrix.get(1, j) >= 0){				
+				this._sdX.set((int)maxMatrix.get(0, j), j, 1);
+			}
+		}				
         if(debug){
-        	System.out.println("Iterating ... >0 exemplars[X]:");
-        	System.out.println(IX.toString());
-        }
-        this.clustersNumber = this.IX.size();
-        IntegerMatrix1D equalIX = EX.diag().findG_WithEqual(0);
-        if(debug){
-        	System.out.println("Iterating ... >=0 exemplars[X]:");
-        	System.out.println(equalIX.toString());
-        }
-        //
-        DoubleMatrix2D maxAR = EX.maxr();
-        if(debug){        	
-        	System.out.println("Iterating ... max exemplars[X]:");
-        	for(int i=0; i<maxAR.getN(); i++){
-        		//System.out.println(i+" -> "+(int)AR.get(i, 0));
-        		if(i == (int)maxAR.get(i, 0)){
-        			System.out.print(i+" ");
-        		}
-        	}
-        	System.out.println();
-        }
-        //
-        DoubleMatrix1D EY;
-        EY = this._V.plus(this._Gama).getRow(0);
-        IY = EY.findG(0);
+        	System.out.println("Iterating ... max Selected Exemplars:");
+        	printSDMatrix();
+        }		
+        //        
+        DoubleMatrix1D EY = this._V.plus(this._Gama).getRow(0);
+        this._fY = EY.findG(0);
+        this.clustersNumber = this._fY.size();  
         if(debug){
         	System.out.println("Iterating ... >0 Facilities[Y]:");
-        	System.out.println(IY.toString());
+        	System.out.println(this._fY.toString());
         }
         IntegerMatrix1D equalIY = EY.findG_WithEqual(0);
         if(debug){
@@ -607,19 +646,19 @@ public class DCKUFL {
     protected void initConvergence() {
         //System.out.println("S: " + S.toString());
         if (this._noChangeIterSpan != null) {
-            for (int i = 0; i < this._N; i++) {
-                ConvitsVector vec = new ConvitsVector(this._noChangeIterSpan.intValue(), Integer.valueOf(i));
+            for (int j = 0; j < this._M; j++) {
+                ConvitsVector vec = new ConvitsVector(this._noChangeIterSpan.intValue(), Integer.valueOf(j));
                 vec.init();
-                this.convitsVectors.put(Integer.valueOf(i), vec);
+                this.convitsVectors.put(Integer.valueOf(j), vec);
             }
         }
     }
     //
     protected void calculateCovergence() {
         if (this._noChangeIterSpan != null) {
-            Vector<Integer> c = IX.getVector();
-            for (int i = 0; i < this._N; i++) {
-                Integer ex = Integer.valueOf(i);
+            Vector<Integer> c = this._fY.getVector();
+            for (int j = 0; j < this._M; j++) {
+                Integer ex = Integer.valueOf(j);
                 //after each iteration, examine whether each node is an exemplar,
                 //then check the sequential true or false value of each node to determine convergence!
                 if (c.contains(ex)) {
@@ -685,23 +724,20 @@ public class DCKUFL {
 		simMatrix.set(1, 0, 0.2);simMatrix.set(1, 2, 0.4);simMatrix.set(1, 3, 0.2);
 		simMatrix.set(2, 0, 0.3);simMatrix.set(2, 1, 0.4);simMatrix.set(2, 3, 0.3);
 		simMatrix.set(3, 0, 0.1);simMatrix.set(3, 1, 0.2);simMatrix.set(3, 2, 0.3);
-		
+		//nextInt(int n) 介于[0,n)的区间
+		//数值介于[0,1.0)之间
 		Random random = new Random();
 		DoubleMatrix2D releMatrix = new DoubleMatrix2D(4, 50, 0.0);
 		for(int i=0; i<4; i++){
 			for(int j=0; j<50; j++){
-				releMatrix.set(i, j, Math.abs(random.nextDouble()));
+				releMatrix.set(i, j, random.nextDouble());
 			}
 		}
 		//		
     	double lambda = 0.5;
-    	int iterationTimes = 50;
+    	int iterationTimes = 5000;
     	int noChangeIterSpan = 10; 
-    	int preK = 13;
-    	ArrayList<Double> fList = new ArrayList<Double>();
-    	for(int j=0; j<25; j++){
-    		fList.add(0.0);
-    	}
+    	int preK = 13;    	
     	//double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, int n, int m,
     	//DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList
     	DCKUFL dckufl = new DCKUFL(lambda, iterationTimes, noChangeIterSpan, preK, 4, 50,
@@ -712,6 +748,9 @@ public class DCKUFL {
 	
 	//
 	public static void main(String []args){
+		/**
+		 * !!!the convergence check is highly dependent whether C is the same as F
+		 * **/
 		DCKUFL.testAPExample();
 	}
 }

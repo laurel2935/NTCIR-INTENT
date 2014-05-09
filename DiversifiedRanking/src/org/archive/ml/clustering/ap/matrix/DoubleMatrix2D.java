@@ -32,8 +32,6 @@
 
 package org.archive.ml.clustering.ap.matrix;
 
-import java.util.ArrayList;
-
 public class DoubleMatrix2D implements java.io.Serializable {
 
     /**
@@ -113,7 +111,8 @@ public class DoubleMatrix2D implements java.io.Serializable {
 
         return res;
     }
-
+    //
+    
     public DoubleMatrix2D transpose() {
         DoubleMatrix2D res = new DoubleMatrix2D(M, N);
 
@@ -271,6 +270,27 @@ public class DoubleMatrix2D implements java.io.Serializable {
         }
         return res;
     }
+    /**
+     * @return A two row matrix, the 1st row records the index of the maximum element in the column;
+     * the 2nd row record the value of the maximum element 
+     * */
+    public DoubleMatrix2D maxc() {
+        DoubleMatrix2D res = new DoubleMatrix2D(2, M, 0);
+
+        for (int j = 0; j < M; j++) {
+            int maxi = 0;
+            for (int i=0; i<N; i++) {
+                if (this.get(i, j) > this.get(maxi, j)) {
+                	maxi = i;
+                }
+            }
+            //the first row records the row-position of the maximum element 
+            res.set(0, j, maxi);
+            //the second row records the value of the maximum element
+            res.set(1, j, this.matrix[maxi][j]);
+        }
+        return res;
+    }
 
     public IntegerMatrix1D maxrIndexes() {
         IntegerMatrix1D res = new IntegerMatrix1D(N);
@@ -286,6 +306,21 @@ public class DoubleMatrix2D implements java.io.Serializable {
         }
         return res;
     }
+    //
+    public IntegerMatrix1D maxcIndexes() {
+        IntegerMatrix1D res = new IntegerMatrix1D(M);
+
+        for (int j=0; j<M; j++) {
+            int maxi = 0;
+            for (int i=0; i<N; i++) {
+                if (this.matrix[i][j] > this.matrix[maxi][j]) {
+                	maxi = i;
+                }
+            }
+            res.set(j, Integer.valueOf(maxi));
+        }
+        return res;
+    }
     /**
      * @return merely keep the values that are larger or equal to "v", and replace the values with given v if it is smaller than v
      * */
@@ -296,6 +331,21 @@ public class DoubleMatrix2D implements java.io.Serializable {
             for (int j = 0; j < M; j++) {
                 if (v > this.matrix[i][j]) {
                     res.matrix[i][j] = v;
+                }
+            }
+        }
+        return res;
+    }
+    /**
+     * @return merely keep the values that are larger or equal to "v", and replace the values with replaceV if it is smaller than v
+     * */
+    public DoubleMatrix2D max(final double v, final double replaceV) {
+        DoubleMatrix2D res = new DoubleMatrix2D(this);
+
+        for (int i = 0; i < N; i++) {
+            for (int j = 0; j < M; j++) {
+                if (v > this.matrix[i][j]) {
+                    res.matrix[i][j] = replaceV;
                 }
             }
         }
