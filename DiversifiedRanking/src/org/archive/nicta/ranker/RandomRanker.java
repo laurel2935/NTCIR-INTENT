@@ -8,6 +8,7 @@ package org.archive.nicta.ranker;
 
 import java.util.*;
 
+import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.util.Permutation;
 
 public class RandomRanker extends ResultRanker {
@@ -29,6 +30,10 @@ public class RandomRanker extends ResultRanker {
 	@Override
 	public void initTonNDocsForInnerKernels() {
 		
+	}
+	
+	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
+		return null;
 	}
 
 	@Override

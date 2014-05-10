@@ -10,6 +10,8 @@ package org.archive.nicta.ranker;
 
 import java.util.*;
 
+import org.archive.dataset.trec.query.TRECDivQuery;
+
 /**
  * ResultRanker runs per query by refreshing "_docTopN" each time.
  * thus, per query, call: addDoc() & initDocs() & clearDocs()
@@ -34,6 +36,8 @@ public abstract class ResultRanker {
 	}
 	
 	public abstract ArrayList<String> getResultList(String query, int list_size);
+	
+	public abstract ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int list_size);
 
 	public abstract void addATopNDoc(String doc_name);
 

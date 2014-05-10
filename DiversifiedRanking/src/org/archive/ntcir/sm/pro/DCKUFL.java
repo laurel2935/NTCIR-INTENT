@@ -50,7 +50,7 @@ public class DCKUFL {
     Integer G_M1_zM;    
     //relevance matrix among subtopic and documents, positive values
     //private boolean _logDomain;
-    private ArrayList<InteractionData> _releMatrix;
+    //private ArrayList<InteractionData> _releMatrix;
     
 	
 	//number of subtopics
@@ -112,7 +112,7 @@ public class DCKUFL {
     	this._iterationTimes = iterationTimes;
     	this._noChangeIterSpan = noChangeIterSpan;   
     	this.G_M1_zM = preK;    	
-    	
+    	//
     	this._N = n;
     	this._M = m;
     	this._R = releMatrix;
@@ -122,7 +122,7 @@ public class DCKUFL {
     	//
     	_JforI_ScoreMatrix = new DoubleMatrix2D(_N, _M, 0);
     	this.getJforI_ScoreMatrix();
-    	
+    	//
     	this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
         this._V = new DoubleMatrix2D(1, this._M, 0);
@@ -145,50 +145,58 @@ public class DCKUFL {
     }
 	
     //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
-    DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, ArrayList<InteractionData> releMatrix){
-    	//1
-    	//dataPointSimilarities, for cost, e.g., c_ij, it would be the negative value of each similarity
-    	//relevanceList, for facility f_j, it would be the negative value of each one
-    	//
+    public DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK,
+    		ArrayList<InteractionData> releMatrix, ArrayList<InteractionData> subSimMatrix,
+    		ArrayList<Double> capList, ArrayList<Double> popList){
+    	//basic parameters
     	this._lambda = lambda;
     	this._iterationTimes = iterationTimes;
-    	this._noChangeIterSpan = noChangeIterSpan;    	
-    	this._releMatrix = releMatrix;    	
-    	this.G_M1_zM = preK;    	
-    	//this._logDomain = logDomain;    	
-    	//2
-    	this.ini();
-    }
-    
-    private void ini(){    	
+    	this._noChangeIterSpan = noChangeIterSpan;
+    	this.G_M1_zM = preK; 
+    	//
     	this._cNodeNames = new HashSet<String>();
     	this._fNodeNames = new HashSet<String>();
-    	for(InteractionData intData : this._releMatrix){
+    	for(InteractionData intData : releMatrix){
         	this._cNodeNames.add(intData.getFrom());
         	this._fNodeNames.add(intData.getTo());
         }
     	this._N = this._cNodeNames.size();
-		this._M = this._fNodeNames.size();     
-        
+		this._M = this._fNodeNames.size();   
         //rele matrix x_ij
-        this._R = new DoubleMatrix2D(this._N, this._M, 0);
-        
-        for (InteractionData intData : this._releMatrix) {
+        this._R = new DoubleMatrix2D(this._N, this._M, 0);        
+        for (InteractionData intData : releMatrix) {
             //System.out.println(intData.getFrom() + " " + intData.getTo() + " " + intData.getSim());          
             double r_ij = intData.getSim();            
             setRelevance(intData.getFrom(), intData.getTo(), r_ij);
-        }    
+        }   
         //
-        this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
+        this._S = new DoubleMatrix2D(_N, _N, 0.0);
+        for (InteractionData intData : subSimMatrix) {
+            //System.out.println(intData.getFrom() + " " + intData.getTo() + " " + intData.getSim()); 
+            setSubSimilarity(intData.getFrom(), intData.getTo(), intData.getSim());
+        } 
+        for(int i=0; i<this._N; i++){
+        	this._S.set(i, i, 1.0);
+        }
+        //
+        this._capList = new DoubleMatrix1D(capList.toArray(new Double[0]));
+        this._P = new DoubleMatrix1D(popList.toArray(new Double[0]));
+        
+        //
+    	_JforI_ScoreMatrix = new DoubleMatrix2D(_N, _M, 0);
+    	this.getJforI_ScoreMatrix();
+    	//
+    	this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
         this._V = new DoubleMatrix2D(1, this._M, 0);
         this._Gama = new DoubleMatrix2D(1, this._M, 0);
+        this._H = new DoubleMatrix2D(this._N,this._M+1, 0);
         
         if(debug){
         	System.out.println("Rele matrix:");
         	System.out.println(_R.toString());        	
         }
-    }	
+    }
     
     public void run(){
 		int itrTimes = getIterationTimes();
@@ -263,11 +271,17 @@ public class DCKUFL {
     	return this._facilityIDRevMapper.get(fID);
     }
     //
-    public void setRelevance(final String from, final String to, final Double cost) {
-
+    public void setRelevance(final String from, final String to, final Double rele) {
         Integer cID = getCustomerID(from);
         Integer fID = getFacilityID(to);
-        _R.set(cID, fID, cost.doubleValue());
+        _R.set(cID, fID, rele.doubleValue());
+    }
+    //
+    public void setSubSimilarity(final String from, final String to, final Double sim) {
+        Integer iCID = getCustomerID(from);
+        Integer jCID = getCustomerID(to);
+        _S.set(iCID, jCID, sim);
+        _S.set(jCID, iCID, sim);      
     }
 	//
 	public IntegerMatrix1D getSelectedDocs(){
@@ -703,7 +717,7 @@ public class DCKUFL {
                 Integer ex = Integer.valueOf(j);
                 //after each iteration, examine whether each node is an exemplar,
                 //then check the sequential true or false value of each node to determine convergence!
-                if (!colExemplars.contains(ex)) {
+                if (!colExemplars.contains(ex)) {                	
                 	this._convitsVectorMap.get(ex).addCovits(new BooleanInt(false, -1));
                 	//this._convitsVectorMap.get(ex).addCovits(new BooleanInt(true, second));
                 }
@@ -729,7 +743,14 @@ public class DCKUFL {
         }
         return false;
     }	
-	
+	//
+    public ArrayList<String> getSelectedFacilities(){
+    	ArrayList<String> facilityList = new ArrayList<String>();
+    	for(int fID: this._fY.getVector()){
+    		facilityList.add(getFacilityName(fID));    		
+    	}
+    	return facilityList;
+    }
 	//
 	public double getLambda(){
 		return this._lambda;

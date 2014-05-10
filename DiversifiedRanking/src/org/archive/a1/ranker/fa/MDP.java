@@ -93,6 +93,9 @@ public class MDP extends ResultRanker {
 	public ArrayList<String> getResultList(String query, int size) {
 		return null;
 	}
+	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
+		return null;
+	}
 	//
 	public ArrayList<String> getResultList(String query, int size, fVersion _fVersion) {		
 		// Get representation for query

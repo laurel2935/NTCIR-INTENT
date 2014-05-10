@@ -102,7 +102,78 @@ public class K_UFL {
 	
     //the number of exemplar
     private int clustersNumber = 0;
-	
+	//
+    public K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferenceCost, Integer preK, UFLMode uflMode, 
+    		ArrayList<InteractionData> costMatrix){
+    	//1
+    	//dataPointSimilarities, for cost, e.g., c_ij, it would be the negative value of each similarity
+    	//relevanceList, for facility f_j, it would be the negative value of each one
+    	//
+    	this._lambda = lambda;
+    	this._iterationTimes = iterationTimes;
+    	this._noChangeIterSpan = noChangeIterSpan;
+    	this.preferenceCost = preferenceCost;
+    	this._costMatrix = costMatrix;    	
+    	this.G_M1_zM = preK;
+    	this._uflMode = uflMode;
+    	//this._logDomain = logDomain;    	
+
+    	this._cNodeNames = new HashSet<String>();
+    	this._fNodeNames = new HashSet<String>();
+    	for(InteractionData intData : this._costMatrix){
+        	this._cNodeNames.add(intData.getFrom());
+        	this._fNodeNames.add(intData.getTo());
+        }
+    	if(UFLMode.C_Same_F == _uflMode){
+    		HashSet<String> nodeSet = new HashSet<String>();
+    		nodeSet.addAll(_cNodeNames);
+    		nodeSet.addAll(_fNodeNames);
+    		this._N = nodeSet.size();
+    	    this._M = nodeSet.size();
+    	}else{
+    		this._N = this._cNodeNames.size();
+    		this._M = this._fNodeNames.size();
+    	}       
+        
+        //cost matrix c_ij
+        this._C = new DoubleMatrix2D(this._N, this._M, 0);
+        
+        for (InteractionData intData : this._costMatrix) {
+            //System.out.println(intData.getFrom() + " " + intData.getTo() + " " + intData.getSim());          
+            double c_ij = intData.getSim();            
+            setCost(intData.getFrom(), intData.getTo(), c_ij);
+        }        
+        if(UFLMode.C_Same_F == _uflMode){
+        	System.out.println("pref: " + preferenceCost);        
+            for (int i = 0; i < this._N; i++) {
+            	double c_ii = preferenceCost;
+            	this._C.set(i, i, c_ii);
+            }
+        }       
+        
+        //
+        this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
+        this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
+        this._V = new DoubleMatrix2D(1, this._M, 0);
+        this._Gama = new DoubleMatrix2D(1, this._M, 0);
+        
+        if(debug){
+        	System.out.println("Cost matrix:");
+        	System.out.println(_C.toString());
+        	System.out.println("Y matrix:");
+        	System.out.println(_Y.toString());
+        }
+    }
+    
+    public void setFacilityCost(ArrayList<Double> fList){
+    	//facility cost f_j
+        this._Y = new DoubleMatrix2D(1, this._M, 0);
+        for(int j=0; j<this._M; j++){
+        	double f_j = fList.get(j);
+        	this._Y.set(0, j, f_j);
+        }
+    }
+    
     //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
     K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferenceCost, Integer preK, UFLMode uflMode, 
     		ArrayList<InteractionData> costMatrix, ArrayList<Double> fList){
@@ -286,7 +357,7 @@ public class K_UFL {
     		return this._cfIDRevMapper.get(cID);
     	}
     }
-    protected Integer getFacilityID(String fName){
+    public Integer getFacilityID(String fName){
     	if(UFLMode.C_Differ_F == _uflMode){
     		if(_facilityIDMapper.containsKey(fName)){
         		return _facilityIDMapper.get(fName);
@@ -309,7 +380,7 @@ public class K_UFL {
     		}
     	}    	
     }
-    protected String getFacilityName(Integer fID){
+    public String getFacilityName(Integer fID){
     	if(UFLMode.C_Differ_F == this._uflMode){
     		return this._facilityIDRevMapper.get(fID);
     	}else{
@@ -532,6 +603,14 @@ public class K_UFL {
         	System.out.println(_oldGama.toString());        	
         }
 	}
+	
+	public ArrayList<String> getSelectedFacilities(){
+    	ArrayList<String> facilityList = new ArrayList<String>();
+    	for(int fID: this.IY.getVector()){
+    		facilityList.add(getFacilityName(fID));    		
+    	}
+    	return facilityList;
+    }
 	//
 	private void computeGama(){
 		for(int paperJ=1; paperJ<=this._M; paperJ++){

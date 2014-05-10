@@ -7,9 +7,9 @@ package org.archive.nicta.ranker.mmr;
 
 import java.util.*;
 
+import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
-
 import org.archive.util.Pair;
 import org.archive.util.Triple;
 
@@ -131,6 +131,10 @@ public class MMR extends ResultRanker {
 	//	e.printStackTrace(System.out);
 	//	System.exit(1);
 	//}
+	
+	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
+		return null;
+	}
 
 	@Override
 	public ArrayList<String> getResultList(String query, int list_size) {

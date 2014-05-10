@@ -47,6 +47,10 @@ public class ConvitsVector2D implements Comparable<ConvitsVector2D> {
 
             for (BooleanInt booInt : convits) {
                 if (!booInt.equals(firstBooInt)) {
+                	//System.out.println("Not equal");
+                	//System.out.println(booInt.toString());
+                	//System.out.println(firstBooInt.toString());
+                	//System.out.println();
                     return false;
                 }
             }
@@ -62,5 +66,10 @@ public class ConvitsVector2D implements Comparable<ConvitsVector2D> {
 
     public int compareTo(ConvitsVector2D o) {
         return this.name.compareTo(o.name);
+    }
+    //
+    public static void main(String []args){
+    	//1 test
+    	
     }
 }
