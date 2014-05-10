@@ -39,6 +39,10 @@ public class IntegerMatrix1D extends Matrix1D<Integer> {
             setValue(i, Integer.valueOf(0));
         }
     }
+    
+    public IntegerMatrix1D(final Integer [] vArray){
+    	super(vArray);
+    }
 
     public static IntegerMatrix1D range(final int r) {
         IntegerMatrix1D res = new IntegerMatrix1D(r);

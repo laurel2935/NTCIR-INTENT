@@ -11,9 +11,9 @@ import java.util.Vector;
 
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
-import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
+import org.archive.ml.ufl.K_UFL.UFLMode;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
 import org.archive.util.tuple.DoubleInt;
 import org.archive.util.tuple.PairComparatorByFirst_Desc;
@@ -161,8 +161,7 @@ public class CFL {
         	System.out.println(_C.toString());        	        	
         }
     }	
-    
-    
+        
     public void run(){
 		int itrTimes = getIterationTimes();
 		initConvergence();
@@ -183,7 +182,7 @@ public class CFL {
 				this.copyV();
 				this.computeV_CFSameCase();
 				//
-				computeExemplars();
+				computeIteratingBeliefs();
 				//
 				calculateCovergence();
 				//
@@ -207,7 +206,7 @@ public class CFL {
 				this.copyV();
 				this.computeV_CFDifferCase();
 				//
-				computeExemplars();
+				computeIteratingBeliefs();
 				//
 				calculateCovergence();
 				//
@@ -219,8 +218,7 @@ public class CFL {
 		//
 		computeBeliefs();
 	}
-    
-    
+        
     protected Integer getCustomerID(String cName) {
     	if(UFLMode.C_Differ_F == this._uflMode){
     		if (_customerIDMapper.containsKey(cName)) {
@@ -293,49 +291,7 @@ public class CFL {
         	_C.set(fID, cID, cost.doubleValue());
         }
     }
-	//
-	public void computeBeliefs(){
-		if(debug){
-			System.out.println("Computed beliefs:");
-		}
-		DoubleMatrix2D EX;
-        EX = this._Alpha.plus(this._Eta).minus(this._C);
-        //the indexes of potential exemplars
-        IX = EX.diag().findG(0); 
-        if(debug){
-        	System.out.println("Selected Exemplars:");
-        	for(Integer cID: IX.getVector()){
-        		System.out.print(cID+"("+getCustomerName(cID)+")"+"\t");
-        	}        	
-        	System.out.println();
-        }
-        //
-        //uj   
-        ArrayList<Integer> ujList = new ArrayList<Integer>();
-        ArrayList<Integer> idList = new ArrayList<Integer>();
-        for(int j=0; j<this._M; j++){
-        	int uj = 0; double maxV = this._V.get(0, j);
-        	for(int state=1; state<=this._N; state++){
-        		double v = Fj(state)+this._V.get(state, j);
-        		if(v > maxV){
-        			uj = state;
-        			maxV = v;
-        		}
-        	}
-        	//
-        	ujList.add(uj);
-        	//
-        	if(uj > 0){
-        		idList.add(j);
-        	}
-        }
-        if(debug){        	
-        	System.out.println("Selected Facilities[Uj]:");        	
-        	System.out.println(ujList);
-        	System.out.println(idList);
-        }        
-	}
-	
+	//	
 	public IntegerMatrix1D getSelectedDocs(){
 		return this.IY;
 	}	
@@ -557,33 +513,28 @@ public class CFL {
 		}		
 	}
 	//
-	protected void computeExemplars() {
-        DoubleMatrix2D EX;
-        EX = this._Alpha.plus(this._Eta).minus(this._C);
+	protected void computeIteratingBeliefs() {
+		DoubleMatrix2D AlphaEtaC = this._Alpha.plus(this._Eta).minus(this._C);
         //the indexes of potential exemplars
-        this.IX = EX.diag().findG(0);
+		if(UFLMode.C_Same_F == this._uflMode){
+			this.IX = AlphaEtaC.diag().findG(0);
+		}else{
+			ArrayList<Integer> fList = new ArrayList<Integer>();
+			for(int j=0; j<this._M; j++){
+				for(int i=0; i<this._N; i++){
+					if(AlphaEtaC.get(i, j) >= 0){
+						fList.add(j);
+					}
+				}
+			}
+			//
+			this.IX = new IntegerMatrix1D(fList.toArray(new Integer[0]));
+		}	
         if(debug){
         	System.out.println("Iterating ... >0 exemplars[X]:");
         	System.out.println(IX.toString());
         }
-        this.clustersNumber = this.IX.size();
-        IntegerMatrix1D equalIX = EX.diag().findG_WithEqual(0);
-        if(debug){
-        	System.out.println("Iterating ... >=0 exemplars[X]:");
-        	System.out.println(equalIX.toString());
-        }
-        //
-        DoubleMatrix2D maxAR = EX.maxr();
-        if(debug){        	
-        	System.out.println("Iterating ... max exemplars[X]:");
-        	for(int i=0; i<maxAR.getN(); i++){
-        		//System.out.println(i+" -> "+(int)AR.get(i, 0));
-        		if(i == (int)maxAR.get(i, 0)){
-        			System.out.print(i+" ");
-        		}
-        	}
-        	System.out.println();
-        }
+        
         //uj   
         ArrayList<Integer> ujList = new ArrayList<Integer>();
         for(int j=0; j<this._M; j++){
@@ -602,7 +553,60 @@ public class CFL {
         	System.out.println(ujList);
         }
     }
-	
+	//
+	public void computeBeliefs(){
+		if(debug){
+			System.out.println("Computed beliefs:");
+		}
+		DoubleMatrix2D AlphaEtaC = this._Alpha.plus(this._Eta).minus(this._C);
+        //the indexes of potential exemplars
+		if(UFLMode.C_Same_F == this._uflMode){
+			this.IX = AlphaEtaC.diag().findG(0);
+		}else{
+			ArrayList<Integer> fList = new ArrayList<Integer>();
+			for(int j=0; j<this._M; j++){
+				for(int i=0; i<this._N; i++){
+					if(AlphaEtaC.get(i, j) >= 0){
+						fList.add(j);
+					}
+				}
+			}
+			//
+			this.IX = new IntegerMatrix1D(fList.toArray(new Integer[0]));
+		}
+        if(debug){
+        	System.out.println("Selected Exemplars:");
+        	for(Integer cID: IX.getVector()){
+        		System.out.print(cID+"("+getCustomerName(cID)+")"+"\t");
+        	}        	
+        	System.out.println();
+        }
+        //
+        //uj   
+        ArrayList<Integer> ujList = new ArrayList<Integer>();
+        ArrayList<Integer> idList = new ArrayList<Integer>();
+        for(int j=0; j<this._M; j++){
+        	int uj = 0; double maxV = this._V.get(0, j);
+        	for(int state=1; state<=this._N; state++){
+        		double v = Fj(state)+this._V.get(state, j);
+        		if(v > maxV){
+        			uj = state;
+        			maxV = v;
+        		}
+        	}
+        	//
+        	ujList.add(uj);
+        	//
+        	if(uj > 0){
+        		idList.add(j);
+        	}
+        }
+        if(debug){        	
+        	System.out.println("Selected Facilities[Uj]:");        	
+        	System.out.println(ujList);
+        	System.out.println(idList);
+        }        
+	}
 	
 	/**
      * initialize the indicator of convergence vectors
@@ -610,10 +614,10 @@ public class CFL {
     protected void initConvergence() {
         //System.out.println("S: " + S.toString());
         if (this._noChangeIterSpan != null) {
-            for (int i = 0; i < this._N; i++) {
-                ConvitsVector vec = new ConvitsVector(this._noChangeIterSpan.intValue(), Integer.valueOf(i));
+            for (int j = 0; j < this._M; j++) {
+                ConvitsVector vec = new ConvitsVector(this._noChangeIterSpan.intValue(), Integer.valueOf(j));
                 vec.init();
-                this.convitsVectors.put(Integer.valueOf(i), vec);
+                this.convitsVectors.put(Integer.valueOf(j), vec);
             }
         }
     }
@@ -621,8 +625,8 @@ public class CFL {
     protected void calculateCovergence() {
         if (this._noChangeIterSpan != null) {
             Vector<Integer> c = IX.getVector();
-            for (int i = 0; i < this._N; i++) {
-                Integer ex = Integer.valueOf(i);
+            for (int j = 0; j < this._M; j++) {
+                Integer ex = Integer.valueOf(j);
                 //after each iteration, examine whether each node is an exemplar,
                 //then check the sequential true or false value of each node to determine convergence!
                 if (c.contains(ex)) {

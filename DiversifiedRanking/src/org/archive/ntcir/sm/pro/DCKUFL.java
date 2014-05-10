@@ -24,7 +24,7 @@ import org.archive.util.tuple.PairComparatorByFirst_Desc;
 
 public class DCKUFL {
 	
-	private static final boolean debug = true;
+	private static final boolean debug = false;
 		
 	//// Basic Parameters with default values ////	
 	private double _lambda = 0.5;
@@ -43,14 +43,11 @@ public class DCKUFL {
     private Integer _facilityID = 0;
     protected Map<String, Integer> _facilityIDMapper = new TreeMap<String, Integer>();
     protected Map<Integer, String> _facilityIDRevMapper = new TreeMap<Integer, String>();
-    
-     
-	///////////////////////
-	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!
-	///////////////////////
+         
+	
+	// the corresponding index in the paper i,j  will be essentially i-1 j-1 in the program!	
     //predefined k
-    Integer G_M1_zM;
-    
+    Integer G_M1_zM;    
     //relevance matrix among subtopic and documents, positive values
     //private boolean _logDomain;
     private ArrayList<InteractionData> _releMatrix;
@@ -99,17 +96,15 @@ public class DCKUFL {
 	private DoubleMatrix2D _H;
 	private DoubleMatrix2D _oldH;
 	
+	
 	//one ConvitsVector2D for each potential exemplar
     protected Map<Integer, ConvitsVector2D> _convitsVectorMap = new HashMap<Integer, ConvitsVector2D>();
-	//2-row integer matrix
+	//2-row integer matrix, which is used for check convergence£º j-th facility, i-th customer
 	//1st-row: column-id
 	//2nd-row: target-row-id
     private IntegerMatrix2D _JfForIcMatrix = null;    
-    private IntegerMatrix1D _fY = null;
-	
-    //the number of exemplar
-    private int clustersNumber = 0;
-    
+    private IntegerMatrix1D _fY = null;	
+        
     DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, int n, int m,
     		DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList){
     	//
@@ -227,7 +222,7 @@ public class DCKUFL {
 			this.computeH();
 			
 			//
-			computeExemplars();
+			computeIteratingBeliefs();
 			
 			calculateCovergence();
 			
@@ -274,80 +269,7 @@ public class DCKUFL {
         Integer fID = getFacilityID(to);
         _R.set(cID, fID, cost.doubleValue());
     }
-	
-    
-    public void computeBeliefs(){    	
-		DoubleMatrix2D AlphaEtaR = this._Alpha.plus(this._Eta).plus(this._R);
-		
-		ArrayList<Integer> colList = new ArrayList<Integer>();
-        ArrayList<Integer> rowList = new ArrayList<Integer>();
-		for(int j=0; j<this._M; j++){
-			boolean already = false;
-			for(int i=0; i<this._N; i++){
-				if(AlphaEtaR.get(i, j) >= 0){
-					if(already){
-						new Exception("Multiple use error!").printStackTrace();
-					}
-					colList.add(j);
-					rowList.add(i);
-					already = true;
-				}
-			}
-		}		
-		
-		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
-		for(int k=0; k<colList.size(); k++){
-			this._JfForIcMatrix.set(0, k, colList.get(k));
-			this._JfForIcMatrix.set(1, k, rowList.get(k));
-		}						
-        if(debug){
-        	System.out.println("Final ... max Selected Exemplars:");
-        	printSDMatrix();
-        }
-        //
-        DoubleMatrix2D EY = this._V.plus(this._Gama);
-        this._fY = EY.getRow(0).findG(0);
-        if(debug){
-        	System.out.println("Final ... >0  Facilities:");
-        	for(int fID: this._fY.getVector()){
-        		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
-        	}
-        	System.out.println();
-        }
-        //ui      
-        ArrayList<IntInt> uiList = new ArrayList<IntInt>();        
-        for(int i=0; i<this._N; i++){
-        	int ui = 0; double maxV = this._H.get(i, 0)+Fi(i, 0);
-        	for(int state=1; state<=this._M; state++){
-        		double v = Fi(i, state) + this._H.get(i, state);
-        		if(v > maxV){
-        			ui = state;
-        			maxV = v;
-        		}
-        	}
-        	//
-        	uiList.add(new IntInt(i, ui));        	
-        }
-        if(debug){        	
-        	System.out.println("Selected Facilities[Ui]:"); 
-        	for(IntInt intInt: uiList){
-        		System.out.println(intInt.toString());
-        	}        	
-        } 
-	}
-    
-    public void printSDMatrix() {
-    	int exeNum = this._JfForIcMatrix.getM();
-        for(int k=0; k<exeNum; k++){
-        	System.out.print(this._JfForIcMatrix.get(0, k)+" ");
-        }
-        System.out.println();
-        for(int k=0; k<exeNum; k++){
-        	System.out.print(this._JfForIcMatrix.get(1, k)+" ");
-        }
-        System.out.println();
-    }
-	
+	//
 	public IntegerMatrix1D getSelectedDocs(){
 		return this._fY;
 	}	
@@ -367,6 +289,42 @@ public class DCKUFL {
 			return Double.NEGATIVE_INFINITY;
 		}		
 	}
+	//for accelerating
+	private void getJforI_ScoreMatrix(){
+		for(int j=0; j<this._M; j++){
+			for(int i=0; i<this._N; i++){
+				_JforI_ScoreMatrix.set(i, j, noIforJcol(i,j));
+			}
+		}
+	}	
+	//
+	private double noIforJcol(int iRow, int jCol){
+		//all 1.0 vector with a size of this._S.getN()-1
+		ArrayList<Double> oneUniList = Mat.getUniformList(1.0, this._S.getN()-1);
+		//as a symmetric matrix of S 
+		ArrayList<Double> sICoL = this._S.getColumn(iRow).getList();
+		sICoL.remove(iRow);
+		//i.e., 1-s_ki
+		ArrayList<Double> minus_1 = Mat.minus(oneUniList, sICoL);
+		//
+		double PiRij = this._P.get(iRow)*this._R.get(iRow, jCol);
+		//all PiRij vector with a size of this._R.getN()-1
+		ArrayList<Double> pi_rij_UniList = Mat.getUniformList(PiRij, this._R.getN()-1);
+		ArrayList<Double> rJCol = this._R.getColumn(jCol).getList();
+		rJCol.remove(iRow);
+		ArrayList<Double> pList = this._P.getList();
+		pList.remove(iRow);
+		//i.e., p_k*r_kj
+		ArrayList<Double> pk_rkj_List = Mat.pointwiseMul(pList, rJCol);
+		//i.e., p_i*r_ij - p_k*r_kj
+		ArrayList<Double> minus_2 = Mat.minus(pi_rij_UniList, pk_rkj_List);
+		//i.e., (1-s_ki)*[p_i*r_ij - p_k*r_kj]
+		ArrayList<Double> mulList = Mat.pointwiseMul(minus_1, minus_2);
+		//noIforJcol
+		double noIforJcolSum = Mat.sum(mulList)+PiRij;
+		return noIforJcolSum;
+	}
+	
 	
 	//// Eta ////
 	private void copyEta(){
@@ -447,42 +405,7 @@ public class DCKUFL {
 		this._V = this._V.mul(1-getLambda()).plus(this._oldV.mul(getLambda()));
 	}
 	*/	
-	//for accelerating
-	private void getJforI_ScoreMatrix(){
-		for(int j=0; j<this._M; j++){
-			for(int i=0; i<this._N; i++){
-				_JforI_ScoreMatrix.set(i, j, noIforJcol(i,j));
-			}
-		}
-	}	
-	//
-	private double noIforJcol(int iRow, int jCol){
-		//all 1.0 vector with a size of this._S.getN()-1
-		ArrayList<Double> oneUniList = Mat.getUniformList(1.0, this._S.getN()-1);
-		//as a symmetric matrix of S 
-		ArrayList<Double> sICoL = this._S.getColumn(iRow).getList();
-		sICoL.remove(iRow);
-		//i.e., 1-s_ki
-		ArrayList<Double> minus_1 = Mat.minus(oneUniList, sICoL);
-		//
-		double PiRij = this._P.get(iRow)*this._R.get(iRow, jCol);
-		//all PiRij vector with a size of this._R.getN()-1
-		ArrayList<Double> pi_rij_UniList = Mat.getUniformList(PiRij, this._R.getN()-1);
-		ArrayList<Double> rJCol = this._R.getColumn(jCol).getList();
-		rJCol.remove(iRow);
-		ArrayList<Double> pList = this._P.getList();
-		pList.remove(iRow);
-		//i.e., p_k*r_kj
-		ArrayList<Double> pk_rkj_List = Mat.pointwiseMul(pList, rJCol);
-		//i.e., p_i*r_ij - p_k*r_kj
-		ArrayList<Double> minus_2 = Mat.minus(pi_rij_UniList, pk_rkj_List);
-		//i.e., (1-s_ki)*[p_i*r_ij - p_k*r_kj]
-		ArrayList<Double> mulList = Mat.pointwiseMul(minus_1, minus_2);
-		//noIforJcol
-		double noIforJcolSum = Mat.sum(mulList)+PiRij;
-		return noIforJcolSum;
-	}
-	
+		
 	//// Alpha ////
 	private void copyAlpha(){
 		this._oldAlpha = this._Alpha.copy();
@@ -642,7 +565,51 @@ public class DCKUFL {
 		}
 	}
 	
-	protected void computeExemplars() {
+	protected void computeIteratingBeliefs() {
+		DoubleMatrix2D AlphaEtaR = this._Alpha.plus(this._Eta).plus(this._R);
+		
+		ArrayList<Integer> colList = new ArrayList<Integer>();
+        ArrayList<Integer> rowList = new ArrayList<Integer>();
+		for(int j=0; j<this._M; j++){
+			//boolean already = false;
+			for(int i=0; i<this._N; i++){
+				if(AlphaEtaR.get(i, j) >= 0){
+					//if(already){
+					//	new Exception("Multiple use error!").printStackTrace();
+					//}
+					colList.add(j);
+					rowList.add(i);
+					//already = true;
+				}
+			}
+		}		
+		
+		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
+		for(int k=0; k<colList.size(); k++){
+			this._JfForIcMatrix.set(0, k, colList.get(k));
+			this._JfForIcMatrix.set(1, k, rowList.get(k));
+		}
+		
+        if(debug){
+        	System.out.println("Iterating ... max Selected Exemplars[X]:");
+        	printSDMatrix();
+        }		
+        //        
+        DoubleMatrix1D EY = this._V.plus(this._Gama).getRow(0);
+        this._fY = EY.findG(0);
+        
+        if(debug){
+        	System.out.println("Iterating ... >0 Facilities[Y]:");
+        	System.out.println(this._fY.toString());
+        }
+        IntegerMatrix1D equalIY = EY.findG_WithEqual(0);
+        if(debug){
+        	System.out.println("Iterating ... >= 0 Facilities[Y]:");
+        	System.out.println(equalIY.toString());
+        }
+    }
+	//
+	public void computeBeliefs(){    	
 		DoubleMatrix2D AlphaEtaR = this._Alpha.plus(this._Eta).plus(this._R);
 		
 		ArrayList<Integer> colList = new ArrayList<Integer>();
@@ -665,29 +632,54 @@ public class DCKUFL {
 		for(int k=0; k<colList.size(); k++){
 			this._JfForIcMatrix.set(0, k, colList.get(k));
 			this._JfForIcMatrix.set(1, k, rowList.get(k));
-		}
-		
-        if(debug){
-        	System.out.println("Iterating ... max Selected Exemplars[X]:");
+		}						
+        if(true){
+        	System.out.println("Final ... max Selected Exemplars[X]-"+this._JfForIcMatrix.getM()+":");
         	printSDMatrix();
-        }		
-        //        
-        DoubleMatrix1D EY = this._V.plus(this._Gama).getRow(0);
-        this._fY = EY.findG(0);
-        
-        this.clustersNumber = this._fY.size();  
-        
-        if(debug){
-        	System.out.println("Iterating ... >0 Facilities[Y]:");
-        	System.out.println(this._fY.toString());
         }
-        IntegerMatrix1D equalIY = EY.findG_WithEqual(0);
-        if(debug){
-        	System.out.println("Iterating ... >= 0 Facilities[Y]:");
-        	System.out.println(equalIY.toString());
+        //
+        DoubleMatrix2D EY = this._V.plus(this._Gama);
+        this._fY = EY.getRow(0).findG(0);
+        if(true){
+        	System.out.println("Final ... >0  Facilities[Y]-"+this._fY.size()+":");
+        	for(int fID: this._fY.getVector()){
+        		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
+        	}
+        	System.out.println();
         }
+        //ui      
+        ArrayList<IntInt> uiList = new ArrayList<IntInt>();        
+        for(int i=0; i<this._N; i++){
+        	int ui = 0; double maxV = this._H.get(i, 0)+Fi(i, 0);
+        	for(int state=1; state<=this._M; state++){
+        		double v = Fi(i, state) + this._H.get(i, state);
+        		if(v > maxV){
+        			ui = state;
+        			maxV = v;
+        		}
+        	}
+        	//
+        	uiList.add(new IntInt(i, ui));        	
+        }
+        if(true){        	
+        	System.out.println("Selected Facilities[Ui]:"); 
+        	for(IntInt intInt: uiList){
+        		System.out.println(intInt.toString());
+        	}        	
+        } 
+	}
+    //
+    public void printSDMatrix() {
+    	int exeNum = this._JfForIcMatrix.getM();
+        for(int k=0; k<exeNum; k++){
+        	System.out.print(this._JfForIcMatrix.get(0, k)+" ");
+        }
+        System.out.println();
+        for(int k=0; k<exeNum; k++){
+        	System.out.print(this._JfForIcMatrix.get(1, k)+" ");
+        }
+        System.out.println();
     }
-	
 	
 	/**
      * initialize the indicator of convergence vectors
@@ -725,12 +717,7 @@ public class DCKUFL {
     /**
      * @return true: notConverged / false:converged, essentially, whether there is no change given a predefined span of iteration
      * **/
-    protected boolean checkConvergence() {
-    	//no cluster generated!
-        if (getClustersNumber() == 0) {
-            return true;
-        }
-        //
+    protected boolean checkConvergence() {        
         if (this._noChangeIterSpan == null) {
             return true;
         } else {
@@ -748,10 +735,6 @@ public class DCKUFL {
 		return this._lambda;
 	}
 	//
-	public int getClustersNumber(){
-		return this.clustersNumber;
-	}
-	//
 	public int getIterationTimes(){
 		return this._iterationTimes;
 	}
@@ -765,7 +748,7 @@ public class DCKUFL {
 	}
 	//
 	public static void testAPExample(){
-		Double [] capArray = {6.0, 4.0, 2.0, 1.0}; 
+		Double [] capArray = {6.0, 4.0, 5.0, 5.0}; 
 		DoubleMatrix1D capList = new DoubleMatrix1D(capArray);
 		
 		Double [] pArray = {0.4, 0.3, 0.2, 0.1};
@@ -789,7 +772,7 @@ public class DCKUFL {
     	double lambda = 0.5;
     	int iterationTimes = 5000;
     	int noChangeIterSpan = 10; 
-    	int preK = 13;    	
+    	int preK = 20;    	
     	//double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, int n, int m,
     	//DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList
     	DCKUFL dckufl = new DCKUFL(lambda, iterationTimes, noChangeIterSpan, preK, 4, 50,
