@@ -64,11 +64,11 @@ public class TRECDivEvaluation {
 		
 		String output_filename = null;
 		if(DivVersion.Div2009 == divVersion){
-			output_filename = "Div2009";			
+			output_filename = "Div2009"+rankStrategy.toString();			
 		}else if(DivVersion.Div2010 == divVersion){
-			output_filename = "Div2010";
+			output_filename = "Div2010"+rankStrategy.toString();
 		}else if(DivVersion.Div20092010 == divVersion) {
-			output_filename = "Div20092010";
+			output_filename = "Div20092010"+rankStrategy.toString();
 		}else{
 			System.out.println("ERROR: unexpected DivVersion!");
 			new Exception().printStackTrace();
@@ -262,18 +262,21 @@ public class TRECDivEvaluation {
 			}
 		}else if(rankStrategy == RankStrategy.MDP){
 			/************* note the number of topics for LDA training ****************/
-			SBKernel _sbKernel = new SBKernel(trecDivDocs, 10);
+			//SBKernel _sbKernel = new SBKernel(trecDivDocs, 10);
+			
+			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
 			//
-			MDP mdp = new MDP(trecDivDocs, 0.5d, _sbKernel, null, trecDivQueries);
+			int itrThreshold = 10000;
+			MDP mdp = new MDP(trecDivDocs, 0.5d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
 			Vector<fVersion> mdpRuns = new Vector<MDP.fVersion>();
 			mdpRuns.add(fVersion._dfa);
-			mdpRuns.add(fVersion._dfa_scaled);
-			mdpRuns.add(fVersion._md);
-			mdpRuns.add(fVersion._md_scaled);
-			mdpRuns.add(fVersion._pdfa);
-			mdpRuns.add(fVersion._pdfa_scaled);
-			mdpRuns.add(fVersion._pdfa_scaled_exp);
-			mdpRuns.add(fVersion._pdfa_scaled_exp_head);					
+			//mdpRuns.add(fVersion._dfa_scaled);
+			//mdpRuns.add(fVersion._md);
+			//mdpRuns.add(fVersion._md_scaled);
+			//mdpRuns.add(fVersion._pdfa);
+			//mdpRuns.add(fVersion._pdfa_scaled);
+			//mdpRuns.add(fVersion._pdfa_scaled_exp);
+			//mdpRuns.add(fVersion._pdfa_scaled_exp_head);					
 			//
 			try {
 				mdp.doEval(TRECDivLoader.getDivEvalQueries(divVersion), trecDivDocs, trecDivQueryAspects,
@@ -324,7 +327,7 @@ public class TRECDivEvaluation {
 	public static void main(String []args){
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
-		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.FL);
+		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.MDP);
 		
 		
 	}
