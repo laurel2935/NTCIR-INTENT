@@ -2,27 +2,38 @@ package org.archive.ml.ufl;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.Vector;
 
+import org.archive.dataset.trec.TRECDivLoader;
+import org.archive.dataset.trec.TRECDivLoader.DivVersion;
+import org.archive.dataset.trec.query.TRECQueryAspects;
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
+import org.archive.ml.ufl.UFL.UFLMode;
+import org.archive.nicta.kernel.TFIDF_A1;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
 
 public class K_UFL {
 	
-	private static final boolean debug = true;
+	private static final boolean debug = false;
 	//C is the same as F or not
 	public enum UFLMode {C_Same_F, C_Differ_F}
 	
 	//// Basic Parameters with default values ////	
 	private double _lambda = 0.5;
+	private boolean _noise = false;
+	private Random _noiseGenerator = new Random();
+	private final double _epsilon = 0.0000001;
 	private int _iterationTimes = 5000;
 	//thus, the size of iteration-span that without change of exemplar
     protected Integer _noChangeIterSpan = null;
@@ -253,7 +264,13 @@ public class K_UFL {
     
     public void run(){
 		int itrTimes = getIterationTimes();
+		
 		initConvergence();
+		
+		//
+        if (_noise) {
+            generateNoise();
+        }
 		
 		if(UFLMode.C_Same_F == _uflMode){
 			for(int itr=1; itr<=itrTimes; itr++){
@@ -272,8 +289,7 @@ public class K_UFL {
 				this.computeV_CFSameCase();				
 				
 				//
-				//this.copyAB();
-				//this.computeAB();
+				//this.copyAB();				
 				this.updateAB();
 				
 				//
@@ -307,8 +323,7 @@ public class K_UFL {
 				this.computeV_CFDifferCase();				
 				
 				//
-				//this.copyAB();
-				//this.computeAB();
+				//this.copyAB();				
 				this.updateAB();
 				
 				//
@@ -329,6 +344,22 @@ public class K_UFL {
 		//
 		computeBeliefs();
 	}
+    
+    protected void generateNoise() {
+    	if(this._uflMode == UFLMode.C_Same_F){
+    		for (int i = 0; i < _N; i++) {
+                double s = _C.get(i, i);
+                s = generateNoiseHelp(s);
+                _C.set(i, i, s);
+
+            }
+    	}        
+    }
+    protected Double generateNoiseHelp(Double sim) {
+        double ran_tmp = _noiseGenerator.nextDouble();
+        double noise_tmp = Math.abs(sim) * _epsilon * ran_tmp;
+        return sim - noise_tmp;
+    }
     
     protected Integer getCustomerID(String cName) {
     	if(UFLMode.C_Differ_F == this._uflMode){
@@ -546,7 +577,15 @@ public class K_UFL {
 	    this._B = new DoubleMatrix2D(this._M+1, this._M+1, Double.NEGATIVE_INFINITY);
 	    //a-update
 	    //a0(z0)=0
+	    //(1)
+	    /*
+	    for(int z0=0; z0<=this._M; z0++){
+	    	this._A.set(z0, 0, 0);
+	    }
+	    */
+	    //(2)
 	    this._A.set(0, 0, 0);
+	    
 	    for(int j=1; j<=this._M; j++){
 	    	//M+1 possible states for z_j
 	    	for(int zj=0; zj<=this._M; zj++){
@@ -560,11 +599,13 @@ public class K_UFL {
 	    }
 	    //b-update
 	    //bM(zM)=G_M1_zM
+	    //(1)
 	    /*
 	    for(int zM=0; zM<=this._M; zM++){
 	    	this._B.set(zM, this._M, this.G_M1_zM);
 	    }
 	    */
+	    //(2)
 	    this._B.set(this.G_M1_zM, this._M, this.G_M1_zM);
 	    //
 	    for(int j=this._M; j>=1; j--){
@@ -608,6 +649,13 @@ public class K_UFL {
     		facilityList.add(getFacilityName(fID));    		
     	}
     	System.out.println(facilityList);
+    	//
+    	ArrayList<Integer> rList = new ArrayList<Integer>();
+    	rList.addAll(IY.getVector());
+    	Collections.sort(rList);
+    	System.out.println("Number:\t"+rList.size());
+    	System.out.println(rList);
+    	//
     	return facilityList;
     }
 	//
@@ -657,7 +705,7 @@ public class K_UFL {
 			this.IX = new IntegerMatrix1D(fList.toArray(new Integer[0]));
 		}	
         
-        if(debug){
+        if(true){
         	System.out.println("Iterating ... >0 exemplars[X]:");
         	System.out.println(IX.toString());
         }
@@ -796,7 +844,7 @@ public class K_UFL {
     	//double preferences = getMedian(vList);
     	//positive value as a cost value
     	double costPreferences = 15.561256;
-    	int preK = 10;
+    	int preK = 7;
     	ArrayList<Double> fList = new ArrayList<Double>();
     	for(int j=0; j<25; j++){
     		fList.add(0.0);
@@ -808,9 +856,64 @@ public class K_UFL {
     	//
     	kUFL.getSelectedFacilities();
     }
+	//
+	public static void testAPExample_Topic(){ 
+    	String qNumber = "wt09-1";
+    	
+    	//Map<String,TRECDivQuery> trecDivQueries = TRECDivLoader.loadTrecDivQueries(DivVersion.Div2009);	
+    	HashMap<String,String> trecDivDocs = TRECDivLoader.loadTrecDivDocs();
+    	Map<String,TRECQueryAspects> trecDivQueryAspects = TRECDivLoader.loadTrecDivQueryAspects(DivVersion.Div2009);
+    	    	
+    	TRECQueryAspects trecQueryAspects = trecDivQueryAspects.get(qNumber);
+    	Set<String> _docs_topn = trecQueryAspects.getTopNDocs();
+    	
+    	TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
+    	tfidf_A1Kernel.initTonNDocs(_docs_topn); 
+    	ArrayList<InteractionData> releMatrix = new ArrayList<InteractionData>();			
+    	
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);
+		ArrayList<Double> vList = new ArrayList<Double>();
+		for(int i=0; i<topNDocNames.length-1; i++){
+			String iDocName = topNDocNames[i]; 
+			Object iDocRepr = tfidf_A1Kernel.getObjectRepresentation(iDocName);
+			for(int j=i+1; j<topNDocNames.length; j++){
+				String jDocName = topNDocNames[j];
+				Object jDocRepr = tfidf_A1Kernel.getObjectRepresentation(jDocName);
+				//
+				double v = tfidf_A1Kernel.sim(iDocRepr, jDocRepr);
+				releMatrix.add(new InteractionData(iDocName, jDocName, v));
+				//
+				vList.add(v);
+			}
+		}    	
+		
+		ArrayList<Double> fList = new ArrayList<Double>();
+		for(int j=0; j<topNDocNames.length; j++){
+    		fList.add(0.0);
+    	}
+		
+		ArrayList<InteractionData> costMatrix = getCostMatrix(releMatrix);
+		
+    	//run
+    	double lambda = 0.5;
+    	int iterations = 5000;
+    	int convits = 10;
+    	double preferences = 0-APClustering.getMedian(vList);
+    	int preK = 15;
+    	K_UFL kUFL = new K_UFL(lambda, iterations, convits, preferences, preK, UFLMode.C_Same_F, costMatrix, fList);
+    	//    	
+    	kUFL.run();    	
+    	//
+    	kUFL.getSelectedFacilities();
+    }
 	
 	//
 	public static void main(String []args){
-		K_UFL.testAPExample();
+		//1
+		//K_UFL.testAPExample();
+		
+		//2
+		K_UFL.testAPExample_Topic();
+		
 	}
 }

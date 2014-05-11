@@ -4,23 +4,30 @@ import java.io.BufferedReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 
 import org.archive.dataset.DataSetDiretory;
+import org.archive.dataset.trec.TRECDivLoader;
+import org.archive.dataset.trec.TRECDivLoader.DivVersion;
+import org.archive.dataset.trec.query.TRECDivQuery;
+import org.archive.dataset.trec.query.TRECQueryAspects;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityGraphMode;
 import org.archive.ml.clustering.ap.abs.ClusterInteger;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.MatrixPropagationAlgorithm;
+import org.archive.nicta.kernel.TFIDF_A1;
 import org.archive.util.format.StandardFormat;
 import org.archive.util.io.IOText;
 
 
 public class APClustering {
 	
-	private static final boolean debug = true;
+	private static final boolean debug = false;
 	
 	//Matrix oriented
 	private MatrixPropagationAlgorithm ap = new MatrixPropagationAlgorithm();
@@ -29,7 +36,7 @@ public class APClustering {
     //maximum number of iterations to be performed
     private int iterations;
     //given preference
-    private double preferences;
+    public double preferences;
     /*
      * algorithm will stop after the n-th{i.e., convits} iteration without any change in centers (exemplars).
      * In this situation, we say that the algorithm converged.
@@ -55,7 +62,7 @@ public class APClustering {
         this.iterations = iterations;
         this.preferences = preferences;
         //current case
-        this.kind = "null";
+        this.kind = "centers";
         this.convits = convits;
         this.dataPointInteractions = similarityMatrix;
         //because of max-sum, but negative value
@@ -121,15 +128,24 @@ public class APClustering {
     public Object run() {
     	 if(debug){
          	System.out.println(this.ap.S.toString());
+         	//
+         	System.out.println("Size:\t"+this.ap.getN());
+         	System.out.println("Preference:\t"+this.preferences);
          }
     	//
     	if (this.kind.equals("centers")) {
             Map<Integer, ClusterInteger> clusters = this.ap.doClusterAssocInt();
-            //Map<Integer, Cluster<Integer>> clusters = af.doClusterAssocInt();    
+            //Map<Integer, Cluster<Integer>> clusters = af.doClusterAssocInt(); 
+            if(true){
+            	ArrayList<Integer> rList = new ArrayList<Integer>();
+            	rList.addAll(clusters.keySet());
+            	Collections.sort(rList);
+            	System.out.println(rList);
+            }
             return clusters;            
         } else {
             Map<Integer, Integer> clusters = this.ap.doClusterInt(); 
-            if(debug){
+            if(true){
             	System.out.println("AP results: ");
             	for(Entry<Integer, Integer> entry: clusters.entrySet()){
             		System.out.println(entry.getKey()+"  ->  "+entry.getValue());
@@ -239,18 +255,48 @@ public class APClustering {
     	return interList;
     }
     //
-    public static void testAPExample(){    	 
-    	ArrayList<InteractionData> interList = loadAPExample();
+    public static void testAPExample_Topic(){ 
+    	String qNumber = "wt09-1";
+    	
+    	//Map<String,TRECDivQuery> trecDivQueries = TRECDivLoader.loadTrecDivQueries(DivVersion.Div2009);	
+    	HashMap<String,String> trecDivDocs = TRECDivLoader.loadTrecDivDocs();
+    	Map<String,TRECQueryAspects> trecDivQueryAspects = TRECDivLoader.loadTrecDivQueryAspects(DivVersion.Div2009);
+    	    	
+    	TRECQueryAspects trecQueryAspects = trecDivQueryAspects.get(qNumber);
+    	Set<String> _docs_topn = trecQueryAspects.getTopNDocs();
+    	
+    	TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
+    	tfidf_A1Kernel.initTonNDocs(_docs_topn); 
+    	ArrayList<InteractionData> releMatrix = new ArrayList<InteractionData>();			
+    	
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);
+		ArrayList<Double> vList = new ArrayList<Double>();
+		for(int i=0; i<topNDocNames.length-1; i++){
+			String iDocName = topNDocNames[i]; 
+			Object iDocRepr = tfidf_A1Kernel.getObjectRepresentation(iDocName);
+			for(int j=i+1; j<topNDocNames.length; j++){
+				String jDocName = topNDocNames[j];
+				Object jDocRepr = tfidf_A1Kernel.getObjectRepresentation(jDocName);
+				//
+				double v = tfidf_A1Kernel.sim(iDocRepr, jDocRepr);
+				releMatrix.add(new InteractionData(iDocName, jDocName, v));
+				//
+				vList.add(v);
+			}
+		}    	
     	//run
     	double lambda = 0.5;
     	int iterations = 5000;
     	int convits = 10;
-    	//double preferences = getMedian(vList);
-    	double preferences = -15.561256;
-    	APClustering apClustering = new APClustering(lambda, iterations, convits, preferences, interList);
+    	double preferences = getMedian(vList);    	
+    	APClustering apClustering = new APClustering(lambda, iterations, convits, preferences, releMatrix);
     	//
     	apClustering.setParemeters();
     	apClustering.run();
+    }
+    //
+    public static void testAPExample(){
+    	
     }
     //
     public static void main(String []args){
@@ -258,7 +304,12 @@ public class APClustering {
     	//APClustering.test();
     	
     	//2
-    	APClustering.testAPExample();
+    	//APClustering.testAPExample();
+    	
+    	//3
+    	//[48, 64, 33, 82, 98, 3, 83, 36, 22, 73, 26, 78]
+    	//[3, 22, 26, 33, 36, 48, 64, 73, 78, 82, 83, 98]
+    	APClustering.testAPExample_Topic();
     	
     	
     }

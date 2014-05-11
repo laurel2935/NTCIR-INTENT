@@ -655,6 +655,10 @@ public class DCKUFL {
         DoubleMatrix2D EY = this._V.plus(this._Gama);
         this._fY = EY.getRow(0).findG(0);
         if(true){
+        	if(this._fY.size() < 20){
+        		new Exception("smaller than 20 error!").printStackTrace();
+        		System.exit(1);
+        	}
         	System.out.println("Final ... >0  Facilities[Y]-"+this._fY.size()+":");
         	for(int fID: this._fY.getVector()){
         		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");

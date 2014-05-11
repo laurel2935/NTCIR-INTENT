@@ -127,7 +127,7 @@ public class TRECDivEvaluator extends Evaluator{
 				
 				if (DEBUG) {
 					System.out.println("- Processing query '" + qNumber + "'");
-					System.out.println("- Query details: " + trecDivQuery);
+					//System.out.println("- Query details: " + trecDivQuery);
 					//System.out.println("- Query aspects: " + qa);
 				}
 

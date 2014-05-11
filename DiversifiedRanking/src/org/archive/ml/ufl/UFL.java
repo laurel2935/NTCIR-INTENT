@@ -2,18 +2,24 @@ package org.archive.ml.ufl;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.Vector;
 
+import org.archive.dataset.trec.TRECDivLoader;
+import org.archive.dataset.trec.TRECDivLoader.DivVersion;
+import org.archive.dataset.trec.query.TRECQueryAspects;
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 import org.archive.ml.ufl.CFL.UFLMode;
+import org.archive.nicta.kernel.TFIDF_A1;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
 
 /**
@@ -24,7 +30,7 @@ import org.archive.ntcir.sm.clustering.ap.APClustering;
 
 public class UFL {
 	
-	private static final boolean debug = true;
+	private static final boolean debug = false;
 	//C is the same as F or not
 	public enum UFLMode {C_Same_F, C_Differ_F}
 		
@@ -493,12 +499,16 @@ public class UFL {
         DoubleMatrix1D EY;
         EY = this._V.minus(this._Y).getRow(0);
         IY = EY.findG(0);
-        if(debug){
+        if(true){
         	System.out.println("Selected Facilities:");
         	for(int fID: IY.getVector()){
         		System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
         	}
         	System.out.println();
+        	ArrayList<Integer> rList = new ArrayList<Integer>();
+        	rList.addAll(IY.getVector());
+        	Collections.sort(rList);
+        	System.out.println(rList);
         }
         
         if(debug){
@@ -608,9 +618,60 @@ public class UFL {
     	//    	
     	kUFL.run();    	
     }
+	//
+	public static void testAPExample_Topic(){ 
+    	String qNumber = "wt09-1";
+    	
+    	//Map<String,TRECDivQuery> trecDivQueries = TRECDivLoader.loadTrecDivQueries(DivVersion.Div2009);	
+    	HashMap<String,String> trecDivDocs = TRECDivLoader.loadTrecDivDocs();
+    	Map<String,TRECQueryAspects> trecDivQueryAspects = TRECDivLoader.loadTrecDivQueryAspects(DivVersion.Div2009);
+    	    	
+    	TRECQueryAspects trecQueryAspects = trecDivQueryAspects.get(qNumber);
+    	Set<String> _docs_topn = trecQueryAspects.getTopNDocs();
+    	
+    	TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
+    	tfidf_A1Kernel.initTonNDocs(_docs_topn); 
+    	ArrayList<InteractionData> releMatrix = new ArrayList<InteractionData>();			
+    	
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);
+		ArrayList<Double> vList = new ArrayList<Double>();
+		for(int i=0; i<topNDocNames.length-1; i++){
+			String iDocName = topNDocNames[i]; 
+			Object iDocRepr = tfidf_A1Kernel.getObjectRepresentation(iDocName);
+			for(int j=i+1; j<topNDocNames.length; j++){
+				String jDocName = topNDocNames[j];
+				Object jDocRepr = tfidf_A1Kernel.getObjectRepresentation(jDocName);
+				//
+				double v = tfidf_A1Kernel.sim(iDocRepr, jDocRepr);
+				releMatrix.add(new InteractionData(iDocName, jDocName, v));
+				//
+				vList.add(v);
+			}
+		}    	
+		
+		ArrayList<Double> fList = new ArrayList<Double>();
+		for(int j=0; j<topNDocNames.length; j++){
+    		fList.add(0.0);
+    	}
+		
+		ArrayList<InteractionData> costMatrix = getCostMatrix(releMatrix);
+		
+    	//run
+    	double lambda = 0.5;
+    	int iterations = 5000;
+    	int convits = 10;
+    	double preferences = 0-APClustering.getMedian(vList);    	
+    	UFL kUFL = new UFL(lambda, iterations, convits, preferences, UFLMode.C_Same_F, costMatrix, fList);
+    	//    	
+    	kUFL.run();
+    }
 	
 	//
 	public static void main(String []args){
-		UFL.testAPExample();
+		//1
+		//UFL.testAPExample();
+		
+		//2
+		UFL.testAPExample_Topic();
 	}
 }

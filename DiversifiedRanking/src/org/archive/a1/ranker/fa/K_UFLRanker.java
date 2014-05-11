@@ -139,6 +139,9 @@ public class K_UFLRanker extends ResultRanker{
     	return resultList;		
 	}
 	
+	public Kernel getKernel(){
+		return this._kernel;
+	}
 	
 	//
 	public String getString(){

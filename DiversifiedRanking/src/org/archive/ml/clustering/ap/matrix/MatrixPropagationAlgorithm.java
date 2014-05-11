@@ -39,7 +39,7 @@ import org.archive.ml.clustering.ap.abs.ConvitsVector;
 
 public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
 	
-	private static final boolean debug = true;
+	private static final boolean debug = false;
 
 	//number of data points
     private int N;

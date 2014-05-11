@@ -298,14 +298,18 @@ public class TRECDivEvaluation {
 			ArrayList<ResultRanker> rankers = new ArrayList<ResultRanker>();
 			
 			//1
-			double lambda = 0.5;
-			int iterationTimes = 5000;
-			int noChangeIterSpan = 10; 
-			DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda, iterationTimes, noChangeIterSpan);
+			double lambda_1 = 0.5;
+			int iterationTimes_1 = 5000;
+			int noChangeIterSpan_1 = 10; 
+			//DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
+			DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, tfidf_A1Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
 			
 			//2
+			double lambda_2 = 0.5;
+			int iterationTimes_2 = 10000;
+			int noChangeIterSpan_2 = 10; 
 			double SimDivLambda = 0.5;
-			K_UFLRanker kuflRanker = new K_UFLRanker(trecDivDocs, tfidf_A1Kernel, lambda, iterationTimes, noChangeIterSpan, SimDivLambda);
+			K_UFLRanker kuflRanker = new K_UFLRanker(trecDivDocs, tfidf_A1Kernel, lambda_2, iterationTimes_2, noChangeIterSpan_2, SimDivLambda);
 			
 			rankers.add(dckuflRanker);
 			//rankers.add(kuflRanker);
@@ -327,7 +331,7 @@ public class TRECDivEvaluation {
 	public static void main(String []args){
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
-		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.MDP);
+		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.FL);
 		
 		
 	}

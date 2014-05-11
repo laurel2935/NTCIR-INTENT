@@ -3,7 +3,6 @@ package org.archive.a1.ranker.fa;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Vector;
 
 import org.archive.dataset.trec.query.TRECDivQuery;
@@ -143,6 +142,10 @@ public class DCKUFLRanker extends ResultRanker{
 	//
 	public String getString(){
 		return "DCKUFL";
+	}
+	//
+	public Kernel getKernel(){
+		return this._kernel;
 	}
 	//
 	public String getDescription() {
