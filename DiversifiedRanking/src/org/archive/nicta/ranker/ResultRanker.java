@@ -21,6 +21,8 @@ public abstract class ResultRanker {
 
 	public static boolean SHOW_DEBUG = false;
 	
+	public int _indexOfGetResultMethod = 0;
+	
 	//doc_name & doc_content, commonly the total doc for all queries
 	public Map<String, String> _docs_all     = new HashMap<String, String>();
 	//two kinds of representations

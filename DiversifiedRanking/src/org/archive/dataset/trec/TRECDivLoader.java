@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.archive.dataset.DataSetDiretory;
 import org.archive.dataset.trec.doc.CLUEDoc;
 import org.archive.dataset.trec.doc.Doc;
 import org.archive.dataset.trec.query.TREC68Query;
@@ -32,16 +33,16 @@ public class TRECDivLoader {
 	private final static boolean DEBUG = false;
 	private final static DecimalFormat _df = new DecimalFormat("#.####");	
 
-	private final static String Div20092010_DOC_DIR	    = "dataset/trec/TREC20092010/ClueWeb-CatB/Clean/OKAPI-Result-Clean";
-	private final static String QUERY_FILE_2009     = "dataset/trec/TREC20092010/wt09.topics.queries-only";
-	private final static String QUERY_FILE_2010     = "dataset/trec/TREC20092010/wt10.topics.queries-only";
-	private final static String QUERY_FILE_2009_xml = "dataset/trec/TREC20092010/wt09.topics.full.xml";
-	private final static String QUERY_FILE_2010_xml = "dataset/trec/TREC20092010/wt2010-topics.xml";
+	private final static String Div20092010_DOC_DIR	= DataSetDiretory.ROOT+"trec/TREC20092010/ClueWeb-CatB/Clean/OKAPI-Result-Clean";
+	private final static String QUERY_FILE_2009     = DataSetDiretory.ROOT+"trec/TREC20092010/wt09.topics.queries-only";
+	private final static String QUERY_FILE_2010     = DataSetDiretory.ROOT+"trec/TREC20092010/wt10.topics.queries-only";
+	private final static String QUERY_FILE_2009_xml = DataSetDiretory.ROOT+"trec/TREC20092010/wt09.topics.full.xml";
+	private final static String QUERY_FILE_2010_xml = DataSetDiretory.ROOT+"trec/TREC20092010/wt2010-topics.xml";
 	
 	//private final static String ASPECT_FILE 		   = "dataset/trec/TREC20092010/qrels.diversity.all";
-	private final static String TREC_DivQRELS_20092010 = "dataset/trec/TREC20092010/qrels.diversity.0910";
-	private final static String TREC_DivQRELS_09     = "dataset/trec/TREC20092010/09.diversity-qrels.final";
-	private final static String TREC_DivQRELS_10     = "dataset/trec/TREC20092010/10.diversity-qrels.final";
+	private final static String TREC_DivQRELS_20092010 = DataSetDiretory.ROOT+"trec/TREC20092010/qrels.diversity.0910";
+	private final static String TREC_DivQRELS_09       = DataSetDiretory.ROOT+"trec/TREC20092010/09.diversity-qrels.final";
+	private final static String TREC_DivQRELS_10       = DataSetDiretory.ROOT+"trec/TREC20092010/10.diversity-qrels.final";
 	
 	// /////////////////////////////////////////////////////////////////////////////
 	// Helper Functions
@@ -474,11 +475,11 @@ public class TRECDivLoader {
 	//
 	public static void main(String[] args) throws Exception {
 		
-		//Map<String,TRECDivQuery> trecD0910Queries = TRECDivLoader.loadTrecDivQueries(DivVersion.Div20092010);
+		Map<String,TRECDivQuery> trecD0910Queries = TRECDivLoader.loadTrecDivQueries(DivVersion.Div20092010);
 		
-		//Map<String,TRECQueryAspects> trecD0910QueryAspects = TRECDivLoader.loadTrecDivQueryAspects(DivVersion.Div20092010);
+		Map<String,TRECQueryAspects> trecD0910QueryAspects = TRECDivLoader.loadTrecDivQueryAspects(DivVersion.Div20092010);
 		
-		//Map<String,String> trecD0910Docs = TRECDivLoader.loadTrecDivDocs();		
+		Map<String,String> trecD0910Docs = TRECDivLoader.loadTrecDivDocs();		
 		
 	}
 }

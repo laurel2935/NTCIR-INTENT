@@ -8,6 +8,7 @@ package org.archive.nicta.evaluation.metricfunction;
 import java.io.*;
 import java.util.*;
 
+import org.archive.ToolDirectory;
 import org.archive.dataset.trec.query.TRECQueryAspects;
 
 
@@ -27,8 +28,12 @@ public class NDEval10Losses extends Metric {
 		metricVector.add("Strec@5");metricVector.add("Strec@10");metricVector.add("Strec@20\n");
 	}
 
+	/*
 	public final static String NDEVAL = "tool/trec_ndeval/ndeval10" + 
 		(System.getProperty("os.name").toLowerCase().startsWith("windows") ? ".exe" : "");
+	*/
+	public final static String NDEVAL = ToolDirectory.ROOT+"trec_ndeval/ndeval10" + 
+			(System.getProperty("os.name").toLowerCase().startsWith("windows") ? ".exe" : "");
 	public final static String NDEVAL_TMP = "ndeval_tmp.txt";
 
 	public String NDEVAL_QRELS = null;

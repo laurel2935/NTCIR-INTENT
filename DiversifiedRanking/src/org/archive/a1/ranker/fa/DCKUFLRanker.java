@@ -17,16 +17,23 @@ import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.StrDouble;
 
 public class DCKUFLRanker extends ResultRanker{
-	//as this test set contains explicit subtopics
-	private Map<String,TRECDivQuery> _allTRECDivQueries = null;
+	
+	private double _lambda = 0.5;
+	private int _iterationTimes = 5000;
+	private int _noChangeIterSpan = 10; 
+	
 	//kernel, under which each query, subtopic, document is represented
 	public Kernel _kernel;
 		
 	// Constructor
-	public DCKUFLRanker(HashMap<String, String> docs, Kernel kernel, Map<String,TRECDivQuery> allTRECDivQueries) { 
+	public DCKUFLRanker(HashMap<String, String> docs, Kernel kernel, double lambda, int iterationTimes, int noChangeIterSpan) { 
 		super(docs);				
 		this._kernel = kernel;	
-		this._allTRECDivQueries = allTRECDivQueries;	
+		this._lambda = lambda;
+		this._iterationTimes = iterationTimes;
+		this._noChangeIterSpan = noChangeIterSpan;
+		//
+		this._indexOfGetResultMethod = 1;
 	}
 	
 	//be called when a new query comes
@@ -42,29 +49,25 @@ public class DCKUFLRanker extends ResultRanker{
 	}
 	//called when a new query come
 	public void initTonNDocsForInnerKernels() {
-		// The similarity kernel may need to do pre-processing (e.g., LDA training)
-		_kernel.initTonNDocs(_docs_topn); // LDA should maintain keys for mapping later		
-		// Store local representation for later use with kernels
-		// (should we let _sim handle everything and just interact with keys?)
-		//for (String doc : _docs_topn) {
-			//Object repr = _kernel.getObjectRepresentation(doc);
-			//in the currrent case, as only one kernel is used, the kernel itself owns the buffer
-			//_docRepr.put(doc, repr);			
-		//}
+		//The similarity kernel may need to do pre-processing (e.g., LDA training)
+		_kernel.initTonNDocs(_docs_topn);
 	}	
 	//
 	public ArrayList<String> getResultList(String query, int size) {
 		return null;
 	}
-	//
+	//relevance between subtopics and documents
 	private ArrayList<InteractionData> getReleMatrix(TRECDivQuery trecDivQuery){
+		//
+		initTonNDocsForInnerKernels();
+		
 		ArrayList<InteractionData> releMatrix = new ArrayList<InteractionData>();		
-		//subtopic ¡Á top-n docs
+		//subtopic <-> docs
 		Vector<TRECSubtopic> trecSubtopicList = trecDivQuery.getSubtopicList();
-		String [] topNDocs = _docs_topn.toArray(new String[0]);
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);
 		for(TRECSubtopic trecSubtopic: trecSubtopicList){	
 			Object subtopicRepr = _kernel.getNoncachedObjectRepresentation(trecSubtopic.getContent());
-			for(String docName: topNDocs){
+			for(String docName: topNDocNames){
 				Object docRepr = _kernel.getObjectRepresentation(docName);
 				//
 				releMatrix.add(new InteractionData(trecSubtopic._sNumber, docName, _kernel.sim(subtopicRepr, docRepr)));
@@ -73,7 +76,7 @@ public class DCKUFLRanker extends ResultRanker{
 		//
 		return releMatrix;		
 	}
-	//
+	//similarity among subtopics
 	private ArrayList<InteractionData> getSubtopicSimMatrix(TRECDivQuery trecDivQuery){
 		ArrayList<InteractionData> simMatrix = new ArrayList<InteractionData>();
 		Vector<TRECSubtopic> trecSubtopicList = trecDivQuery.getSubtopicList();
@@ -91,7 +94,7 @@ public class DCKUFLRanker extends ResultRanker{
 		//
 		return simMatrix;	
 	}
-	//
+	//equal size of capacity of each subtopic
 	private ArrayList<Double> getCapacityList(TRECDivQuery trecDivQuery, int topK){
 		int subtopicNumber = trecDivQuery.getSubtopicList().size();
 		if(topK%subtopicNumber == 0){
@@ -105,7 +108,7 @@ public class DCKUFLRanker extends ResultRanker{
 	//
 	private ArrayList<Double> getPopularityList(TRECDivQuery trecDivQuery){
 		int subtopicNumber = trecDivQuery.getSubtopicList().size();
-		return Mat.getUniformList(1.0/subtopicNumber, subtopicNumber);		
+		return Mat.getUniformList(1.0d/subtopicNumber, subtopicNumber);		
 	}
 	//
 	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
@@ -114,21 +117,20 @@ public class DCKUFLRanker extends ResultRanker{
 		ArrayList<InteractionData> subSimMatrix = getSubtopicSimMatrix(trecDivQuery);
 		ArrayList<Double> capList = getCapacityList(trecDivQuery, size);
 		ArrayList<Double> popList = getPopularityList(trecDivQuery);
-		//
-    	double lambda = 0.5;
-    	int iterationTimes = 5000;
-    	int noChangeIterSpan = 10; 
+		    	
     	int preK = (int)Mat.sum(capList); 
-    	//
-    	DCKUFL dckufl = new DCKUFL(lambda, iterationTimes, noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
+    	
+    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
     	dckufl.run();
     	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
-    	//
+    	//(1)final ranking by similarity between query and document
     	ArrayList<StrDouble> objList = new ArrayList<StrDouble>();
     	Object queryRepr = _kernel.getNoncachedObjectRepresentation(trecDivQuery.getQueryContent());
     	for(String docName: facilityList){
     		objList.add(new StrDouble(docName, _kernel.sim(queryRepr, _kernel.getObjectRepresentation(docName))));
     	}
+    	//(2)??? similarity between subtopic vector and document
+    	
     	Collections.sort(objList, new PairComparatorBySecond_Desc<String, Double>());
     	
     	ArrayList<String> resultList = new ArrayList<String>();

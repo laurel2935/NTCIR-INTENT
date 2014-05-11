@@ -3,7 +3,6 @@ package org.archive.a1.ranker.fa;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 
 import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
@@ -14,17 +13,27 @@ import org.archive.nicta.ranker.ResultRanker;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.StrDouble;
 
-public class K_UFLRanker extends ResultRanker{
-	//as this test set contains explicit subtopics
-	private Map<String,TRECDivQuery> _allTRECDivQueries = null;
+public class K_UFLRanker extends ResultRanker{	
+	
+	private double _lambda = 0.5;
+	private int _iterationTimes = 5000;
+	private int _noChangeIterSpan = 10; 
+	//balance the similarity and diversity
+	private double _SimDivLambda = 0.5;
+	
 	//kernel, under which each query, subtopic, document is represented
 	public Kernel _kernel;
 	
 	// Constructor
-	public K_UFLRanker(HashMap<String, String> docs, Kernel kernel, Map<String,TRECDivQuery> allTRECDivQueries) { 
+	public K_UFLRanker(HashMap<String, String> docs, Kernel kernel, double lambda, int iterationTimes, int noChangeIterSpan, double SimDivLambda) { 
 		super(docs);				
-		this._kernel = kernel;	
-		this._allTRECDivQueries = allTRECDivQueries;	
+		this._kernel = kernel;		
+		this._lambda = lambda;
+		this._iterationTimes = iterationTimes;
+		this._noChangeIterSpan = noChangeIterSpan;
+		this._SimDivLambda = SimDivLambda;
+		//
+		this._indexOfGetResultMethod = 1;
 	}
 	
 	//be called when a new query comes
@@ -41,14 +50,7 @@ public class K_UFLRanker extends ResultRanker{
 	//called when a new query come
 	public void initTonNDocsForInnerKernels() {
 		// The similarity kernel may need to do pre-processing (e.g., LDA training)
-		_kernel.initTonNDocs(_docs_topn); // LDA should maintain keys for mapping later		
-		// Store local representation for later use with kernels
-		// (should we let _sim handle everything and just interact with keys?)
-		//for (String doc : _docs_topn) {
-			//Object repr = _kernel.getObjectRepresentation(doc);
-			//in the currrent case, as only one kernel is used, the kernel itself owns the buffer
-			//_docRepr.put(doc, repr);			
-		//}
+		_kernel.initTonNDocs(_docs_topn); 
 	}	
 	//
 	public ArrayList<String> getResultList(String query, int size) {
@@ -59,15 +61,15 @@ public class K_UFLRanker extends ResultRanker{
 	private ArrayList<InteractionData> getReleMatrix(TRECDivQuery trecDivQuery){
 		ArrayList<InteractionData> releMatrix = new ArrayList<InteractionData>();		
 		
-		String [] topNDocs = _docs_topn.toArray(new String[0]);
-		for(int i=0; i<topNDocs.length-1; i++){
-			String iDocName = topNDocs[i]; 
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);
+		for(int i=0; i<topNDocNames.length-1; i++){
+			String iDocName = topNDocNames[i]; 
 			Object iDocRepr = _kernel.getObjectRepresentation(iDocName);
-			for(int j=i+1; j<topNDocs.length; j++){
-				String jDocName = topNDocs[j];
+			for(int j=i+1; j<topNDocNames.length; j++){
+				String jDocName = topNDocNames[j];
 				Object jDocRepr = _kernel.getObjectRepresentation(jDocName);
 				//
-				releMatrix.add(new InteractionData(iDocName, jDocName, _kernel.sim(iDocRepr, jDocRepr)));				
+				releMatrix.add(new InteractionData(iDocName, jDocName, (1-_SimDivLambda)*_kernel.sim(iDocRepr, jDocRepr)));				
 			}
 		}
 		
@@ -86,7 +88,7 @@ public class K_UFLRanker extends ResultRanker{
 		Collections.sort(vList);
 		//
 		if(vList.size() % 2 == 0){
-			return (vList.get(vList.size()/2)+vList.get(vList.size()/2 - 1))/2.0;
+			return (vList.get(vList.size()/2)+vList.get(vList.size()/2 - 1))/2.0d;
 		}else{
 			return vList.get(vList.size()/2);
 		}
@@ -94,27 +96,27 @@ public class K_UFLRanker extends ResultRanker{
 	
 	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
 		//
+		initTonNDocsForInnerKernels();
+		
+		//
 		ArrayList<InteractionData> releMatrix = getReleMatrix(trecDivQuery);
 		ArrayList<InteractionData> costMatrix = getCostMatrix(releMatrix);		
 		//
-    	double lambda = 0.5;
-    	int iterationTimes = 5000;
-    	int noChangeIterSpan = 10; 
-    	int preK = size; 
     	ArrayList<Double> vList = new ArrayList<Double>();
     	for(InteractionData itrData: costMatrix){
     		vList.add(itrData.getSim());
     	}
     	double costPreferences = getMedian(vList);
     	//
-    	K_UFL kUFL = new K_UFL(lambda, iterationTimes, noChangeIterSpan, costPreferences, preK, UFLMode.C_Same_F, costMatrix);
+    	K_UFL kUFL = new K_UFL(_lambda, _iterationTimes, _noChangeIterSpan, costPreferences, size, UFLMode.C_Same_F, costMatrix);
     	//
     	Object queryRepr = _kernel.getNoncachedObjectRepresentation(trecDivQuery.getQueryContent());
     	ArrayList<Double> fList = new ArrayList<Double>();
     	for(int j=0; j<_docs_topn.size(); j++){
     		String docName = kUFL.getFacilityName(j);
     		Object jDocRepr = _kernel.getObjectRepresentation(docName);
-    		fList.add(0-_kernel.sim(queryRepr, jDocRepr));
+    		//
+    		fList.add(0-_kernel.sim(queryRepr, jDocRepr)*this._SimDivLambda);
     	}
     	kUFL.setFacilityCost(fList);
     	

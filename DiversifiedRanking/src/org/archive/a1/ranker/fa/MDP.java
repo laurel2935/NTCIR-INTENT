@@ -29,6 +29,7 @@ import org.archive.util.DevNullPrintStream;
 import org.archive.util.Pair;
 import org.archive.util.VectorUtils;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
+import org.archive.util.tuple.StrDouble;
 
 /**
  * A common framework which essentially a global optimization!
@@ -101,7 +102,7 @@ public class MDP extends ResultRanker {
 		// Get representation for query
 		Object query_repr = _sbKernel.getNoncachedObjectRepresentation(query);
 		//
-		ArrayList<org.archive.util.tuple.Pair<String, Double>> rankedS = 
+		ArrayList<StrDouble> rankedS = 
 			hillClimbingSearch(query_repr, _docs_topn, size, _fVersion);		
 		//
 		ArrayList<String> result_list = new ArrayList<String>();
@@ -249,11 +250,11 @@ public class MDP extends ResultRanker {
 	//HillClimbingSearch
 	//////////////////////////	
 	//(1)
-	private ArrayList<org.archive.util.tuple.Pair<String, Double>> hillClimbingSearch(
+	private ArrayList<StrDouble> hillClimbingSearch(
 			Object query_repr, Set<String> D, int k, fVersion _fVersion){
 		//
-		ArrayList<org.archive.util.tuple.Pair<String, Double>> topnDoc_rlist =
-			new ArrayList<org.archive.util.tuple.Pair<String, Double>>();
+		ArrayList<StrDouble> topnDoc_rlist =
+			new ArrayList<StrDouble>();
 		//
 		String query_repr_key = query_repr.toString();
 		Double sim_score = null;
@@ -268,7 +269,7 @@ public class MDP extends ResultRanker {
 				_simCache.put(sim_key, sim_score);
 			}
 			//
-			topnDoc_rlist.add(new org.archive.util.tuple.Pair<String, Double>(doc_name, sim_score));
+			topnDoc_rlist.add(new StrDouble(doc_name, sim_score));
 		}
 		//
 		Collections.sort(topnDoc_rlist, new PairComparatorBySecond_Desc<String, Double>());
@@ -339,14 +340,14 @@ public class MDP extends ResultRanker {
 			}			
 		}while(change);
 		//sorting in order of contribution
-		ArrayList<org.archive.util.tuple.Pair<String, Double>> s_c_list =
-			new ArrayList<org.archive.util.tuple.Pair<String, Double>>();
+		ArrayList<StrDouble> s_c_list =
+			new ArrayList<StrDouble>();
 		Iterator<String> sItr = S.iterator();
 		//
 		while(sItr.hasNext()){
 			String doc_name_k = sItr.next();			
 			//
-			s_c_list.add(new org.archive.util.tuple.Pair<String, Double>(doc_name_k, 
+			s_c_list.add(new StrDouble(doc_name_k, 
 					c(doc_name_k, query_repr, S, D_Minus_S, _fVersion)));
 		}
 		//
@@ -356,11 +357,11 @@ public class MDP extends ResultRanker {
 	}
 	
 	//(2)
-	private ArrayList<org.archive.util.tuple.Pair<String, Double>> hillClimbingSearch_dfa(
+	private ArrayList<StrDouble> hillClimbingSearch_dfa(
 			Object query_repr, Set<String> D, int k, fVersion _fVersion){
 		//
-		ArrayList<org.archive.util.tuple.Pair<String, Double>> topnDoc_rlist =
-			new ArrayList<org.archive.util.tuple.Pair<String, Double>>();
+		ArrayList<StrDouble> topnDoc_rlist =
+			new ArrayList<StrDouble>();
 		//
 		String query_repr_key = query_repr.toString();
 		Double sim_score = null;
@@ -375,7 +376,7 @@ public class MDP extends ResultRanker {
 				_simCache.put(sim_key, sim_score);
 			}
 			
-			topnDoc_rlist.add(new org.archive.util.tuple.Pair<String, Double>(doc_name, sim_score));
+			topnDoc_rlist.add(new StrDouble(doc_name, sim_score));
 		}
 		
 		Collections.sort(topnDoc_rlist, new PairComparatorBySecond_Desc<String, Double>());
@@ -389,13 +390,13 @@ public class MDP extends ResultRanker {
 		ArrayList<String> D_Minus_S = new ArrayList<String>();
 		//star: elements of S, follower: elements of D_Minus_S
 		//star->followers & value		
-		HashMap<String, HashSet<org.archive.util.tuple.Pair<String, Double>>> starToFollowersMap = 
-			new HashMap<String, HashSet<org.archive.util.tuple.Pair<String, Double>>>();
+		HashMap<String, HashSet<StrDouble>> starToFollowersMap = 
+			new HashMap<String, HashSet<StrDouble>>();
 		
-		HashMap<String, org.archive.util.tuple.Pair<String, Double>> followerToStarMap =
-			new HashMap<String, org.archive.util.tuple.Pair<String,Double>>();
+		HashMap<String, StrDouble> followerToStarMap =
+			new HashMap<String, StrDouble>();
 		
-		org.archive.util.tuple.Pair<String, Double> minPair = null;
+		StrDouble minPair = null;
 		Iterator<String> dItr = D.iterator();		
 		while(dItr.hasNext()){
 			String doc_name = dItr.next();
@@ -405,16 +406,16 @@ public class MDP extends ResultRanker {
 				minPair = minDisPairGivenS(doc_name, S);
 				//
 				followerToStarMap.put(doc_name, 
-						new org.archive.util.tuple.Pair<String, Double>(minPair.getFirst(), minPair.getSecond()));
+						new StrDouble(minPair.getFirst(), minPair.getSecond()));
 				//
 				if(starToFollowersMap.containsKey(minPair.getFirst())){
 					starToFollowersMap.get(minPair.getFirst()).add(
-							new org.archive.util.tuple.Pair<String, Double>(doc_name, minPair.getSecond()));
+							new StrDouble(doc_name, minPair.getSecond()));
 				}else{
-					HashSet<org.archive.util.tuple.Pair<String, Double>> follwerSet = 
-						new HashSet<org.archive.util.tuple.Pair<String,Double>>();
+					HashSet<StrDouble> follwerSet = 
+						new HashSet<StrDouble>();
 					
-					follwerSet.add(new org.archive.util.tuple.Pair<String, Double>(doc_name, minPair.getSecond()));
+					follwerSet.add(new StrDouble(doc_name, minPair.getSecond()));
 					starToFollowersMap.put(minPair.getFirst(), follwerSet);
 				}				
 			}
@@ -440,26 +441,26 @@ public class MDP extends ResultRanker {
 				//newly obtained S
 				currentS.add(D_Minus_S.get(followerIndex));
 				//follower->new-star & distance value
-				HashMap<String, org.archive.util.tuple.Pair<String, Double>> moveFollowersMap = 
-					new HashMap<String, org.archive.util.tuple.Pair<String,Double>>();
+				HashMap<String, StrDouble> moveFollowersMap = 
+					new HashMap<String, StrDouble>();
 				//former information deletion due to role change of boBeStar				
 				//--
 				//doc_in: from star to follower
-				HashSet<org.archive.util.tuple.Pair<String, Double>> follwerSet = starToFollowersMap.get(star);
-				Iterator<org.archive.util.tuple.Pair<String, Double>> fItr = follwerSet.iterator();
+				HashSet<StrDouble> follwerSet = starToFollowersMap.get(star);
+				Iterator<StrDouble> fItr = follwerSet.iterator();
 				while(fItr.hasNext()){
-					org.archive.util.tuple.Pair<String, Double> follower = fItr.next();
+					StrDouble follower = fItr.next();
 					if(follower.getFirst() == toBeStar){
 						delta += (0-follower.getSecond());
 						edged = true;
 					}else{
-						org.archive.util.tuple.Pair<String, Double> newMinPair = 
+						StrDouble newMinPair = 
 							minDisPairGivenS(follower.getFirst(), currentS);
 						//
 						delta += (newMinPair.getSecond()-follower.getSecond());
 						//
 						moveFollowersMap.put(follower.getFirst(),
-								new org.archive.util.tuple.Pair<String,Double>(newMinPair.getFirst(), newMinPair.getSecond()));
+								new StrDouble(newMinPair.getFirst(), newMinPair.getSecond()));
 					}
 				}
 				//for toBeStar
@@ -467,11 +468,11 @@ public class MDP extends ResultRanker {
 					delta += (0-followerToStarMap.get(toBeStar).getSecond());					
 				}
 				//for star
-				org.archive.util.tuple.Pair<String, Double> newMinPair = minDisPairGivenS(star, currentS);
+				StrDouble newMinPair = minDisPairGivenS(star, currentS);
 				delta += newMinPair.getSecond();
 				//
 				moveFollowersMap.put(star,
-						new org.archive.util.tuple.Pair<String,Double>(newMinPair.getFirst(), newMinPair.getSecond()));
+						new StrDouble(newMinPair.getFirst(), newMinPair.getSecond()));
 				//delete of ...
 				if(delta < 0){					
 					if(!edged){
@@ -480,21 +481,21 @@ public class MDP extends ResultRanker {
 					starToFollowersMap.remove(star);
 					followerToStarMap.remove(toBeStar);
 					//
-					for(Entry<String, org.archive.util.tuple.Pair<String, Double>> entry:
+					for(Entry<String, StrDouble> entry:
 						moveFollowersMap.entrySet()){
 						//starToFollowersMap
 						if(starToFollowersMap.containsKey(entry.getValue().getFirst())){
 							starToFollowersMap.get(entry.getValue().getFirst()).add(
-									new org.archive.util.tuple.Pair<String, Double>(entry.getKey(), entry.getValue().getSecond()));
+									new StrDouble(entry.getKey(), entry.getValue().getSecond()));
 						}else{
-							HashSet<org.archive.util.tuple.Pair<String, Double>> followerSet = 
-								new HashSet<org.archive.util.tuple.Pair<String,Double>>();
-							followerSet.add(new org.archive.util.tuple.Pair<String,Double>(entry.getKey(), entry.getValue().getSecond()));
+							HashSet<StrDouble> followerSet = 
+								new HashSet<StrDouble>();
+							followerSet.add(new StrDouble(entry.getKey(), entry.getValue().getSecond()));
 							starToFollowersMap.put(entry.getValue().getFirst(), followerSet);
 						}
 						//followerToStarMap
 						followerToStarMap.put(entry.getKey(), 
-								new org.archive.util.tuple.Pair<String, Double>(entry.getValue().getFirst(), entry.getValue().getSecond()));
+								new StrDouble(entry.getValue().getFirst(), entry.getValue().getSecond()));
 						//						
 					}
 					//
@@ -538,38 +539,38 @@ public class MDP extends ResultRanker {
 					//--
 					double fitness = 0d;
 					boolean linked = false;
-					HashMap<String, org.archive.util.tuple.Pair<String, Double>> followerToNewStarMap = 
-						new HashMap<String, org.archive.util.tuple.Pair<String,Double>>();
+					HashMap<String, StrDouble> followerToNewStarMap = 
+						new HashMap<String, StrDouble>();
 					HashSet<String> tempS = new HashSet<String>();
 					tempS.addAll(S);
 					tempS.remove(doc_in);
 					tempS.add(doc_out);
 					//doc_in: from star to follower
-					HashSet<org.archive.util.tuple.Pair<String, Double>> follwerSet = starToFollowersMap.get(doc_in);
-					Iterator<org.archive.util.tuple.Pair<String, Double>> sItr = follwerSet.iterator();
+					HashSet<StrDouble> follwerSet = starToFollowersMap.get(doc_in);
+					Iterator<StrDouble> sItr = follwerSet.iterator();
 					while(sItr.hasNext()){
-						org.archive.util.tuple.Pair<String, Double> follower = sItr.next();
+						StrDouble follower = sItr.next();
 						if(follower.getFirst() == doc_out){
 							fitness += (-follower.getSecond());
 							linked = true;
 						}else{
-							org.archive.util.tuple.Pair<String, Double> newMinPair = 
+							StrDouble newMinPair = 
 								minDisPairGivenS(follower.getFirst(), tempS);
 							//
 							fitness += (newMinPair.getSecond()-follower.getSecond());
 							//
 							followerToNewStarMap.put(follower.getFirst(),
-									new org.archive.util.tuple.Pair<String,Double>(newMinPair.getFirst(), newMinPair.getSecond()));
+									new StrDouble(newMinPair.getFirst(), newMinPair.getSecond()));
 						}
 					}
 					if(!linked){
 						fitness += (-followerToStarMap.get(doc_out).getSecond());
 					}
-					org.archive.util.tuple.Pair<String, Double> newMinPair = 
+					StrDouble newMinPair = 
 						minDisPairGivenS(doc_in, tempS);
 					fitness += newMinPair.getSecond();
 					followerToNewStarMap.put(doc_in,
-							new org.archive.util.tuple.Pair<String,Double>(newMinPair.getFirst(), newMinPair.getSecond()));
+							new StrDouble(newMinPair.getFirst(), newMinPair.getSecond()));
 					
 					
 					//doc_out: from follower to star
@@ -607,14 +608,14 @@ public class MDP extends ResultRanker {
 			}			
 		}while(change);
 		//sorting in order of contribution
-		ArrayList<org.archive.util.tuple.Pair<String, Double>> s_c_list =
-			new ArrayList<org.archive.util.tuple.Pair<String, Double>>();
+		ArrayList<StrDouble> s_c_list =
+			new ArrayList<StrDouble>();
 		Iterator<String> sItr = S.iterator();
 		//
 		while(sItr.hasNext()){
 			String doc_name_k = sItr.next();			
 			//
-			s_c_list.add(new org.archive.util.tuple.Pair<String, Double>(doc_name_k, 
+			s_c_list.add(new StrDouble(doc_name_k, 
 					c(doc_name_k, query_repr, S, D_Minus_S, _fVersion)));
 		}
 		//
@@ -623,6 +624,162 @@ public class MDP extends ResultRanker {
 		return s_c_list;
 	}
 	
+	//(3)
+	private ArrayList<StrDouble> hillClimbingSearch_dfa_new(Object query_repr, Set<String> D, int k, int itrThreshold, fVersion _fVersion){
+		//
+		ArrayList<StrDouble> topnDoc_rlist = new ArrayList<StrDouble>();
+		//
+		String query_repr_key = query_repr.toString();
+		Double sim_score = null;
+		Object doc_repr = null;
+		Pair sim_key = null;
+		
+		for(String doc_name: D){
+			sim_key = new Pair(doc_name, query_repr_key);
+			
+			if (null == (sim_score = _simCache.get(sim_key))) {
+				doc_repr = _docRepr.get(doc_name);
+				sim_score = _sbKernel.sim(query_repr, doc_repr);
+				_simCache.put(sim_key, sim_score);
+			}
+			
+			topnDoc_rlist.add(new StrDouble(doc_name, sim_score));
+		}
+		
+		Collections.sort(topnDoc_rlist, new PairComparatorBySecond_Desc<String, Double>());
+		//
+		ArrayList<String> S = new ArrayList<String>();
+		//initialize with top-k relevant doc
+		for(int i=0; i<k; i++){
+			S.add(topnDoc_rlist.get(i).getFirst());
+		}
+		//
+		ArrayList<String> D_Minus_S = new ArrayList<String>();
+		//star: elements of S, follower: elements of D_Minus_S
+		//star->followers & min-distance value, i.e., max-sim value		
+		HashMap<String, HashSet<StrDouble>> starToFollowersMap = new HashMap<String, HashSet<StrDouble>>();
+		HashMap<String, StrDouble> followerToStarMap = 	new HashMap<String, StrDouble>();
+		
+		//first use
+		StrDouble theMinPair = null;
+		Iterator<String> theDItr = D.iterator();		
+		while(theDItr.hasNext()){
+			String doc_name = theDItr.next();
+			if(!S.contains(doc_name)){
+				D_Minus_S.add(doc_name);				
+				theMinPair = minDisPairGivenS(doc_name, S);
+				//follower - corresponding star
+				followerToStarMap.put(doc_name, new StrDouble(theMinPair.getFirst(), theMinPair.getSecond()));	
+				//star - corresponding followers
+				if(starToFollowersMap.containsKey(theMinPair.getFirst())){
+					starToFollowersMap.get(theMinPair.getFirst()).add(new StrDouble(doc_name, theMinPair.getSecond()));
+				}else{
+					HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();					
+					follwerSet.add(new StrDouble(doc_name, theMinPair.getSecond()));
+					starToFollowersMap.put(theMinPair.getFirst(), follwerSet);
+				}				
+			}
+		}
+		//iterating	
+		int times = 0;
+		do{
+			times++;
+			boolean change = false;
+			
+			ArrayList<String> oldS = new ArrayList<String>();
+			oldS.addAll(S);
+			
+			for(int i=0; i<oldS.size(); i++){
+				
+				String star = oldS.get(i);
+				HashSet<StrDouble> theFollwers = starToFollowersMap.get(star);
+				
+				double minDelta = 0d;
+				String minToBeStar = null;
+				
+				//finding the toBeStar that results in the minimum delta
+				for(int j=0; j<D_Minus_S.size(); j++){
+					String toBeStar = D_Minus_S.get(j);
+					
+					double delta = 0.0;
+					boolean matched = false;
+					Iterator<StrDouble> fItr = theFollwers.iterator();
+					while(fItr.hasNext()){
+						StrDouble follower = fItr.next();
+						if(follower.getFirst() == toBeStar){
+							//for this case, star - follower will be reversed, thus no delta
+							matched = true;
+						}else{
+							delta += (distance(toBeStar, follower.getFirst()) - follower.getSecond());							
+						}
+					}
+					//star will be another's follower
+					if(!matched){
+						delta += (minDisPairGivenS(star, S).getSecond() - followerToStarMap.get(toBeStar).getSecond());
+					}
+					
+					if(delta < minDelta){
+						minDelta = delta;
+						minToBeStar = toBeStar;
+					}					
+				}
+				
+				if(minDelta < 0){
+					change = true;
+					//
+					S.remove(star);
+					S.add(minToBeStar);
+					//
+					D_Minus_S.remove(minToBeStar);
+					D_Minus_S.add(star);
+					//update followerToStarMap & starToFollowersMap
+					followerToStarMap.clear();
+					starToFollowersMap.clear();
+					
+					StrDouble minPair = null;
+					Iterator<String> dItr = D.iterator();		
+					while(dItr.hasNext()){
+						String doc_name = dItr.next();
+						if(!S.contains(doc_name)){											
+							minPair = minDisPairGivenS(doc_name, S);
+							//follower - corresponding star
+							followerToStarMap.put(doc_name, new StrDouble(minPair.getFirst(), minPair.getSecond()));	
+							//star - corresponding followers
+							if(starToFollowersMap.containsKey(minPair.getFirst())){
+								starToFollowersMap.get(minPair.getFirst()).add(new StrDouble(doc_name, minPair.getSecond()));
+							}else{
+								HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();					
+								follwerSet.add(new StrDouble(doc_name, minPair.getSecond()));
+								starToFollowersMap.put(minPair.getFirst(), follwerSet);
+							}				
+						}
+					}					
+					//new iterate
+					break;					
+				}				
+			}
+			
+			if(!change){
+				break;
+			}								
+		}while(times < itrThreshold);		
+		//sorting in order of contribution
+		Set<String> finalS = new HashSet<String>();
+		finalS.addAll(S);
+		Set<String> finalD_minus_S = new HashSet<String>();
+		finalD_minus_S.addAll(D_Minus_S);
+		
+		ArrayList<StrDouble> s_c_list = new ArrayList<StrDouble>();
+		Iterator<String> sItr = S.iterator();		
+		while(sItr.hasNext()){
+			String doc_name_k = sItr.next();	
+			s_c_list.add(new StrDouble(doc_name_k, c(doc_name_k, query_repr, finalS, finalD_minus_S, _fVersion)));
+		}
+		//
+		Collections.sort(s_c_list, new PairComparatorBySecond_Desc<String, Double>());
+		//
+		return s_c_list;
+	}
 	//////////////////////////
 	//Relevance Expression
 	//////////////////////////
@@ -707,8 +864,20 @@ public class MDP extends ResultRanker {
 	/**
 	 * @return the star element with a minimum distance value in S with respect to doc_name_i
 	 * **/
-	private org.archive.util.tuple.Pair<String, Double> minDisPairGivenS(
-			String doc_name_i, ArrayList<String> S){
+	private double distance(String doc_a, String doc_b){
+		Double dis_score = null;
+		Pair dis_key = new Pair(doc_a, doc_b);
+		if (null == (dis_score = _disCache.get(dis_key))) {
+			Object doc_aRepr = _docRepr.get(doc_a);
+			Object doc_bRepr = _docRepr.get(doc_b);
+			dis_score = _sbKernel.distance(doc_aRepr, doc_bRepr);
+			_disCache.put(dis_key, dis_score);
+			return dis_score;
+		}else{
+			return dis_score;
+		}
+	}
+	private StrDouble minDisPairGivenS(String doc_name_i, ArrayList<String> S){
 		
 		Object doc_repr_i = _docRepr.get(doc_name_i);
 		//
@@ -731,7 +900,7 @@ public class MDP extends ResultRanker {
 			}
 		}
 		//
-		return new org.archive.util.tuple.Pair(minDoc_name, minDistance);
+		return new StrDouble(minDoc_name, minDistance);
 	}
 	//
 	private double dContributionOfK_dfa(String doc_name_k, Set<String> S, Set<String> D_Minus_S){

@@ -11,9 +11,13 @@ import java.io.FileReader;
 import java.text.DecimalFormat;
 import java.util.*;
 
+import org.archive.OutputDirectory;
 import org.archive.a1.kernel.SBKernel;
+import org.archive.a1.ranker.fa.DCKUFLRanker;
+import org.archive.a1.ranker.fa.K_UFLRanker;
 import org.archive.a1.ranker.fa.MDP;
 import org.archive.a1.ranker.fa.MDP.fVersion;
+import org.archive.dataset.DataSetDiretory;
 import org.archive.dataset.trec.TREC68Loader;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
@@ -30,12 +34,14 @@ import org.archive.nicta.evaluation.metricfunction.AllWSLoss;
 import org.archive.nicta.evaluation.metricfunction.Metric;
 import org.archive.nicta.evaluation.metricfunction.NDEval10Losses;
 import org.archive.nicta.kernel.BM25Kernel;
+import org.archive.nicta.kernel.BM25Kernel_A1;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.kernel.LDAKernel;
 import org.archive.nicta.kernel.PLSRKernel;
 import org.archive.nicta.kernel.PLSRKernelTFIDF;
 import org.archive.nicta.kernel.TF;
 import org.archive.nicta.kernel.TFIDF;
+import org.archive.nicta.kernel.TFIDF_A1;
 import org.archive.nicta.ranker.ResultRanker;
 import org.archive.nicta.ranker.mmr.MMR;
 import org.archive.util.FileFinder;
@@ -46,11 +52,16 @@ import org.archive.util.FileFinder;
 
 public class TRECDivEvaluation {
 	
-	public static enum RankStrategy{BFS, MDP}
+	public static enum RankStrategy{BFS, MDP, FL}
 	
 	private static void trecDivEvaluation(DivVersion divVersion, RankStrategy rankStrategy){
 		//output
-		String output_prefix = "results/DivEvaluation/";
+		String output_prefix = OutputDirectory.ROOT+"results/DivEvaluation/";
+		File outputFile = new File(output_prefix);
+		if(!outputFile.exists()){
+			outputFile.mkdirs();
+		}
+		
 		String output_filename = null;
 		if(DivVersion.Div2009 == divVersion){
 			output_filename = "Div2009";			
@@ -78,6 +89,8 @@ public class TRECDivEvaluation {
 		lossFunctions.add(new AllUSLoss());
 		lossFunctions.add(new AllWSLoss());
 		lossFunctions.add(new NDEval10Losses(TRECDivLoader.getTrecDivQREL(divVersion)));
+		//
+		NDEval10Losses ndEval10Losses = new NDEval10Losses(TRECDivLoader.getTrecDivQREL(divVersion));		
 		
 		/************* Best First Strategy ***************/
 		if(rankStrategy == RankStrategy.BFS){
@@ -88,26 +101,26 @@ public class TRECDivEvaluation {
 			//////////////////////
 			//TF-Kernel
 			//////////////////////
-			/*
+			///*
 			//part-1
-			Kernel TF_kernel    = new TF(trec68Docs, 
+			Kernel TF_kernel    = new TF(trecDivDocs, 
 					true //query-relevant diversity
 					);
-			Kernel TFn_kernel    = new TF(trec68Docs, 
+			Kernel TFn_kernel    = new TF(trecDivDocs, 
 					false //query-relevant diversity
 					);
 			//part-2
-			rankers.add( new MMR( trec68Docs, 
+			rankers.add( new MMR( trecDivDocs, 
 					0.5d //lambda: 0d is all weight on query sim
 					, TF_kernel // sim 
 					, TF_kernel // div 
 					));
-			rankers.add( new MMR( trec68Docs, 
+			rankers.add( new MMR( trecDivDocs, 
 					0.5d //lambda: 0d is all weight on query sim
 					, TFn_kernel // sim
 					, TFn_kernel // div
 					));
-			*/
+			//*/
 			////////////////////////////
 			//BM25_kernel
 			////////////////////////////
@@ -269,6 +282,40 @@ public class TRECDivEvaluation {
 				// TODO: handle exception
 				e.printStackTrace();
 			}
+		}else if(rankStrategy == RankStrategy.FL){
+			double k1, k3, b;
+			k1=1.2d; k3=0.5d; b=0.5d; // achieves the best
+			//k1=0.5d; k3=0.5d; b=0.5d; //better than the group of b=1000d;
+			//k1=1.2d; k3=0.5d; b=1000d;
+			BM25Kernel_A1 bm25_A1_Kernel = new BM25Kernel_A1(trecDivDocs, k1, k3, b);
+			
+			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
+			
+			//
+			ArrayList<ResultRanker> rankers = new ArrayList<ResultRanker>();
+			
+			//1
+			double lambda = 0.5;
+			int iterationTimes = 5000;
+			int noChangeIterSpan = 10; 
+			DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda, iterationTimes, noChangeIterSpan);
+			
+			//2
+			double SimDivLambda = 0.5;
+			K_UFLRanker kuflRanker = new K_UFLRanker(trecDivDocs, tfidf_A1Kernel, lambda, iterationTimes, noChangeIterSpan, SimDivLambda);
+			
+			rankers.add(dckuflRanker);
+			//rankers.add(kuflRanker);
+			
+			// Evaluate results of different query processing algorithms
+			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename);
+			try {
+				trecDivEvaluator.doEval(TRECDivLoader.getDivEvalQueries(divVersion),
+						trecDivDocs, trecDivQueryAspects, lossFunctions, rankers, cutoffK);
+			} catch (Exception e) {
+				// TODO: handle exception
+				e.printStackTrace();
+			}			
 		}		
 	}
 	//
@@ -277,6 +324,8 @@ public class TRECDivEvaluation {
 	public static void main(String []args){
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
-		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.MDP);
+		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.FL);
+		
+		
 	}
 }

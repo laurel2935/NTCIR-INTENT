@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
-import org.apache.poi.hwpf.model.TabDescriptor;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
 import org.archive.dataset.trec.query.TRECDivQuery;
@@ -154,7 +153,12 @@ public class TRECDivEvaluator extends Evaluator{
 				if (DEBUG)
 					System.out.println("- Running alg: " + rRanker.getDescription());
 				
-				ArrayList<String> resultList = rRanker.getResultList(trecDivQuery.getQueryContent(), cutoffK);
+				ArrayList<String> resultList = null;
+				if(0 == rRanker._indexOfGetResultMethod){
+					resultList = rRanker.getResultList(trecDivQuery.getQueryContent(), cutoffK);
+				}else{
+					resultList = rRanker.getResultList(trecDivQuery, cutoffK);
+				}
 				
 				if (DEBUG)
 					System.out.println("- Result list: " + resultList);
@@ -163,7 +167,18 @@ public class TRECDivEvaluator extends Evaluator{
 				for (Metric loss : lossFunctions) {
 					String loss_name = loss.getName();
 					System.out.println("Evaluating: " + loss_name);
-					Object o = loss.eval(trecQueryAspects, resultList);
+					
+					Object o = null;
+					try {
+						o = loss.eval(trecQueryAspects, resultList);
+						if(null == o){
+							System.out.println("!!!!!!!!!!!!!!!!!!!!!");
+						}
+					} catch (Exception e) {
+						// TODO: handle exception
+						e.printStackTrace();
+					}
+					
 					String loss_result_str = null;
 					if (o instanceof double[]) {
 						loss_result_str = VectorUtils.GetString((double[])o);

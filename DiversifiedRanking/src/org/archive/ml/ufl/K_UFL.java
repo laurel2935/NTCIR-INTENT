@@ -159,9 +159,7 @@ public class K_UFL {
         
         if(debug){
         	System.out.println("Cost matrix:");
-        	System.out.println(_C.toString());
-        	System.out.println("Y matrix:");
-        	System.out.println(_Y.toString());
+        	System.out.println(_C.toString());        	       	
         }
     }
     
@@ -171,6 +169,11 @@ public class K_UFL {
         for(int j=0; j<this._M; j++){
         	double f_j = fList.get(j);
         	this._Y.set(0, j, f_j);
+        }
+        //
+        if(debug){
+        	System.out.println("Facility cost:");
+        	System.out.println(this._Y.toString());
         }
     }
     
@@ -400,11 +403,6 @@ public class K_UFL {
         }
     }
 	
-	public IntegerMatrix1D getSelectedDocs(){
-		return this.IY;
-	}	
-	
-	
 	//// Eta ////
 	private void copyEta(){
 		this._oldEta = this._Eta.copy();
@@ -609,6 +607,7 @@ public class K_UFL {
     	for(int fID: this.IY.getVector()){
     		facilityList.add(getFacilityName(fID));    		
     	}
+    	System.out.println(facilityList);
     	return facilityList;
     }
 	//
@@ -792,7 +791,7 @@ public class K_UFL {
 		//ArrayList<InteractionData> costMatrix = APClustering.loadAPExample();
     	//
     	double lambda = 0.5;
-    	int iterationTimes = 5000;
+    	int iterationTimes = 500;
     	int noChangeIterSpan = 20;    	
     	//double preferences = getMedian(vList);
     	//positive value as a cost value
@@ -806,6 +805,8 @@ public class K_UFL {
     	K_UFL kUFL = new K_UFL(lambda, iterationTimes, noChangeIterSpan, costPreferences, preK, UFLMode.C_Same_F, costMatrix, fList);
     	//    	
     	kUFL.run();    	
+    	//
+    	kUFL.getSelectedFacilities();
     }
 	
 	//
