@@ -57,7 +57,7 @@ public class APClustering {
     
 	ArrayList<InteractionData> dataPointInteractions;
     
-    APClustering(double lambda, int iterations, Integer convits, double preferences, ArrayList<InteractionData> similarityMatrix){
+    public APClustering(double lambda, int iterations, Integer convits, double preferences, ArrayList<InteractionData> similarityMatrix){
     	this.lambda = lambda;
         this.iterations = iterations;
         this.preferences = preferences;
@@ -304,7 +304,7 @@ public class APClustering {
     	//APClustering.test();
     	
     	//2
-    	//APClustering.testAPExample();
+    	APClustering.testAPExample();
     	
     	//3
     	//[48, 64, 33, 82, 98, 3, 83, 36, 22, 73, 26, 78]

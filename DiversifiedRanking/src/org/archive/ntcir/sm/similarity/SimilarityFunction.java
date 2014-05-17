@@ -1,4 +1,4 @@
-package org.archive.ntcir.sm.clustering.simfunction;
+package org.archive.ntcir.sm.similarity;
 
 import java.util.ArrayList;
 

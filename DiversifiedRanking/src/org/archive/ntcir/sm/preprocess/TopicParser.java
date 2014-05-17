@@ -29,8 +29,9 @@ import org.jdom.output.XMLOutputter;
 public class TopicParser {
 	//
 	public static final boolean DEBUG = true;
+	
 	public static enum StringType {TopicStr, SubtopicStr}
-	//
+	//0001	先知
 	public static ArrayList<StrStr> loadTopicList_NTCIR11_SM_CH(){
 		ArrayList<StrStr> topicList_NTCIR11_SM_CH = new ArrayList<StrStr>();
 		try {
@@ -61,7 +62,7 @@ public class TopicParser {
 		}
 		return topicList_NTCIR11_SM_CH;
 	}
-	//
+	//parse each topic string using LTPservice
 	private static void parseNTCIR11SMChTopics(ArrayList<StrStr> topicList, String ltpOption){
 		//
 		File dirFile = new File(OutputDirectory.NTCIR11_Buffer);
@@ -369,7 +370,7 @@ public class TopicParser {
 		//TopicParser.parseNTCIR11SMChSubtopicStrings();
 		
 		//4
-		//TopicParser.loadTest();
+		TopicParser.loadTest();
 		
 		//5
 		TopicParser.parseTest();
