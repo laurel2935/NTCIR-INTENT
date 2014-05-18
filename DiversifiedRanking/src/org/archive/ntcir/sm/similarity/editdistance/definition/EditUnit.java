@@ -1,12 +1,14 @@
 package org.archive.ntcir.sm.similarity.editdistance.definition;
 
+import org.archive.util.Language.Lang;
+
 //
 public abstract class EditUnit {
 	//
 	public abstract String getUnitString();
 	
 	//
-	public double getSubstitutionCost(EditUnit other){
+	public double getSubstitutionCost(EditUnit other, Lang lang){
 		return this.equals(other)?0:1;
 	}
 	
@@ -18,10 +20,9 @@ public abstract class EditUnit {
     //
     public double getInsertionCost(){
         return 1.0;
-    }
-    	
-    @Override
-	public boolean equals(Object other){
+    }    	
+    
+	public boolean equals(Object other, Lang lang){
     	if(!(other instanceof EditUnit)) return false;
 		return getUnitString().equals(((EditUnit)other).getUnitString());
 	}

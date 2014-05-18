@@ -106,6 +106,14 @@ public class IRAnnotation {
 		}
 	}
 	//
+	public String toString(){
+		String string = "";
+		for(Modifier mo: moSet){
+			string += (" "+mo.toString());
+		}
+		return "ko:["+ko.toString()+"] MOSet: "+string;
+	}
+	//
 	public static void main(String []args){
 		
 	}

@@ -3,9 +3,11 @@ package org.archive.dataset.ntcir;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,7 +15,9 @@ import java.util.List;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.archive.OutputDirectory;
 import org.archive.dataset.ntcir.sm.IRAnnotation;
+import org.archive.dataset.ntcir.sm.LTPIRAnnotator;
 import org.archive.dataset.ntcir.sm.SMSubtopicItem;
 import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.ntcir.sm.TermIRAnnotator;
@@ -350,7 +354,7 @@ public class NTCIRLoader {
 			while(null != (line=dqrelReader.readLine()))
 			{
 				strArray = line.split(split_regrex);
-				//0201;1;Í¶Ó°ÒÇÈçºÎÑ¡¹º;L1
+				//0201;1;Í¶Ó°ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½;L1
 				String levelStr = strArray[3].replaceAll("L", "");
 				if (Integer.parseInt(levelStr) > 0) {
 					topicMap.get(strArray[0]).addLabeledItem(
@@ -435,7 +439,7 @@ public class NTCIRLoader {
 					}
 				}
 				if(line.indexOf("Topic") > 0){
-					text = line.substring(line.indexOf(">")+1, line.indexOf("</"));					
+					text = line.substring(line.indexOf(">")+1, line.indexOf("</")).trim();					
 					//
 					if(NTCIR_EVAL_TASK.NTCIR11_SM_CH==eval && Integer.parseInt(id) > 1){						
 						smTopicList.add(smTopic);
@@ -524,23 +528,31 @@ public class NTCIRLoader {
 		}
 		
 		//
-		ShallowParser shallowParser;
-		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
-			shallowParser = new ShallowParser(Lang.Chinese);
-		}else{
+		ShallowParser shallowParser = null;
+		if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
 			shallowParser = new ShallowParser(Lang.English);
 		}				
 		//perform intent role annotation for each topic
 		TermIRAnnotator termIRAnnotator = new TermIRAnnotator();
 		PhraseIRAnnotator phraseIRAnnotator = new PhraseIRAnnotator();
 		for(SMTopic smTopic: smTopicList){
-			smTopic.setTaggedTopic(shallowParser.getTaggedTopic(smTopic.getTopicText()));
+			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
+				LTPIRAnnotator.getTaggedTopic(smTopic);				
+			}else{
+				smTopic.setTaggedTopic(shallowParser.getTaggedTopic(smTopic.getTopicText()));
+			}
+			
 			if(DEBUG){				
 				System.out.println(smTopic.toString());
 			}
 			//
-			smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedTerms));
-			smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhrases));
+			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
+				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedTerms, Lang.Chinese));
+				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhrases, Lang.Chinese));
+			}else{
+				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedTerms, Lang.English));
+				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhrases, Lang.English));
+			}			
 			//
 			smTopic.checkIRAnnotation();
 		}		
@@ -552,12 +564,25 @@ public class NTCIRLoader {
 				System.out.println(smTopic.toString());
 				smTopic.printBadCase();
 			}else{
-				for(String rq: smTopic.uniqueRelatedQueries){
-					if(DEBUG){
-						System.out.println(rq);
-					}
-					stInstance_all_term.put(rq, shallowParser.getTaggedTerms(rq));
-					stInstance_all_phrase.put(rq, shallowParser.getTaggedPhrases(rq));
+				for(int i=0; i<smTopic.uniqueRelatedQueries.size(); i++){
+					String rq = smTopic.uniqueRelatedQueries.get(i);
+								
+					if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
+						stInstance_all_term.put(rq, shallowParser.getTaggedTerms(rq));
+						stInstance_all_phrase.put(rq, shallowParser.getTaggedPhrases(rq));
+					}else{
+						ArrayList<TaggedTerm> taggedTerms = LTPIRAnnotator.getTaggedTerm(smTopic, i);
+						if(DEBUG){
+							System.out.println(rq);
+							System.out.println(taggedTerms);
+						}
+						if(null == taggedTerms){
+							continue;
+						}
+						stInstance_all_term.put(rq, taggedTerms);
+						ArrayList<TaggedTerm> taggedPhrases = LTPIRAnnotator.getTaggedPhrases(taggedTerms);
+						stInstance_all_phrase.put(rq, taggedPhrases);
+					}					
 				}
 			}			
 		}		
@@ -600,13 +625,17 @@ public class NTCIRLoader {
 					System.out.println("number of subtopicitem:\t"+smTopic.smSubtopicItemList.size());
 					int itemCount = 1;
 					for(SMSubtopicItem smSubtopicItem: smTopic.smSubtopicItemList){
-						System.out.println("item - "+(itemCount++));
+						System.out.println("item - "+(itemCount++)+"\tinstance number:\t"+smSubtopicItem.subtopicInstanceGroup.size());
+						for(SubtopicInstance instance: smSubtopicItem.subtopicInstanceGroup){
+							System.out.println("\t"+instance._text);
+						}
+						System.out.println("---------");
 						if(smSubtopicItem.termModifierGroupList.size() > 0){
 							System.out.println("\tTerm-Annotation:");
 							int iraCount = 1;
 							for(ArrayList<String> moGroup: smSubtopicItem.termModifierGroupList){
 								System.out.println("\tPossible Term-IRA-"+(iraCount++));
-								System.out.println(moGroup);
+								System.out.println("\t"+moGroup);
 							}
 						}
 						//
@@ -674,7 +703,19 @@ public class NTCIRLoader {
 		return systemRun;
 	}
 	
-	
+	private static PrintStream printer = null; 
+	public static void openPrinter(){
+		try{
+			printer = new PrintStream(new FileOutputStream(new File(OutputDirectory.ROOT+"lot.txt")));
+			System.setOut(printer);			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	public static void closePrinter(){
+		printer.flush();
+		printer.close();
+	}
 	public static void main(String []args){
 		//1
 		//NTCIRLoader.loadNTCIR10Docs();
@@ -683,8 +724,10 @@ public class NTCIRLoader {
 		//NTCIRLoader.loadNTCIR10TopicList();
 		
 		//3
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, false);
+		NTCIRLoader.openPrinter();
+		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, true);
+		NTCIRLoader.closePrinter();
+		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
 	}
 	
 }

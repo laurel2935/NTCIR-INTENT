@@ -5,8 +5,8 @@ import java.util.HashSet;
 
 public class SMTopic {
 	private static boolean DEBUG = true;
-	//
 	public static enum BadCase{NoRelatedQuery, NoIRAnnotation}
+	
 	//
 	public static final int ShrinkThreshold = 2;
 	private ArrayList<BadCase> badCases = null;
@@ -14,6 +14,7 @@ public class SMTopic {
 	private String _id;
 	private String _text;
 	private TaggedTopic _taggedTopic;
+	public boolean DirectTermAndNoIRAnnotation = false;
 	private ArrayList<IRAnnotation> _termIRAnnotationList;
 	private ArrayList<IRAnnotation> _phraseIRAnnotationList;
 	//for Chinese topic

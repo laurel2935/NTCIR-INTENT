@@ -83,19 +83,19 @@ public class K_UFL {
 	//one-row object
 	private DoubleMatrix2D _Y;
 	
-	//N¡ÁM
+	//Nï¿½ï¿½M
 	private DoubleMatrix2D _Eta;
 	private DoubleMatrix2D _oldEta;
 	
-	//1¡ÁM
+	//1ï¿½ï¿½M
 	private DoubleMatrix2D _V;
 	private DoubleMatrix2D _oldV;
 	
-	//N¡ÁM
+	//Nï¿½ï¿½M
 	private DoubleMatrix2D _Alpha;
 	private DoubleMatrix2D _oldAlpha;
 	
-	//(M+1)¡ÁM the row corresponds to the state of z_j, the column is the j-th column
+	//(M+1)ï¿½ï¿½M the row corresponds to the state of z_j, the column is the j-th column
 	private DoubleMatrix2D _A;
 	//private DoubleMatrix2D _oldA;
 	private DoubleMatrix2D _B;
@@ -188,8 +188,8 @@ public class K_UFL {
         }
     }
     
-    //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
-    K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferenceCost, Integer preK, UFLMode uflMode, 
+    //pay attention to the positive or negative value of dataPointInteractions &&ï¿½ï¿½fCostList
+    public K_UFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferenceCost, Integer preK, UFLMode uflMode, 
     		ArrayList<InteractionData> costMatrix, ArrayList<Double> fList){
     	//1
     	//dataPointSimilarities, for cost, e.g., c_ij, it would be the negative value of each similarity

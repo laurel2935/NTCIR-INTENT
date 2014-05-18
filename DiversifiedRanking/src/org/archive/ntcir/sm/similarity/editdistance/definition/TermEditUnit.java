@@ -1,7 +1,9 @@
 package org.archive.ntcir.sm.similarity.editdistance.definition;
 
+import org.archive.util.Language.Lang;
+
 /**
- * term text & term pos tag
+ * TermEditUnit with two attributes: termText and termPos
  * **/
 
 public class TermEditUnit extends EditUnit {
@@ -26,23 +28,22 @@ public class TermEditUnit extends EditUnit {
 	//
 	///*
 	@Override
-	public double getSubstitutionCost(EditUnit otherUnit){
+	public double getSubstitutionCost(EditUnit otherUnit, Lang lang){
 		if(!(otherUnit instanceof TermEditUnit)) return 1.0;
 		if(equals(otherUnit)) return 0.0;
 		
 		TermEditUnit other = (TermEditUnit)otherUnit;
 		//
-		if(this.term.getTerm().equals(other.term.getTerm()) 
-				&& !this.term.getPos().equals(other.term.getPos())){
+		if(this.term.getTerm().equals(other.term.getTerm()) && !this.term.getPos().equals(other.term.getPos())){
 			return 0.5;
 		}else{
 			return 1.0;
 		}		
 	}
 	//*/
-	///*
-	@Override	
-	public boolean equals(Object other){
+	///*	
+	@Override
+	public boolean equals(Object other, Lang lang){
     	if(!(other instanceof TermEditUnit)) return false;
     	TermEditUnit otherUnit = (TermEditUnit)other;
     	Term otherTerm = otherUnit.term;

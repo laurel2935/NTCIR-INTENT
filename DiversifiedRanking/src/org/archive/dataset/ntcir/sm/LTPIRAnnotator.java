@@ -1,15 +1,32 @@
 package org.archive.dataset.ntcir.sm;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Set;
 import java.util.Vector;
 
+import org.archive.OutputDirectory;
+import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
+import org.archive.dataset.ntcir.sm.SMTopic.BadCase;
 import org.archive.nlp.chunk.lpt.addon.LTPPosTag;
 import org.archive.nlp.chunk.lpt.addon.LTPRelationTag;
 import org.archive.nlp.chunk.lpt.addon.TNode;
 import org.archive.nlp.chunk.lpt.addon.TTree;
+import org.archive.nlp.chunk.lpt.ltpService.LTML;
+import org.archive.nlp.chunk.lpt.ltpService.Word;
+import org.archive.nlp.tokenizer.Tokenizer;
+import org.archive.ntcir.sm.RunParameter;
+import org.archive.ntcir.sm.RunParameter.ClusteringFunction;
+import org.archive.ntcir.sm.RunParameter.SimilarityFunction;
+import org.archive.util.Language.Lang;
+
+import edu.stanford.nlp.ling.TaggedWord;
+import sun.launcher.resources.launcher;
 
 public class LTPIRAnnotator {
-
+	private final static boolean DEBUG = true;
+	
 	public ArrayList<IRAnnotation> irAnnotate(TTree tTree){
 		ArrayList<IRAnnotation> results = new ArrayList<IRAnnotation>();
 		//
@@ -254,5 +271,137 @@ public class LTPIRAnnotator {
 			System.out.println("Unexpected np case!");
 		}
 		return null;
+	}
+	//
+	
+	private static boolean include(ArrayList<TaggedTerm> taggedTerms, String reference){
+		for(TaggedTerm term: taggedTerms){
+			if(term.termStr.equals(reference)){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public static ArrayList<TaggedTerm> getTaggedPhrases(ArrayList<TaggedTerm> taggedTerms){
+		ArrayList<TaggedTerm> taggedPhrases = new ArrayList<TaggedTerm>();
+		
+		for(int i=1; i<taggedTerms.size(); i++){
+			TaggedTerm formerT = taggedTerms.get(i-1);
+			TaggedTerm curT = taggedTerms.get(i);
+			if(formerT.posTag.startsWith("n") && curT.posTag.startsWith("n")){
+				taggedPhrases.add(new TaggedTerm(formerT.termStr+curT.termStr, "NP"));
+			}
+		}
+		
+		if(taggedPhrases.size() > 0){
+			return taggedPhrases;
+		}else{
+			return null;
+		}		
+	}
+	public static void getTaggedTopic(SMTopic smTopic){
+		String tDir = OutputDirectory.ROOT+"ntcir-11/SM/ParsedTopic/PerFile/";
+				
+		String topicXMLFile = tDir+smTopic.getID()+".xml";
+		LTML topicLTML = RunParameter.loadLTML(topicXMLFile);
+		ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
+		for(Word word: topicLTML.getWords(0)){
+    		taggedTerms.add(new TaggedTerm(word.getWS(), word.getPOS()));
+    	}
+		//odd case
+		if(Tokenizer.isDirectWord(smTopic.getTopicText(), Lang.Chinese) && !include(taggedTerms, smTopic.getTopicText())){
+			if(DEBUG){
+				System.out.println(include(taggedTerms, smTopic.getTopicText().trim()));
+				System.out.println(">>"+taggedTerms);
+				System.out.println(">>"+smTopic.getTopicText());
+			}
+			smTopic.DirectTermAndNoIRAnnotation = true;
+			
+			ArrayList<TaggedTerm> unkTaggedTerms = new ArrayList<TaggedTerm>();
+			unkTaggedTerms.add(new TaggedTerm(smTopic.getTopicText(), "n"));
+			
+			TaggedTopic taggedTopic = new TaggedTopic();
+			taggedTopic.setTaggedTerms(unkTaggedTerms);
+			
+			smTopic.setTaggedTopic(taggedTopic);
+			
+		}else{
+			TaggedTopic taggedTopic = new TaggedTopic();
+			taggedTopic.setTaggedTerms(taggedTerms);
+			
+			taggedTopic.setTaggedPhrases(getTaggedPhrases(taggedTerms));
+			
+			smTopic.setTaggedTopic(taggedTopic);
+		}		
+	}
+	
+	public static ArrayList<TaggedTerm> getTaggedTerm(SMTopic smTopic, int subtopicStringID){
+		String subTDir = OutputDirectory.ROOT+"ntcir-11/SM/SubtopicString/ParsedWithLTP/";
+		
+		if(smTopic.DirectTermAndNoIRAnnotation){
+			ArrayList<String> subTWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, smTopic.uniqueRelatedQueries.get(subtopicStringID),
+					smTopic.getTopicText(), true, true);
+			if(null == subTWords){
+				return null;
+			}
+			ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
+			for(String w: subTWords){
+				if(w.equals(smTopic.getTopicText())){
+					taggedTerms.add(new TaggedTerm(w, "n"));
+				}else{
+					taggedTerms.add(new TaggedTerm(w, "unk"));
+				}				
+			}
+			return taggedTerms;
+		}else{
+			String subTXMLFile = subTDir+smTopic.getID()+"-"+Integer.toString(subtopicStringID+1)+".xml";
+			File xmlFile = new File(subTXMLFile);
+			if(!xmlFile.exists()){
+				return null;
+			}
+			LTML subTLTML = RunParameter.loadLTML(subTXMLFile);
+			ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
+			for(Word word: subTLTML.getWords(0)){
+	    		taggedTerms.add(new TaggedTerm(word.getWS(), word.getPOS()));
+	    	}
+			return taggedTerms;
+		}		
+	}
+	
+	public static void main(String []args){
+		//1
+		String runTitle = "testTitle";
+		String runIntroduction = "testIntroduction";
+		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
+				SimilarityFunction.GregorEditDistance, ClusteringFunction.StandardAP);
+		try {
+			HashMap<String, LTML> kHashMap = runParameter.loadLTMLForChTopics(runParameter.topicList);
+			Set<String> keySet = kHashMap.keySet();
+			
+			LTPIRAnnotator ltpirAnnotator = new LTPIRAnnotator();
+			
+			for(String key: keySet){
+				LTML ltml = kHashMap.get(key);
+				if(null != ltml){
+					ArrayList<Word> wList = ltml.getWords(0);
+					for(Word w: wList){
+						System.out.print(w.getWS()+"-"+w.getPOS()+"  ");
+					}
+					System.out.println();
+					ArrayList<IRAnnotation> aList = ltpirAnnotator.irAnnotate(new TTree(wList));
+					if(null != aList){
+						for(IRAnnotation a: aList){
+							System.out.println(a.toString());
+						}
+					}
+					
+				}
+			}
+			
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}	
 	}
 }

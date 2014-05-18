@@ -1,6 +1,7 @@
 package org.archive.ntcir.sm.similarity.editdistance.definition;
 
 import org.archive.ntcir.sm.similarity.editdistance.StandardEditDistance;
+import org.archive.util.Language.Lang;
 
 
 public class ChunkEditUnit extends EditUnit {
@@ -18,17 +19,23 @@ public class ChunkEditUnit extends EditUnit {
 	 * 根据此语的相似度获取替换代价
 	 */
 	@Override
-	public double getSubstitutionCost(EditUnit otherUnit){
+	public double getSubstitutionCost(EditUnit otherUnit, Lang lang){
 		if(!(otherUnit instanceof ChunkEditUnit)) return chunk.length();
 		if(equals(otherUnit)) return 0.0;
 		
-		ChunkEditUnit other = (ChunkEditUnit)otherUnit;
-		return new StandardEditDistance().getEditDistance(chunk, other.chunk);
+		if(Lang.Chinese == lang){
+			ChunkEditUnit other = (ChunkEditUnit)otherUnit;
+			return new StandardEditDistance().getEditDistance(chunk, other.chunk, lang);
+		}else{
+			new Exception("Not implemented error!").printStackTrace();
+			return -1;
+		}
+		
 	}
 	
 	/**
-     * 获取删除代价,标准算法的默认�?�?.0, 此处也设�?.0
-     * 具体的编辑单元可以�?过覆盖该方法设置不同的删除代�?
+     * 获取删除代价,标准算法的默认�?�?.0, 此处也设�?.0
+     * 具体的编辑单元可以�?过覆盖该方法设置不同的删除代�?
      * @return 删除代价
      */
     public double getDeletionCost(){
@@ -36,8 +43,8 @@ public class ChunkEditUnit extends EditUnit {
     }    
     
     /**
-     * 获取插入代价,标准算法的默认�?�?.0.
-     * 具体的编辑单元可以�?过覆盖该方法设置不同的插入代�?
+     * 获取插入代价,标准算法的默认�?�?.0.
+     * 具体的编辑单元可以�?过覆盖该方法设置不同的插入代�?
      */
     public double getInsertionCost(){
         return chunk.length();

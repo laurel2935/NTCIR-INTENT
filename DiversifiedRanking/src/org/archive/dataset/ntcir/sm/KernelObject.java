@@ -27,4 +27,8 @@ public class KernelObject {
 			return false;
 		}
 	}
+	//
+	public String toString(){
+		return koStr+" "+posTag;
+	}
 }

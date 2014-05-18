@@ -4,11 +4,12 @@ import org.archive.ntcir.sm.similarity.Similaritable;
 import org.archive.ntcir.sm.similarity.editdistance.definition.EditUnit;
 import org.archive.ntcir.sm.similarity.editdistance.definition.SemanticTermEditUnit;
 import org.archive.ntcir.sm.similarity.editdistance.definition.SuperString;
+import org.archive.util.Language.Lang;
 
 
 public abstract class EditDistance implements Similaritable {
         
-    public abstract double getEditDistance(SuperString<? extends EditUnit> S, SuperString<? extends EditUnit> T);    
+    public abstract double getEditDistance(SuperString<? extends EditUnit> S, SuperString<? extends EditUnit> T, Lang lang);    
  
     /*
     public double getSimilarity(String s1, String s2){

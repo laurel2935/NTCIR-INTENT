@@ -5,7 +5,7 @@ import java.util.HashSet;
 
 public class SMSubtopicItem {
 	//gourp members of SubtopicInstance
-	ArrayList<SubtopicInstance> subtopicInstanceGroup = null;
+	public ArrayList<SubtopicInstance> subtopicInstanceGroup = null;
 	//for computing similarity among different SMSubtopicItem
 	//union of the first <SMTopic.ShrinkThreshold> modifiers of member's IRAnnotation corresponding to each topic irAnnotation
 	public ArrayList<ArrayList<String>> termModifierGroupList = null;

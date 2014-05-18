@@ -23,9 +23,9 @@ public class RunParameter {
 	//set up parameters
 	//////////////
 	
-	protected static enum SimilarityFunction{StandardTermEditDistance, SemanticTermEditDistance, GregorEditDistance}
+	public static enum SimilarityFunction{StandardTermEditDistance, SemanticTermEditDistance, GregorEditDistance}
 	
-	protected static enum ClusteringFunction{StandardAP}
+	public static enum ClusteringFunction{StandardAP, K_UFL}
 	
 	NTCIR_EVAL_TASK eval;
 	protected String runTitle;
@@ -37,7 +37,7 @@ public class RunParameter {
 	
 	protected ClusteringFunction cFunction;
 	
-	protected List<SMTopic> topicList;
+	public List<SMTopic> topicList;
 	//(topicID+SubtopicStrID) -> subtopic string, for ch and en
 	protected HashMap<String, String> subtopicStrMap = null;
 	
@@ -58,7 +58,11 @@ public class RunParameter {
 		this.simFunction = simFunction;
 		this.cFunction = cFunction;
 		
-		this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, false);		
+		if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
+			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, true);
+		}else{
+			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, false);
+		}	
 	}
 	
 	//
@@ -91,7 +95,7 @@ public class RunParameter {
 		}
 	}
 	//
-	protected void loadLTMLForChTopics(List<SMTopic> smTopicList){
+	public HashMap<String, LTML> loadLTMLForChTopics(List<SMTopic> smTopicList){
 		String tDir = OutputDirectory.ROOT+"ntcir-11/SM/ParsedTopic/PerFile/";
 		String subTDir = OutputDirectory.ROOT+"ntcir-11/SM/SubtopicString/ParsedWithLTP/";
 		
@@ -122,10 +126,12 @@ public class RunParameter {
 				//
 				id++;
 			}
-		}		
+		}
+		
+		return ltmlMap;
 	}
 		
-	private static LTML loadLTML(String xmlFile){		
+	public static LTML loadLTML(String xmlFile){		
 		try {
 			LTML ltml = new LTML();
 			//System.out.println(xmlFile);

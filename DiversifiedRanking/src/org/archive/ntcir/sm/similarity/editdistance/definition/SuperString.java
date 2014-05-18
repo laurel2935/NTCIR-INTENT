@@ -42,11 +42,21 @@ public class SuperString<T> {
 		return s;
 	}
 	
-	public static SuperString<SemanticTermEditUnit> createSemanticTermSuperString(ArrayList<StrStr> wList){
+	public static SuperString<SemanticTermEditUnit> createSemanticTermSuperString_1(ArrayList<StrStr> wList){
 		//
 		List<SemanticTermEditUnit> unitList = new ArrayList<SemanticTermEditUnit>(wList.size());
 		for(int i=0; i<wList.size(); i++){
 			unitList.add(new SemanticTermEditUnit(wList.get(i).getFirst()));
+		}
+		SuperString<SemanticTermEditUnit> s = new SuperString<SemanticTermEditUnit>(unitList);
+		return s;
+	}
+	
+	public static SuperString<SemanticTermEditUnit> createSemanticTermSuperString_2(ArrayList<String> wList){
+		//
+		List<SemanticTermEditUnit> unitList = new ArrayList<SemanticTermEditUnit>(wList.size());
+		for(int i=0; i<wList.size(); i++){
+			unitList.add(new SemanticTermEditUnit(wList.get(i)));
 		}
 		SuperString<SemanticTermEditUnit> s = new SuperString<SemanticTermEditUnit>(unitList);
 		return s;

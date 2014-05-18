@@ -2,6 +2,7 @@ package org.archive.ntcir.sm.similarity.editdistance;
 
 import org.archive.ntcir.sm.similarity.editdistance.definition.EditUnit;
 import org.archive.ntcir.sm.similarity.editdistance.definition.SuperString;
+import org.archive.util.Language.Lang;
 
 
 public class GregorEditDistance extends EditDistance {        
@@ -12,7 +13,7 @@ public class GregorEditDistance extends EditDistance {
     //
     private double[][][][] QArray;
     
-    public double getEditDistance(SuperString<? extends EditUnit> S,SuperString<? extends EditUnit> T){    
+    public double getEditDistance(SuperString<? extends EditUnit> S,SuperString<? extends EditUnit> T, Lang lang){    
     	this.S = S;
     	this.T = T;
         QArray = new double[S.length()][S.length()][T.length()][T.length()];
@@ -24,10 +25,10 @@ public class GregorEditDistance extends EditDistance {
                     }
         }
         
-        return Q(0,S.length()-1,0,T.length()-1);
+        return Q(0,S.length()-1,0,T.length()-1, lang);
     }  
     
-    private double Q(int i0,int i1,int j0,int j1){
+    private double Q(int i0,int i1,int j0,int j1, Lang lang){
         double cost = 0;
         
         if(i1<i0){
@@ -41,14 +42,14 @@ public class GregorEditDistance extends EditDistance {
         	}
         	return cost;
         }else if(i1==i0 && j1==j0){
-        	cost = S.elementAt(i0).getSubstitutionCost(T.elementAt(j0));        	
+        	cost = S.elementAt(i0).getSubstitutionCost(T.elementAt(j0), lang);        	
         	QArray[i0][i1][j0][j1] = cost;
         	return cost;
         } else if(i1==i0){            
             double minSubstituteValue = 1.0;
             int minPosJ = j0;
             for(int j=j0;j<=j1;j++){
-            	double subsitituteValue = S.elementAt(i0).getSubstitutionCost(T.elementAt(j));
+            	double subsitituteValue = S.elementAt(i0).getSubstitutionCost(T.elementAt(j), lang);
             	if(minSubstituteValue > subsitituteValue){
             		minSubstituteValue = subsitituteValue;
             		minPosJ = j;
@@ -65,7 +66,7 @@ public class GregorEditDistance extends EditDistance {
         	double minSubstituteValue = 1.0;
             int minPosI = i0;
             for(int i=i0;i<=i1;i++){
-            	double subsitituteValue = S.elementAt(i).getSubstitutionCost(T.elementAt(j0));
+            	double subsitituteValue = S.elementAt(i).getSubstitutionCost(T.elementAt(j0), lang);
             	if(minSubstituteValue > subsitituteValue){
             		minSubstituteValue = subsitituteValue;
             		minPosI = i;
@@ -84,8 +85,8 @@ public class GregorEditDistance extends EditDistance {
         	}
             for(int i=i0;i<i1;i++){
                 for(int j=j0;j<j1;j++){
-                    double c = Math.min(Q(i0,i,j0,j)+Q(i+1,i1,j+1,j1),
-                            Q(i0,i,j+1,j1)+Q(i+1,i1,j0,j)+swapCost);
+                    double c = Math.min(Q(i0,i,j0,j, lang)+Q(i+1,i1,j+1,j1, lang),
+                            Q(i0,i,j+1,j1, lang)+Q(i+1,i1,j0,j, lang)+swapCost);
                     if(c<QArray[i0][i1][j0][j1]){
                     	QArray[i0][i1][j0][j1] = c;
                     }
@@ -106,7 +107,7 @@ public class GregorEditDistance extends EditDistance {
         String s2 = "defxabc";
         //String s2 = "我的密码我忘记了,我该怎样做呢?";
         GregorEditDistance ed = new GregorEditDistance();
-        System.out.println(ed.getEditDistance(SuperString.createCharSuperString(s1), SuperString.createCharSuperString(s2)));
+        System.out.println(ed.getEditDistance(SuperString.createCharSuperString(s1), SuperString.createCharSuperString(s2), Lang.Chinese));
     }
 
 	

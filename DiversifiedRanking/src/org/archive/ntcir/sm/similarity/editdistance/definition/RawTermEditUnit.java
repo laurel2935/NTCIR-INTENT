@@ -1,5 +1,7 @@
 package org.archive.ntcir.sm.similarity.editdistance.definition;
 
+import org.archive.util.Language.Lang;
+
 public class RawTermEditUnit extends EditUnit {
 	protected Term term = null;
 	
@@ -12,7 +14,7 @@ public class RawTermEditUnit extends EditUnit {
 	}
 	
 	@Override
-	public double getSubstitutionCost(EditUnit otherUnit){
+	public double getSubstitutionCost(EditUnit otherUnit, Lang lang){
 		if(!(otherUnit instanceof RawTermEditUnit)) return 1.0;
 		if(equals(otherUnit)){
 			return 0.0;
@@ -23,7 +25,7 @@ public class RawTermEditUnit extends EditUnit {
 	//*/
 	///*
 	@Override	
-	public boolean equals(Object other){
+	public boolean equals(Object other, Lang lang){
     	if(!(other instanceof RawTermEditUnit)) return false;
     	RawTermEditUnit otherUnit = (RawTermEditUnit)other;
     	Term otherTerm = otherUnit.term;

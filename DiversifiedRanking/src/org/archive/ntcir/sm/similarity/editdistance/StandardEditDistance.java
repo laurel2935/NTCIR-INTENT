@@ -2,12 +2,13 @@ package org.archive.ntcir.sm.similarity.editdistance;
 
 import org.archive.ntcir.sm.similarity.editdistance.definition.EditUnit;
 import org.archive.ntcir.sm.similarity.editdistance.definition.SuperString;
+import org.archive.util.Language.Lang;
 
 
 
 public class StandardEditDistance extends EditDistance {       
     //
-    public double getEditDistance(SuperString<? extends EditUnit> X, SuperString<? extends EditUnit> Y){
+    public double getEditDistance(SuperString<? extends EditUnit> X, SuperString<? extends EditUnit> Y, Lang lang){
     	double[][] D; //
         
         int m = X.length(); 
@@ -46,7 +47,7 @@ public class StandardEditDistance extends EditDistance {
         	EditUnit unit_x_i = X.elementAt(i-1);
             for(int j=1; j<=n; j++){
             	EditUnit unit_y_j = Y.elementAt(j-1);
-                double cost = unit_x_i.getSubstitutionCost(unit_y_j);
+                double cost = unit_x_i.getSubstitutionCost(unit_y_j, lang);
                 D[j][i] = Math.min(D[j-1][i]+Y.elementAt(j-1).getInsertionCost(),D[j][i-1]+X.elementAt(i-1).getDeletionCost());
                 D[j][i] = Math.min(D[j][i], D[j-1][i-1]+cost);
             }

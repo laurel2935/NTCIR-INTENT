@@ -32,5 +32,8 @@
 	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/xml-apis.jar"/>
 	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/hownet/commons-logging-1.0.4.jar"/>
 	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/hownet/google-collect-1.0.jar"/>
+	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/wordnet/edu.mit.jwi_2.1.4.jar"/>
+	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/wordnet/edu.sussex.nlp.jws.beta.11.jar"/>
+	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/wordnet/jwnl.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

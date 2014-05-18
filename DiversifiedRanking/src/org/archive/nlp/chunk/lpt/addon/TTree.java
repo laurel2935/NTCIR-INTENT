@@ -1,5 +1,6 @@
 package org.archive.nlp.chunk.lpt.addon;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Vector;
 
@@ -11,7 +12,7 @@ public class TTree {
 	private Vector<TNode> _nodeList = new Vector<TNode>(); 
 	
 	//
-	TTree(Vector<Word> wordList){
+	public TTree(ArrayList<Word> wordList){
 		//ini
 		for(Word word: wordList){
 			this._nodeList.add(new TNode(word.getID(), word.getWS(), word.getPOS(), word.getNE(),

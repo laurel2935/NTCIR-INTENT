@@ -12,9 +12,12 @@ import java.util.Set;
 
 import org.archive.dataset.ntcir.NTCIRLoader;
 import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
+import org.archive.dataset.ntcir.sm.SMSubtopicItem;
 import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.ml.clustering.ap.abs.ClusterString;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
+import org.archive.ml.ufl.K_UFL;
+import org.archive.ml.ufl.K_UFL.UFLMode;
 import org.archive.nlp.chunk.lpt.ltpService.LTML;
 import org.archive.nlp.chunk.lpt.ltpService.Word;
 import org.archive.nlp.qpunctuation.QueryPreParser;
@@ -48,6 +51,11 @@ public class SubtopicMining {
 			runParameter.segment(runParameter.topicList);
 			
 			chRun(runParameter, writer);
+			
+		}else{
+			
+			enRun(runParameter, writer);
+			
 		}
 	}	
 	//
@@ -171,11 +179,11 @@ public class SubtopicMining {
 					double simValue = 0.0;
 					if(runParameter.simFunction==SimilarityFunction.StandardTermEditDistance){
 						simValue = 0 - standardEditDistance.getEditDistance(SuperString.createTermSuperString_2(iwList),
-								SuperString.createTermSuperString_2(jwList));
+								SuperString.createTermSuperString_2(jwList), Lang.Chinese);
 					}else if(runParameter.simFunction==SimilarityFunction.SemanticTermEditDistance){
 						//System.out.println("SemanticTermEditDistance!!!!!!!!!!!!!");
-						simValue = 0 - standardEditDistance.getEditDistance(SuperString.createSemanticTermSuperString(iwList),
-								SuperString.createSemanticTermSuperString(jwList));
+						simValue = 0 - standardEditDistance.getEditDistance(SuperString.createSemanticTermSuperString_1(iwList),
+								SuperString.createSemanticTermSuperString_1(jwList), Lang.Chinese);
 						if(DEBUG){
 							System.out.println(iwList.toString());
 							System.out.println(jwList.toString());
@@ -225,7 +233,7 @@ public class SubtopicMining {
 					
 					//System.out.println("SemanticTermEditDistance!!!!!!!!!!!!!");
 					double simValue = 0 - Ged.getEditDistance(SuperString.createRawTermSuperString(iWords),
-							SuperString.createRawTermSuperString(jWords));
+							SuperString.createRawTermSuperString(jWords), Lang.Chinese);
 										
 					chReleMatrix.add(new InteractionData(keyList.get(i), keyList.get(j), simValue));
 				}
@@ -245,6 +253,133 @@ public class SubtopicMining {
 		return wList;
 	}
 	
+	private void enRun(RunParameter runParameter, BufferedWriter writer){
+		
+		for(int i=0; i<runParameter.topicList.size(); i++){
+			
+			SMTopic smTopic = runParameter.topicList.get(i);						
+			if(DEBUG){
+				System.out.println("Processing topic "+ smTopic.getID()+"\t"+smTopic.getTopicText());
+			}
+			
+			RankedList rankedList = null;
+			
+			if(ClusteringFunction.StandardAP == runParameter.cFunction){
+				
+				ArrayList<InteractionData> releMatrix = getEnReleMatrix(smTopic, runParameter);				
+				
+		    	double lambda = 0.5;
+		    	int iterations = 5000;
+		    	int convits = 10;
+		    	double preferences = getMedian(releMatrix);    	
+		    	APClustering apClustering = new APClustering(lambda, iterations, convits, preferences, releMatrix);
+		    	apClustering.setParemeters();
+		    	Map<String, ClusterString> clusterMap = (Map<String, ClusterString>)apClustering.run();
+		    	//rankedList = DCGK.staticDCG_K(runParameter, smTopic, clusterMap);
+		    	if(DEBUG){
+		    		System.out.println("Cluster size:\t"+clusterMap.size());
+		    		Set<String> keySet = clusterMap.keySet();
+		    		int id = 1;
+		    		for(String key: keySet){
+		    			System.out.println("Exemplar-"+(id++)+":\t"+getSubtopicString(smTopic, key));
+		    			Collection<String> memberSet = clusterMap.get(key).getElements();
+		    			int mID = 1;
+		    			for(String memKey: memberSet){
+		    				System.out.println("\t"+(mID++)+":\t"+getSubtopicString(smTopic, memKey));
+		    			}
+		    			System.out.println();
+		    		}		    		
+		    	}
+			}else if(ClusteringFunction.K_UFL == runParameter.cFunction){
+				ArrayList<InteractionData> releMatrix = getEnReleMatrix(smTopic, runParameter);
+				ArrayList<InteractionData> costMatrix = getCostMatrix(releMatrix);
+				
+				ArrayList<Double> fList = new ArrayList<Double>();
+				for(int j=0; j<smTopic.smSubtopicItemList.size(); j++){
+		    		fList.add(0.0);
+		    	}
+				
+		    	double lambda = 0.5;
+		    	int iterations = 5000;
+		    	int convits = 10;
+		    	double preferences = 0-getMedian(releMatrix);
+		    	int preK = 5;
+		    	K_UFL kUFL = new K_UFL(lambda, iterations, convits, preferences, preK, UFLMode.C_Same_F, costMatrix, fList);
+		    	//    	
+		    	kUFL.run();
+			}
+			
+			/*
+			if(null != rankedList){				
+				for(RankedRecord record: rankedList.recordList){
+					writer.write(record.toString());
+					writer.newLine();
+				}
+			}else{
+				new Exception("Null RankedList Error!").printStackTrace();
+			}
+			*/
+		}
+		//
+		/*
+		writer.flush();
+		writer.close();
+		*/
+	}
+	private ArrayList<InteractionData> getEnReleMatrix(SMTopic smTopic, RunParameter runParameter){
+		double termIRWeight = 0.4; double phraseIRWeight = 0.6;
+		
+		ArrayList<InteractionData> enReleMatrix = new ArrayList<InteractionData>();
+		ArrayList<SMSubtopicItem> itemList = smTopic.smSubtopicItemList;
+		
+		if(runParameter.simFunction == SimilarityFunction.SemanticTermEditDistance){
+			
+			StandardEditDistance standardEditDistance = new StandardEditDistance();
+									
+			for(int i=0; i<itemList.size()-1; i++){
+				SMSubtopicItem iItem = itemList.get(i);			
+				ArrayList<ArrayList<String>> iTermModifierGroupList = iItem.termModifierGroupList;
+				ArrayList<ArrayList<String>> iPhraseModifierGroupList = iItem.phraseModifierGroupList;
+				
+				for(int j=i+1; j<itemList.size(); j++){
+					SMSubtopicItem jItem = itemList.get(j);
+					ArrayList<ArrayList<String>> jTermModifierGroupList = jItem.termModifierGroupList;
+					ArrayList<ArrayList<String>> jPhraseModifierGroupList = jItem.phraseModifierGroupList;
+					
+					double simValue = 0.0;
+					if(runParameter.simFunction == SimilarityFunction.SemanticTermEditDistance){
+						
+						for(int k=0; k<iTermModifierGroupList.size(); k++){
+							simValue += ((termIRWeight/iTermModifierGroupList.size())*
+									(0 - standardEditDistance.getEditDistance(SuperString.createSemanticTermSuperString_2(iTermModifierGroupList.get(k)),
+											SuperString.createSemanticTermSuperString_2(jTermModifierGroupList.get(k)), Lang.English)));
+						}
+						
+						for(int k=0; k<iPhraseModifierGroupList.size(); k++){
+							simValue += ((phraseIRWeight/iPhraseModifierGroupList.size())*
+									(0 - standardEditDistance.getEditDistance(SuperString.createSemanticTermSuperString_2(iPhraseModifierGroupList.get(k)),
+											SuperString.createSemanticTermSuperString_2(jPhraseModifierGroupList.get(k)), Lang.English)));
+						}	
+					}else{
+						new Exception("Odd Error!").printStackTrace();
+					}
+					
+					enReleMatrix.add(new InteractionData(Integer.toString(i), Integer.toString(j), simValue));
+				}
+			}
+			
+			return enReleMatrix;
+		}else{
+			return null;
+		}		
+	}
+	private static ArrayList<InteractionData> getCostMatrix(ArrayList<InteractionData> interList){
+		ArrayList<InteractionData> costMatrix = new ArrayList<InteractionData>();
+		for(InteractionData itr: interList){
+			costMatrix.add(new InteractionData(itr.getFrom(), itr.getTo(), -itr.getSim()));
+		}
+		return costMatrix;		
+	}
 	
 	public static void main(String []args){
 		SubtopicMining smMining = new SubtopicMining();

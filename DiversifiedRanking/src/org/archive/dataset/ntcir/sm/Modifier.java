@@ -48,4 +48,8 @@ public class Modifier implements Comparable{
 			return 0;
 		}
 	}
+	//
+	public String toString(){
+		return moStr+" "+posTag;
+	}
 }
