@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
@@ -17,6 +18,7 @@ import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.dataset.trec.query.TRECQueryAspects;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityGraphMode;
 import org.archive.ml.clustering.ap.abs.ClusterInteger;
+import org.archive.ml.clustering.ap.abs.ClusterString;
 import org.archive.ml.clustering.ap.abs.AffinityPropagationAlgorithm.AffinityConnectingMethod;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.MatrixPropagationAlgorithm;
@@ -136,13 +138,13 @@ public class APClustering {
     	if (this.kind.equals("centers")) {
             Map<Integer, ClusterInteger> clusters = this.ap.doClusterAssocInt();
             //Map<Integer, Cluster<Integer>> clusters = af.doClusterAssocInt(); 
-            if(true){
+            if(debug){
             	ArrayList<Integer> rList = new ArrayList<Integer>();
             	rList.addAll(clusters.keySet());
             	Collections.sort(rList);
             	System.out.println(rList);
             }
-            return clusters;            
+            return convertClusters(clusters);            
         } else {
             Map<Integer, Integer> clusters = this.ap.doClusterInt(); 
             if(true){
@@ -160,6 +162,24 @@ public class APClustering {
     			+ Math.pow(aList.get(1)-bList.get(1), 2));
     	//
     	return -eucDistance;
+    }
+    
+    private Map<String, ClusterString> convertClusters(Map<Integer, ClusterInteger> clusters){
+    	Map<String, ClusterString> newClusters = new HashMap<String, ClusterString>();
+    	
+    	Iterator<Integer> itr = clusters.keySet().iterator();
+    	while(itr.hasNext()){
+    		Integer key = itr.next();
+    		String exemplarName = this.ap.getNodeName(key);
+    		ClusterString cString = new ClusterString(exemplarName);
+    		ClusterInteger cInteger = clusters.get(key);     		
+    		for(Integer mem: cInteger.getElements()){
+    			cString.add(this.ap.getNodeName(mem));
+    		}
+    		newClusters.put(exemplarName, cString);
+    	}
+    	
+    	return newClusters;    	
     }
     
     public static double getMedian(ArrayList<Double> vList){

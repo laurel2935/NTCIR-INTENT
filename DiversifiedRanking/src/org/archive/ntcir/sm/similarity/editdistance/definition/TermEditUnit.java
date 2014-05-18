@@ -10,6 +10,10 @@ public class TermEditUnit extends EditUnit {
 	public TermEditUnit(String tTxt){
 		this.term = new Term(tTxt);
 	}
+	
+	public TermEditUnit(String tTxt, String pos){
+		this.term = new Term(tTxt, pos);
+	}
 		
 	public String getUnitString() {
 		return term.getTerm();

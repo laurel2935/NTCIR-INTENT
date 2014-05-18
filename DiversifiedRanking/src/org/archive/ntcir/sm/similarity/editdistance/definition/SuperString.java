@@ -3,6 +3,8 @@ package org.archive.ntcir.sm.similarity.editdistance.definition;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.archive.util.tuple.StrStr;
+
 // sequential tokens 
 public class SuperString<T> {
 	private List<T> contents = new ArrayList<T>();
@@ -20,7 +22,7 @@ public class SuperString<T> {
 		return s;
 	}
 	
-	public static SuperString<TermEditUnit> createTermSuperString(ArrayList<String> wList){
+	public static SuperString<TermEditUnit> createTermSuperString_1(ArrayList<String> wList){
 		//
 		List<TermEditUnit> unitList = new ArrayList<TermEditUnit>(wList.size());
 		for(int i=0; i<wList.size(); i++){
@@ -30,6 +32,15 @@ public class SuperString<T> {
 		return s;
 	}
 	
+	public static SuperString<TermEditUnit> createTermSuperString_2(ArrayList<StrStr> wList){
+		//
+		List<TermEditUnit> unitList = new ArrayList<TermEditUnit>(wList.size());
+		for(int i=0; i<wList.size(); i++){
+			unitList.add(new TermEditUnit(wList.get(i).getFirst(), wList.get(i).getSecond()));
+		}
+		SuperString<TermEditUnit> s = new SuperString<TermEditUnit>(unitList);
+		return s;
+	}
 	
 	public T elementAt(int pos){
 		if(pos<0 || pos>=contents.size()){

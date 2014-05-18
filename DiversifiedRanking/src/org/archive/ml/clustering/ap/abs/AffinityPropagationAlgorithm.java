@@ -132,6 +132,10 @@ public abstract class AffinityPropagationAlgorithm extends AbstractClusterAlgori
             return id;
         }
     }
+    
+    public String getNodeName(Integer id){
+    	return idRevMapper.get(id);
+    }
     /**
      * adjust the initially obtained centers according to the inner structure of a cluster!
      * **/

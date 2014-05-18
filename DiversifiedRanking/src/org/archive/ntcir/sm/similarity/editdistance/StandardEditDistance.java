@@ -30,7 +30,7 @@ public class StandardEditDistance extends EditDistance {
         }
                       
         D = new double[n+1][m+1];
-        D[0][0] = 0.0; //第一个初始化�?
+        D[0][0] = 0.0; //
         
         /** 初始化D[0][j] */
         for(int j = 1; j<=m; j++){
