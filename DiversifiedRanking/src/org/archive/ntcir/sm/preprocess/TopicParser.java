@@ -243,7 +243,7 @@ public class TopicParser {
 	public static LTML loadParsedObject(StringType strtype, String xmlFile){
 		String dir = null;
 		if(StringType.TopicStr == strtype){
-			dir = OutputDirectory.ROOT+"ntcir-11/SM/ParsedTopic/";
+			dir = OutputDirectory.ROOT+"ntcir-11/SM/ParsedTopic/PerFile/";
 		}else if(StringType.SubtopicStr == strtype){
 			dir = OutputDirectory.ROOT+"ntcir-11/SM/SubtopicString/ParsedWithLTP/";
 		}
@@ -258,8 +258,21 @@ public class TopicParser {
 			e.printStackTrace();
 		}
 		//
-		return null;
-		
+		return null;		
+	}
+	public static LTML loadParsedObject(String xmlFile){		
+		try {
+			LTML ltml = new LTML();
+			System.out.println(xmlFile);
+			ltml.build(loadAFile(xmlFile));
+			System.out.println(ltml.toString());
+			return ltml;
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		//
+		return null;		
 	}
 
 	
@@ -316,7 +329,7 @@ public class TopicParser {
 	}
 	//
 	public static void loadTest(){
-		String xmlFile = "0033.xml";		
+		String xmlFile = "0001.xml";		
 		LTML parstedStr = loadParsedObject(StringType.TopicStr, xmlFile);
 		//
 		System.out.println("---------");
@@ -370,10 +383,12 @@ public class TopicParser {
 		//TopicParser.parseNTCIR11SMChSubtopicStrings();
 		
 		//4
-		TopicParser.loadTest();
+		//TopicParser.loadTest();
+		String file = "E:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/ntcir-11/SM/ParsedTopic/PerFile/0001.xml";
+		TopicParser.loadParsedObject(file);
 		
 		//5
-		TopicParser.parseTest();
+		//TopicParser.parseTest();
 	}
 
 }

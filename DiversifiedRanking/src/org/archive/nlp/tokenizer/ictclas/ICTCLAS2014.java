@@ -7,14 +7,14 @@ import com.sun.jna.Library;
 import com.sun.jna.Native;
 
 public class ICTCLAS2014 {
-	//for debugging
-	private static final boolean DEBUG = true;
+	//
+	private static final boolean DEBUG = false;
 	
 	private static boolean CONFIGED = false;
 
-	// ¶¨Òå½Ó¿ÚCLibrary£¬¼Ì³Ğ×Ôcom.sun.jna.Library
+	//
 	public interface CLibrary extends Library {
-		// ¶¨Òå²¢³õÊ¼»¯½Ó¿ÚµÄ¾²Ì¬±äÁ¿
+		//
 		CLibrary Instance = (CLibrary) Native.loadLibrary(
 				"./ICTCLAS/NLPIR", CLibrary.class);
 		
@@ -49,10 +49,10 @@ public class ICTCLAS2014 {
 		int init_flag = CLibrary.Instance.NLPIR_Init(_DataDir, charset_type, "0");
 
 		if (0 == init_flag) {
-			System.err.println("·Ö´Ê¹¤¾ß³õÊ¼»¯Ê§°Ü£¡");
+			System.err.println("error!");
 			return;
 		}else{
-			System.out.println("·Ö´Ê¹¤¾ß³õÊ¼»¯Íê±Ï£¡");
+			System.out.println("okï¼");
 		}
 	}
 	
@@ -93,11 +93,11 @@ public class ICTCLAS2014 {
 		int init_flag = CLibrary.Instance.NLPIR_Init(_DataDir, charset_type, "0");
 
 		if (0 == init_flag) {
-			System.err.println("³õÊ¼»¯Ê§°Ü£¡");
+			System.err.println("é”Ÿæ–¤æ‹·å§‹é”Ÿæ–¤æ‹·å¤±é”Ÿæ°ï½æ‹·");
 			return;
 		}
 
-		String sInput = "¾İÏ¤£¬ÖÊ¼ì×Ü¾ÖÒÑ½«×îĞÂÓĞ¹ØÇé¿öÔÙ´ÎÍ¨±¨ÃÀ·½£¬ÒªÇóÃÀ·½¼ÓÇ¿¶ÔÊä»ªÓñÃ×µÄ²úµØÀ´Ô´¡¢ÔËÊä¼°²Ö´¢µÈ»·½ÚµÄ¹Ü¿Ø´ëÊ©£¬ÓĞĞ§±ÜÃâÊä»ªÓñÃ×±»Î´¾­ÎÒ¹úÅ©Òµ²¿°²È«ÆÀ¹À²¢Åú×¼µÄ×ª»ùÒòÆ·ÏµÎÛÈ¾¡£";
+		String sInput = "é”Ÿæ–¤æ‹·æ‚‰é”Ÿæ–¤æ‹·é”Ÿç»ç¡·æ‹·é”Ÿæ°æ’…æ‹·é”Ÿçª–æ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿå«ç™¸æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·ä¿…é”Ÿé…µï¿½é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·è¦é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å¼ºé”Ÿæ–¤æ‹·é”Ÿæˆ’åé”Ÿæ–¤æ‹·é”Ÿé˜¶çš„è¯§æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æºé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæˆ’åŠé”Ÿè¡—è¾¾æ‹·é”Ÿé¥ºä¼™æ‹·é”ŸèŠ‚çš„ç®¡æ§è¾¾æ‹·æ–½é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æ•ˆé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæˆ’åé”Ÿæ–¤æ‹·é”Ÿé˜¶æ†‹æ‹·æœªé”Ÿæ–¤æ‹·é”Ÿæ­ç™¸æ‹·å†œä¸šé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å…¨é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å‡†é”Ÿæ–¤æ‹·è½¬é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å“ç³»é”Ÿæ–¤æ‹·æŸ“é”Ÿæ–¤æ‹·";
 
 		String nativeBytes = null;
 		try {
@@ -105,22 +105,22 @@ public class ICTCLAS2014 {
 			
 			nativeBytes = CLibrary.Instance.NLPIR_ParagraphProcess(sInput, bPOSTagged);			
 
-			System.out.println("·Ö´Ê½á¹ûÎª£º " + nativeBytes);
+			System.out.println("é”Ÿè¡—è¯æ–¤æ‹·é”Ÿè½¿ï¿½é”Ÿæ–¤æ‹· " + nativeBytes);
 			
-			CLibrary.Instance.NLPIR_AddUserWord("ÒªÇóÃÀ·½¼ÓÇ¿¶ÔÊä n");
-			CLibrary.Instance.NLPIR_AddUserWord("»ªÓñÃ×µÄ²úµØÀ´Ô´ n");
+			CLibrary.Instance.NLPIR_AddUserWord("è¦é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å¼ºé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹· n");
+			CLibrary.Instance.NLPIR_AddUserWord("é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿé˜¶çš„è¯§æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æº n");
 			nativeBytes = CLibrary.Instance.NLPIR_ParagraphProcess(sInput, 1);
-			System.out.println("Ôö¼ÓÓÃ»§´Êµäºó·Ö´Ê½á¹ûÎª£º " + nativeBytes);
+			System.out.println("é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”ŸçŸ«ä¼™æ‹·é”Ÿç»ç¢‰æ‹·é”Ÿè¡—è¯æ–¤æ‹·é”Ÿè½¿ï¿½é”Ÿæ–¤æ‹· " + nativeBytes);
 			
-			CLibrary.Instance.NLPIR_DelUsrWord("ÒªÇóÃÀ·½¼ÓÇ¿¶ÔÊä");
+			CLibrary.Instance.NLPIR_DelUsrWord("è¦é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å¼ºé”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·");
 			nativeBytes = CLibrary.Instance.NLPIR_ParagraphProcess(sInput, 1);
-			System.out.println("É¾³ıÓÃ»§´Êµäºó·Ö´Ê½á¹ûÎª£º " + nativeBytes);
+			System.out.println("åˆ é”Ÿæ–¤æ‹·é”ŸçŸ«ä¼™æ‹·é”Ÿç»ç¢‰æ‹·é”Ÿè¡—è¯æ–¤æ‹·é”Ÿè½¿ï¿½é”Ÿæ–¤æ‹· " + nativeBytes);
 			
 			
 			int nCountKey = 0;
 			String nativeByte = CLibrary.Instance.NLPIR_GetKeyWords(sInput, 10,false);
 
-			System.out.print("¹Ø¼ü´ÊÌáÈ¡½á¹ûÊÇ£º" + nativeByte);
+			System.out.print("é”Ÿæˆªç¡·æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·å–é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·ç‰µé”Ÿï¿½" + nativeByte);
 
 
 			CLibrary.Instance.NLPIR_Exit();
@@ -137,7 +137,7 @@ public class ICTCLAS2014 {
 		//ICTCLAS2014.check();
 		
 		//2
-		ICTCLAS2014.segment("¹Ø¼ü´ÊÌáÈ¡½á¹ûÊÇ");
+		ICTCLAS2014.segment("ä¸­å");
 
 	}
 }

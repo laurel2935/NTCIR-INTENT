@@ -2,6 +2,7 @@ package org.archive.ntcir.sm.similarity.editdistance;
 
 import org.archive.ntcir.sm.similarity.Similaritable;
 import org.archive.ntcir.sm.similarity.editdistance.definition.EditUnit;
+import org.archive.ntcir.sm.similarity.editdistance.definition.SemanticTermEditUnit;
 import org.archive.ntcir.sm.similarity.editdistance.definition.SuperString;
 
 
@@ -11,10 +12,12 @@ public abstract class EditDistance implements Similaritable {
  
     /*
     public double getSimilarity(String s1, String s2){
-    	SuperString<TermEditUnit> S = SuperString.createWordSuperString(s1);
-    	SuperString<TermEditUnit> T = SuperString.createWordSuperString(s2);
+    	
+    	SuperString<SemanticTermEditUnit> S = SuperString.createSemanticTermSuperString(s1);
+    	SuperString<SemanticTermEditUnit> T = SuperString.createSemanticTermSuperString(s2);
     	
     	return 1-(getEditDistance(S, T))/(Math.max(S.length(), T.length()));
+    	
     }
     */
 }

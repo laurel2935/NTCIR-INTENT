@@ -42,6 +42,26 @@ public class SuperString<T> {
 		return s;
 	}
 	
+	public static SuperString<SemanticTermEditUnit> createSemanticTermSuperString(ArrayList<StrStr> wList){
+		//
+		List<SemanticTermEditUnit> unitList = new ArrayList<SemanticTermEditUnit>(wList.size());
+		for(int i=0; i<wList.size(); i++){
+			unitList.add(new SemanticTermEditUnit(wList.get(i).getFirst()));
+		}
+		SuperString<SemanticTermEditUnit> s = new SuperString<SemanticTermEditUnit>(unitList);
+		return s;
+	}
+	
+	public static SuperString<RawTermEditUnit> createRawTermSuperString(ArrayList<String> wList){
+		//
+		List<RawTermEditUnit> unitList = new ArrayList<RawTermEditUnit>(wList.size());
+		for(int i=0; i<wList.size(); i++){
+			unitList.add(new RawTermEditUnit(wList.get(i)));
+		}
+		SuperString<RawTermEditUnit> s = new SuperString<RawTermEditUnit>(unitList);
+		return s;
+	}
+	
 	public T elementAt(int pos){
 		if(pos<0 || pos>=contents.size()){
 			throw new ArrayIndexOutOfBoundsException("!!");

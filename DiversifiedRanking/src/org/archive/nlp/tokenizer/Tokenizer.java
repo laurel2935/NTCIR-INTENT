@@ -11,7 +11,7 @@ import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
 import org.archive.util.Language.Lang;
 
 public class Tokenizer {
-	private final static boolean DEBUG = true;
+	private final static boolean DEBUG = false;
 	//for English text segmentation
 	private static ShallowParser stanfordParser = null;
 	private static final String BLANK = " ";
@@ -68,14 +68,17 @@ public class Tokenizer {
 	/**
 	 * taking the possible symbols into consideration 
 	 * **/
-	public static ArrayList<String> adaptiveQuerySegment(Lang lang, String rawQuery, boolean checkSymbol, boolean checkLength){
+	public static ArrayList<String> adaptiveQuerySegment(Lang lang, String rawQuery, String reference, boolean checkSymbol, boolean checkLength){
 		ArrayList<String> words=null;
 		//
 		if(!checkSymbol && !checkLength){
 			return segment(rawQuery, lang, false);
 		}else if(!checkSymbol && checkLength){
 			return segment(rawQuery, lang, true);
-		}else if(checkSymbol && Lang.Chinese==lang){
+		}else if(checkSymbol && Lang.Chinese==lang){	
+			Vector<QSegment> symbolSegmentSet = QueryPreParser.symbolAnalysis(rawQuery, reference);
+			words = segment(symbolSegmentSet, lang);
+			/*
 			if(QPunctuationParser.includePunctuation(rawQuery)){
 				Vector<QSegment> symbolSegmentSet;
 				if(null!=(symbolSegmentSet=QueryPreParser.symbolAnalysis(rawQuery)) && symbolSegmentSet.size()>0){			
@@ -86,6 +89,7 @@ public class Tokenizer {
 				//
 				words = segment(rawQuery, lang, true);
 			}
+			*/
 			//
 			if(null!=words && words.size()>0){
 				return words;
@@ -185,10 +189,10 @@ public class Tokenizer {
 	public static void main(String []args){
 		//1 query pre-parsing test
 		//http+www.10010.com
-		//android2.3ÓÎÏ·ÏÂÔØ
-		//Ö²Îï´óÕ½½©Ê¬+°²×¿2.3
-		//×îÐÂieä¯ÀÀÆ÷2011¹Ù·½ÏÂÔØ
-		//String rawText = "¼¢¶öÓÎÏ·2";
+		//android2.3ï¿½ï¿½Ï·ï¿½ï¿½ï¿½ï¿½
+		//Ö²ï¿½ï¿½ï¿½Õ½ï¿½ï¿½Ê¬+ï¿½ï¿½×¿2.3
+		//ï¿½ï¿½ï¿½ï¿½ieï¿½ï¿½ï¿½ï¿½ï¿½2011ï¿½Ù·ï¿½ï¿½ï¿½ï¿½ï¿½
+		//String rawText = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï·2";
 		//Tokenizer.replaceSymboleAsBlank(rawText, Lang.Chinese);
 		
 	}

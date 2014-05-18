@@ -1,9 +1,9 @@
 package org.archive.ntcir.sm.similarity.editdistance.definition;
 
 public class Term {
-	/** ´ÊÓïÄÚÈİ */
+	//
 	private String str;
-	/** ´ÊÓï´ÊĞÔ */
+	//
 	private String pos = null;
 	
 	public Term(String tTxt, String pos){

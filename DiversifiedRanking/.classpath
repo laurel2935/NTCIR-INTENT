@@ -30,5 +30,7 @@
 	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/snowball_stemmer.jar"/>
 	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/xercesImpl.jar"/>
 	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/xml-apis.jar"/>
+	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/hownet/commons-logging-1.0.4.jar"/>
+	<classpathentry kind="lib" path="E:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/hownet/google-collect-1.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -1,15 +1,19 @@
 package org.archive.ntcir.sm;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 import org.archive.OutputDirectory;
+import org.archive.dataset.ntcir.NTCIRLoader;
 import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
 import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.nlp.chunk.lpt.ltpService.LTML;
 import org.archive.nlp.qpunctuation.QueryPreParser;
 import org.archive.nlp.tokenizer.Tokenizer;
+import org.archive.ntcir.sm.preprocess.TopicParser;
 import org.archive.ntcir.sm.preprocess.TopicParser.StringType;
 import org.archive.util.Language.Lang;
 import org.archive.util.io.IOText;
@@ -19,10 +23,11 @@ public class RunParameter {
 	//set up parameters
 	//////////////
 	
-	protected static enum SimilarityFunction{StandardEditDistance}
+	protected static enum SimilarityFunction{StandardTermEditDistance, SemanticTermEditDistance, GregorEditDistance}
 	
 	protected static enum ClusteringFunction{StandardAP}
 	
+	NTCIR_EVAL_TASK eval;
 	protected String runTitle;
 	protected String runIntroduction;
 	
@@ -42,15 +47,49 @@ public class RunParameter {
 	//for Ch topics and subtopic strings
 	protected HashMap<String, LTML> ltmlMap = null;
 	
+	protected HashMap<String, ArrayList<String>> SegmentedStringMap = null;
+	
 	
 	
 	public RunParameter(NTCIR_EVAL_TASK eval, String runTitle, String runIntroduction, SimilarityFunction simFunction, ClusteringFunction cFunction){		
-		this.runTitle = runTitle;
-		//
+		this.eval = eval;
+		this.runTitle = runTitle;		
 		this.runIntroduction = "<SYSDESC>"+runIntroduction+"</SYSDESC>";
+		this.simFunction = simFunction;
+		this.cFunction = cFunction;
 		
+		this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, false);		
 	}
 	
+	//
+	protected void segment(List<SMTopic> smTopicList){
+		SegmentedStringMap = new HashMap<String, ArrayList<String>>();
+		//
+		for(SMTopic smTopic: smTopicList){			
+			ArrayList<String> tWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, smTopic.getTopicText(), null, true, true);			
+			if(null != tWords){
+				SegmentedStringMap.put(smTopic.getID(), tWords);
+			}else{
+				new Exception("Segment Topic Error!").printStackTrace();
+				continue;
+			}			
+			
+			int id = 1;
+			String reference = Tokenizer.isDirectWord(smTopic.getTopicText(), Lang.Chinese)?smTopic.getTopicText():null;
+			for(String str: smTopic.uniqueRelatedQueries){
+				if(!QueryPreParser.isOddQuery(str, Lang.Chinese)){
+					continue;
+				}
+				String subTKey = smTopic.getID()+"-"+Integer.toString(id);
+				ArrayList<String> subTWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, str, reference, true, true);	
+				if(null != subTWords){
+					SegmentedStringMap.put(subTKey, subTWords);					
+				}		
+				//
+				id++;
+			}
+		}
+	}
 	//
 	protected void loadLTMLForChTopics(List<SMTopic> smTopicList){
 		String tDir = OutputDirectory.ROOT+"ntcir-11/SM/ParsedTopic/PerFile/";
@@ -61,7 +100,11 @@ public class RunParameter {
 		for(SMTopic smTopic: smTopicList){
 			String tXMLFile = tDir+smTopic.getID()+".xml";
 			LTML tLTML = loadLTML(tXMLFile);
-			ltmlMap.put(smTopic.getID(), tLTML);
+			if(null != tLTML){
+				ltmlMap.put(smTopic.getID(), tLTML);
+			}else{
+				continue;
+			}			
 			
 			int id = 1;
 			for(String str: smTopic.uniqueRelatedQueries){
@@ -69,13 +112,19 @@ public class RunParameter {
 					continue;
 				}
 				String subTXMLFile = subTDir+smTopic.getID()+"-"+Integer.toString(id)+".xml";
-				LTML subTLTML = loadLTML(subTXMLFile);
-				ltmlMap.put(smTopic.getID()+"-"+Integer.toString(id), subTLTML);
+				File xmlFile = new File(subTXMLFile);
+				if(xmlFile.exists()){
+					LTML subTLTML = loadLTML(subTXMLFile);
+					if(null != subTLTML){
+						ltmlMap.put(smTopic.getID()+"-"+Integer.toString(id), subTLTML);
+					}
+				}		
 				//
 				id++;
 			}
 		}		
 	}
+		
 	private static LTML loadLTML(String xmlFile){		
 		try {
 			LTML ltml = new LTML();
@@ -107,6 +156,17 @@ public class RunParameter {
 			e.printStackTrace();
 		}
 		return null;
+	}
+	
+	
+	//
+	public static void main(String []args){
+		//1
+		/*
+		String file = "E:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/ntcir-11/SM/ParsedTopic/PerFile/0001.xml";
+		TopicParser.loadParsedObject(file);
+		RunParameter.loadLTML(file);
+		*/
 	}
 
 }

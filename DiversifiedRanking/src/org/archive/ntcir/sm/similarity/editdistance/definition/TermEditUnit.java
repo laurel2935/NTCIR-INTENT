@@ -1,7 +1,11 @@
 package org.archive.ntcir.sm.similarity.editdistance.definition;
 
+/**
+ * term text & term pos tag
+ * **/
+
 public class TermEditUnit extends EditUnit {
-	private Term term = null;
+	protected Term term = null;
 	
 	public TermEditUnit(Term term){
 		this.term = term;
@@ -20,32 +24,31 @@ public class TermEditUnit extends EditUnit {
 	}
 	
 	//
-	/*
+	///*
 	@Override
 	public double getSubstitutionCost(EditUnit otherUnit){
-		if(!(otherUnit instanceof WordEditUnit)) return 1.0;
+		if(!(otherUnit instanceof TermEditUnit)) return 1.0;
 		if(equals(otherUnit)) return 0.0;
 		
-		WordEditUnit other = (WordEditUnit)otherUnit;
+		TermEditUnit other = (TermEditUnit)otherUnit;
 		//
-		if(word.getPos()!=other.word.getPos()){
+		if(this.term.getTerm().equals(other.term.getTerm()) 
+				&& !this.term.getPos().equals(other.term.getPos())){
+			return 0.5;
+		}else{
 			return 1.0;
-		}
-		return 1 - XiaConceptParser.getInstance().getSimilarity(getUnitString(), other.getUnitString());
+		}		
 	}
-	*/
-	/*
+	//*/
+	///*
 	@Override	
 	public boolean equals(Object other){
-    	if(!(other instanceof WordEditUnit)) return false;
-    	WordEditUnit otherUnit = (WordEditUnit)other;
-    	Word otherWord = otherUnit.word;
+    	if(!(other instanceof TermEditUnit)) return false;
+    	TermEditUnit otherUnit = (TermEditUnit)other;
+    	Term otherTerm = otherUnit.term;
     	//
-		if(word.getPos()!=otherWord.getPos()){
-			return false;
-		}
-		double sim = XiaConceptParser.getInstance().getSimilarity(getUnitString(), otherUnit.getUnitString());
-		return sim>0.85;
+    	return null==this.term.getTerm()? null==otherTerm.getTerm() : this.term.getTerm().equals(otherTerm.getTerm()) 
+				&& null==this.term.getPos()? null==otherTerm.getPos() : this.term.getPos().equals(otherTerm.getPos());		
 	}
-	*/
+	//*/
 }

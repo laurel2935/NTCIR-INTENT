@@ -4,9 +4,15 @@ import org.archive.ntcir.sm.similarity.editdistance.definition.EditUnit;
 import org.archive.ntcir.sm.similarity.editdistance.definition.SuperString;
 
 
-//
+
+/**
+ * 夏天提出的新的支持非相邻块交互的编辑距离算法
+ * 
+ * @author <a href="mailto:iamxiatian@gmail.com">夏天</a>
+ * @organization 中国人民大学信息资源管理学院 知识工程实验室
+ */
 public class XiatianEditDistance extends EditDistance {
-    /** 块交换代�?*/
+    /** 块交换代价 */
 	public static double swapCost = 0.5;
     
     private SuperString<? extends EditUnit> S,T;
@@ -100,11 +106,6 @@ public class XiatianEditDistance extends EditDistance {
         return cost;
     }
     
-    public double getSimilarity(String item1, String item2){
-    	return -1;
-    }
-    
-    
     public static void main(String[] argv) {    	
         EditDistance ed = new XiatianEditDistance();
         String s1 = "abcxdef";
@@ -114,3 +115,4 @@ public class XiatianEditDistance extends EditDistance {
 
     }
 }
+

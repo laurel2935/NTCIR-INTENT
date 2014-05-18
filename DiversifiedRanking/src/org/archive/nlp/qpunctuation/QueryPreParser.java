@@ -60,23 +60,27 @@ public class QueryPreParser {
 	}
 	//
 	public static Vector<QSegment> symbolAnalysis(String query, String reference){
-		//using preDefinedUnit
-		Pattern unitPattern = Pattern.compile(reference);
-		Vector<QSegment> qSegmentSet = new Vector<QSegment>();
-		qSegmentSet.add(new QSegment(query, false));
-		patternSegment(qSegmentSet, unitPattern);	
-		//
-		Vector<QSegment> resultQSegmentSet = new Vector<QSegment>();
-		Vector<QSegment> temp = null;
-		for(QSegment qSegment: qSegmentSet){
-			if(qSegment.unit){
-				resultQSegmentSet.add(qSegment);
-			}else if(null != (temp=symbolAnalysis(qSegment.str))){
-				resultQSegmentSet.addAll(temp);
+		if(null != reference){
+			//using preDefinedUnit
+			Pattern unitPattern = Pattern.compile(reference);
+			Vector<QSegment> qSegmentSet = new Vector<QSegment>();
+			qSegmentSet.add(new QSegment(query, false));
+			patternSegment(qSegmentSet, unitPattern);	
+			//
+			Vector<QSegment> resultQSegmentSet = new Vector<QSegment>();
+			Vector<QSegment> temp = null;
+			for(QSegment qSegment: qSegmentSet){
+				if(qSegment.unit){
+					resultQSegmentSet.add(qSegment);
+				}else if(null != (temp=symbolAnalysis(qSegment.str))){
+					resultQSegmentSet.addAll(temp);
+				}
 			}
-		}
-		//
-		return resultQSegmentSet;
+			//
+			return resultQSegmentSet;
+		}else{
+			return symbolAnalysis(query);
+		}		
 	}
 	//	
 	/**
@@ -147,7 +151,7 @@ public class QueryPreParser {
 		patternSegment(segmentSet, PatternFactory.editionPattern);		
 		//
 		patternSegment(segmentSet, PatternFactory.nacPattern);
-		//·ÀÖ¹×îºóÒòÎªÊý×ÖµÄÖØµþ
+		//ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Öµï¿½ï¿½Øµï¿½
 		patternSegment(segmentSet, PatternFactory.timePattern);
 		//patternSegment(segmentSet, PatternInQuery.netPattern);		
 		//
@@ -349,7 +353,7 @@ public class QueryPreParser {
 		Vector<PSegment> matSubSet;
 		/**1**/
 		/*
-		String query = "Ë¿Â·2.3´«2.3Ëµ1¡£072";		
+		String query = "Ë¿Â·2.3ï¿½ï¿½2.3Ëµ1ï¿½ï¿½072";		
 		matSubSet = PatternFactory.editionMatch(query);
 		if(null!=matSubSet){
 			for(SubStrUnit subUnit: matSubSet){
@@ -359,7 +363,7 @@ public class QueryPreParser {
 		*/
 		/**2**/
 		/*
-		String query = "2005Äê¸ß¿¼2ÔÂÈ«3ÈÕ¹ú3ÈÕ¾í2";		
+		String query = "2005ï¿½ï¿½ß¿ï¿½2ï¿½ï¿½È«3ï¿½Õ¹ï¿½3ï¿½Õ¾ï¿½2";		
 		matSubSet = PatternFactory.timeMatch(query);
 		if(null!=matSubSet){
 			for(SubStrUnit subUnit: matSubSet){
@@ -369,7 +373,7 @@ public class QueryPreParser {
 		*/
 		/**3**/
 		/*
-		String query = "flash°æ¡¶ÎäÁÖÍâ´«¡·";		
+		String query = "flashï¿½æ¡¶ï¿½ï¿½ï¿½ï¿½ï¿½â´«ï¿½ï¿½";		
 		matSubSet = PatternFactory.patternMatch(query, PatternFactory.numAlphabetPattern);
 		if(null!=matSubSet){
 			for(SubStrUnit subUnit: matSubSet){
@@ -389,7 +393,7 @@ public class QueryPreParser {
 		*/
 		/**5**/
 		/*
-		String query = "flash°æ¡¶ÎäÁÖÍâ´«¡·";		
+		String query = "flashï¿½æ¡¶ï¿½ï¿½ï¿½ï¿½ï¿½â´«ï¿½ï¿½";		
 		matSubSet = PatternFactory.patternMatch(query, PatternFactory.netPattern);
 		if(null!=matSubSet){
 			for(SubStrUnit subUnit: matSubSet){
@@ -399,7 +403,7 @@ public class QueryPreParser {
 		*/
 		/**6**/
 		/*
-		String query = "ÉêÇëÃâ·ÑqqºÅ";
+		String query = "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½qqï¿½ï¿½";
 		Vector<Segment> result;
 		result= QuerySymbolPattern.symbolPreprocess(query);
 		for(Segment s: result){
