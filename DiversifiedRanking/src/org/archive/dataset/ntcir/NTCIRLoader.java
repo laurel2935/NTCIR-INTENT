@@ -16,6 +16,7 @@ import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.archive.OutputDirectory;
+import org.archive.dataset.DataSetDiretory;
 import org.archive.dataset.ntcir.sm.IRAnnotation;
 import org.archive.dataset.ntcir.sm.LTPIRAnnotator;
 import org.archive.dataset.ntcir.sm.SMSubtopicItem;
@@ -26,8 +27,9 @@ import org.archive.dataset.ntcir.sm.SubtopicInstance;
 import org.archive.dataset.ntcir.sm.TaggedTerm;
 import org.archive.nlp.chunk.ShallowParser;
 import org.archive.nlp.htmlparser.pk.HtmlExtractor;
+import org.archive.nlp.qpunctuation.QueryPreParser;
+import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
-import org.archive.util.Directory;
 import org.archive.util.DocUtils;
 import org.archive.util.FileFinder;
 import org.archive.util.Language.Lang;
@@ -58,7 +60,7 @@ public class NTCIRLoader {
 	////////////////
 	private final static String NTCIR10_TOPIC = "./dataset/ntcir/ntcir-10/DR/INTENT1and2CtopicsQS.xlsx";	
 	//
-	private final static String NTCIR11_TOPIC = Directory.ROOT+"ntcir/ntcir-11/SM/IMine.Query.txt";
+	private final static String NTCIR11_TOPIC = DataSetDiretory.ROOT+"ntcir/ntcir-11/SM/IMine.Query.txt";
 	
 	/////////////////
 	//NTCIR10 document ranking
@@ -74,8 +76,8 @@ public class NTCIRLoader {
 	private final static String NTCIR10_SM_EN_Iprob = "./dataset/ntcir/ntcir-10/SM/INTENT-2SME.Iprob";
 	private final static String NTCIR10_SM_EN_Dqrels = "/dataset/ntcir/ntcir-10/SM/INTENT-2SME.rev.Dqrels";
 	
-	private final static String NTCIR11_SM_RelatedQueries = Directory.ROOT+"ntcir/ntcir-11/SM/IMine.RelatedQueries/IMine.RelatedQueries.txt";
-	private final static String NTCIR11_SM_QuerySuggestions = Directory.ROOT+"ntcir/ntcir-11/SM/IMine.QuerySuggestion/IMine.QuerySuggestion.txt";
+	private final static String NTCIR11_SM_RelatedQueries = DataSetDiretory.ROOT+"ntcir/ntcir-11/SM/IMine.RelatedQueries/IMine.RelatedQueries.txt";
+	private final static String NTCIR11_SM_QuerySuggestions = DataSetDiretory.ROOT+"ntcir/ntcir-11/SM/IMine.QuerySuggestion/IMine.QuerySuggestion.txt";
 	
 	/////////////////
 	//document
@@ -521,6 +523,14 @@ public class NTCIRLoader {
 		//
 		for(SMTopic smTopic: smTopicList){
 			smTopic.getUniqueRelatedQueries();
+			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
+				for(int k=smTopic.uniqueRelatedQueries.size()-1; k>=0; k--){
+					String str = smTopic.uniqueRelatedQueries.get(k);
+					if(!QueryPreParser.isOddQuery(str, Lang.Chinese)){
+						smTopic.uniqueRelatedQueries.remove(k);
+					}					
+				}
+			}			
 		}
 		//
 		if(!PerformIRAnnotation){
@@ -548,17 +558,17 @@ public class NTCIRLoader {
 			//
 			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
 				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedTerms, Lang.Chinese));
-				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhrases, Lang.Chinese));
+				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhraseList, Lang.Chinese));
 			}else{
 				smTopic.setTermIRAnnotations(termIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedTerms, Lang.English));
-				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhrases, Lang.English));
+				smTopic.setPhraseIRAnnotations(phraseIRAnnotator.irAnnotate(smTopic.getTaggedTopic()._taggedPhraseList, Lang.English));
 			}			
 			//
 			smTopic.checkIRAnnotation();
 		}		
 		//perform shallow parsing for subtopic string 	
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_term = new HashMap<String, ArrayList<TaggedTerm>>();
-		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_phrase = new HashMap<String, ArrayList<TaggedTerm>>();
+		HashMap<String, ArrayList<ArrayList<TaggedTerm>>> stInstance_all_phrase = new HashMap<String, ArrayList<ArrayList<TaggedTerm>>>();
 		for(SMTopic smTopic: smTopicList){
 			if(smTopic.belongToBadCase()){
 				System.out.println(smTopic.toString());
@@ -569,19 +579,21 @@ public class NTCIRLoader {
 								
 					if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
 						stInstance_all_term.put(rq, shallowParser.getTaggedTerms(rq));
-						stInstance_all_phrase.put(rq, shallowParser.getTaggedPhrases(rq));
+						stInstance_all_phrase.put(rq, shallowParser.getTaggedPhraseList(rq));
 					}else{
-						ArrayList<TaggedTerm> taggedTerms = LTPIRAnnotator.getTaggedTerm(smTopic, i);
-						if(DEBUG){
-							System.out.println(rq);
-							System.out.println(taggedTerms);
-						}
+						ArrayList<TaggedTerm> taggedTerms = LTPIRAnnotator.getTaggedTerm(smTopic, i);						
 						if(null == taggedTerms){
 							continue;
 						}
+						//adobe acrobat 9.0 professional简体中文版 下载
 						stInstance_all_term.put(rq, taggedTerms);
-						ArrayList<TaggedTerm> taggedPhrases = LTPIRAnnotator.getTaggedPhrases(taggedTerms);
-						stInstance_all_phrase.put(rq, taggedPhrases);
+						ArrayList<ArrayList<TaggedTerm>> taggedPhraseList = LTPIRAnnotator.getTaggedPhraseList(taggedTerms);
+						stInstance_all_phrase.put(rq, taggedPhraseList);
+						if(DEBUG){
+							System.out.println("tagged terms for:\t"+rq);
+							System.out.println("\t"+taggedTerms);
+							System.out.println("\t"+taggedPhraseList);
+						}
 					}					
 				}
 			}			
@@ -604,7 +616,7 @@ public class NTCIRLoader {
 					if(null != smTopic.getPhraseIRAnnotations()){
 						for(IRAnnotation topicPhraseIRAnnotation: smTopic.getPhraseIRAnnotations()){
 							subtopicInstance.addPhraseIRAnnotation(
-									termIRAnnotator.irAnnotate(stInstance_all_phrase.get(rq), topicPhraseIRAnnotation));
+									phraseIRAnnotator.irAnnotate(stInstance_all_phrase.get(rq), topicPhraseIRAnnotation));
 						}
 					}				
 					//
@@ -706,7 +718,7 @@ public class NTCIRLoader {
 	private static PrintStream printer = null; 
 	public static void openPrinter(){
 		try{
-			printer = new PrintStream(new FileOutputStream(new File(OutputDirectory.ROOT+"lot.txt")));
+			printer = new PrintStream(new FileOutputStream(new File(OutputDirectory.ROOT+"log.txt")));
 			System.setOut(printer);			
 		}catch(Exception e){
 			e.printStackTrace();

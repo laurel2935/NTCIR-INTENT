@@ -2,6 +2,7 @@ package org.archive.nlp.chunk;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
@@ -105,72 +106,128 @@ public class ShallowParser {
     	// Use the default tokenizer for this TreebankLanguagePack
         Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(topicText));
         List<? extends HasWord> sentence = toke.tokenize();
-        Tree parse = lp.parse(sentence);
-        //
+        Tree parse = lp.parse(sentence);        
         taggedTopic.setPennString(parse.pennString());
-        //
-        ArrayList<TaggedWord> taggedWords = parse.taggedYield();        
-        //
+        
+        //term
+        
+        ArrayList<TaggedWord> taggedWords = parse.taggedYield(); 
         ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
     	for(TaggedWord word: taggedWords){
     		taggedTerms.add(new TaggedTerm(word.value(), word.tag()));
     	}
     	taggedTopic.setTaggedTerms(taggedTerms);
-    	//--    	
-        boolean appear = false;
-        ArrayList<Tree> treeSet = new ArrayList<Tree>();
-    	//
-    	List<Tree> leafSet = parse.getLeaves();
-    	for(Tree leaf: leafSet){    		
-    		//System.out.println("leaf:\t"+leaf.toString());
-    		//tagged word tree
-    		Tree parent = leaf.ancestor(1, parse);
-    		//System.out.println("parent:\t"+parent.toString());
-    		//
-    		Tree ancestor = parent.ancestor(1, parse);
-    		//System.out.println("ancestor:\t"+ancestor.toString());    		
-    		//
-    		if(null==ancestor || !isSimple2LevelTree(ancestor)){
-    			treeSet.add(parent);
-    		}else if(!treeSet.contains(ancestor)){
-    			treeSet.add(ancestor);
-    			if(!appear){
-    				appear = true;
-    			}    			
-    		}   		
-    	}
-    	//   
-    	if(appear){
-    		ArrayList<TaggedTerm> taggedPhrases = new ArrayList<TaggedTerm>();
-    		for(Tree tree: treeSet){
-    			taggedPhrases.add(new TaggedTerm(getTerm(tree), tree.value()));
-    		}    		       	
-    		taggedTopic.setTaggedPhrases(taggedPhrases);
-    	}else{
-    		taggedTopic.setTaggedPhrases(null);
-    	} 
-    	//
+    	
+    	//phrase
+    	
+    	ArrayList<HashSet<Tree>>  pList = new ArrayList<HashSet<Tree>>();
+    	
+        int size = parse.getLeaves().size();
+        HashSet<Tree> treeSet = null;
+        for(int k=0; k<size; k++){
+        	if(null != (treeSet=getTaggedPhrase(parse, k))){
+        		if(!include(pList, treeSet)){
+        			pList.add(treeSet);
+        		}
+        	}
+        }
+        
+        ArrayList<ArrayList<TaggedTerm>> taggedPhraseList = new ArrayList<ArrayList<TaggedTerm>>();
+        
+        for(HashSet<Tree> tSet: pList){
+        	ArrayList<TaggedTerm> taggedPhrase = new ArrayList<TaggedTerm>();
+    		for(Tree tree: tSet){
+    			taggedPhrase.add(new TaggedTerm(getTerm(tree), tree.value()));
+    		}
+    		taggedPhraseList.add(taggedPhrase);
+        }
+        if(taggedPhraseList.size() > 0){
+        	taggedTopic.setTaggedPhraseList(taggedPhraseList);
+        }else{
+        	taggedTopic.setTaggedPhraseList(null);
+        }
+    	
     	return taggedTopic;        
     }
     //
-    public ArrayList<TaggedTerm> getTaggedPhrases(String text){
-    	ArrayList<Tree> treeSet = getSimple2LevelTrees(text);
-    	if(null != treeSet){
-    		ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
-    		for(Tree tree: treeSet){
-    			taggedTerms.add(new TaggedTerm(getTerm(tree), tree.value()));
+    private boolean include(ArrayList<HashSet<Tree>>  tList, HashSet<Tree> element){
+    	for(HashSet<Tree> t: tList){
+    		if(t.containsAll(element) && element.containsAll(t)){
+    			return true;
     		}
-    		if(DEBUG){
-        		System.out.println();
-        		for(TaggedTerm taggedTerm: taggedTerms){
-        			System.out.print(taggedTerm.toString()+"\t");
-        		}
-        		System.out.println();
-        	}        	
-    		return taggedTerms;
-    	}else{
-    		return null;
     	}
+    	return false;    	
+    }
+    //
+    private HashSet<Tree> getTaggedPhrase(Tree parse, int i){
+    	List<Tree> leafSet = parse.getLeaves();
+    	
+    	Tree iLeaf = leafSet.get(i);
+		Tree iParent = iLeaf.ancestor(1, parse);
+		Tree iAncestor = iParent.ancestor(1, parse);
+		
+		if(null!=iAncestor && isSimple2LevelTree(iAncestor)){
+			HashSet<Tree> treeSet = new HashSet<Tree>();
+			
+			for(int j=0; j<i; j++){
+				Tree jLeaf = leafSet.get(j);
+				Tree jParent = jLeaf.ancestor(1, parse);
+				Tree jAncestor = jParent.ancestor(1, parse);
+				if(null==jAncestor || jAncestor!=iAncestor){
+					treeSet.add(jParent);
+				}
+			}
+			
+			for(int j=i+1; j<leafSet.size(); j++){
+				Tree jLeaf = leafSet.get(j);
+				Tree jParent = jLeaf.ancestor(1, parse);
+				Tree jAncestor = jParent.ancestor(1, parse);
+				if(null==jAncestor || jAncestor!=iAncestor){
+					treeSet.add(jParent);
+				}
+			}
+			
+			return treeSet;
+		}else{
+			return null;
+		}
+    }
+    
+    //
+    public  ArrayList<ArrayList<TaggedTerm>> getTaggedPhraseList(String text){    	
+    	// Use the default tokenizer for this TreebankLanguagePack
+        Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(text));
+        List<? extends HasWord> sentence = toke.tokenize();
+        Tree parse = lp.parse(sentence);  
+    	
+    	//phrase
+    	
+    	ArrayList<HashSet<Tree>>  pList = new ArrayList<HashSet<Tree>>();
+    	
+        int size = parse.getLeaves().size();
+        HashSet<Tree> treeSet = null;
+        for(int k=0; k<size; k++){
+        	if(null != (treeSet=getTaggedPhrase(parse, k))){
+        		if(!include(pList, treeSet)){
+        			pList.add(treeSet);
+        		}
+        	}
+        }
+        
+        ArrayList<ArrayList<TaggedTerm>> taggedPhraseList = new ArrayList<ArrayList<TaggedTerm>>();
+        
+        for(HashSet<Tree> tSet: pList){
+        	ArrayList<TaggedTerm> taggedPhrase = new ArrayList<TaggedTerm>();
+    		for(Tree tree: tSet){
+    			taggedPhrase.add(new TaggedTerm(getTerm(tree), tree.value()));
+    		}
+    		taggedPhraseList.add(taggedPhrase);
+        }
+        if(taggedPhraseList.size() > 0){
+        	return taggedPhraseList;
+        }else{
+        	return null;
+        }    	
     }
     /**
      * It finds that: the leaves are a bare word, namely without pos tag
@@ -346,14 +403,18 @@ public class ShallowParser {
 	public static void main(String []args){
 		//1
 		//ShallowParser shallowParser = new ShallowParser(Language.Lang.Chinese);
-		//shallowParser.test("ÏàÇ×½ÚÄ¿ÓÐÄÄÐ©");
-		ShallowParser shallowParser = new ShallowParser(Language.Lang.English);
+		//shallowParser.test("ï¿½ï¿½ï¿½×½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½Ð©");
+		//ShallowParser shallowParser = new ShallowParser(Language.Lang.English);
 		//shallowParser.test("business insurance commerical general liability");
-		shallowParser.segment("business insurance commerical general liability");
+		//shallowParser.segment("business insurance commerical general liability");
 		
 		
-		//
+		//2
 		//System.out.println();
 		//shallowParser.getSimple2LevelTrees("a sentence to be parsed", "NP");		
+		
+		//3
+		ShallowParser shallowParser = new ShallowParser(Language.Lang.English);
+		shallowParser.getTaggedTopic("business insurance liability");
 	}
 }

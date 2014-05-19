@@ -1,6 +1,7 @@
 package org.archive.dataset.ntcir.sm;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -17,6 +18,12 @@ public class IRAnnotation {
 	public IRAnnotation(KernelObject ko, ArrayList<Modifier> moSet){
 		this.ko = ko;
 		this.moSet = moSet;	
+		//
+		if(null != moSet){
+			System.out.println("before:\t"+moSet);
+			Collections.sort(moSet);
+			System.out.println("after:\t"+moSet);
+		}
 	}		
 	//
 	public IRAnnotation(boolean bad){

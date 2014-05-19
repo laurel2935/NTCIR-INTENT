@@ -14,4 +14,22 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>JAR_LOC</name>
+			<type>2</type>
+			<locationURI>JAR_LOC</locationURI>
+		</link>
+		<link>
+			<name>jar_DiversifiedRanking</name>
+			<type>2</type>
+			<location>H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking</location>
+		</link>
+	</linkedResources>
+	<variableList>
+		<variable>
+			<name>JAR_LOC</name>
+			<value>file:/H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking</value>
+		</variable>
+	</variableList>
 </projectDescription>

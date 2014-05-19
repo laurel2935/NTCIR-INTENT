@@ -7,7 +7,7 @@ import edu.stanford.nlp.ling.TaggedWord;
 public class TaggedTopic {
 	public String _pennString;	
 	public ArrayList<TaggedTerm> _taggedTerms;
-	public ArrayList<TaggedTerm> _taggedPhrases;
+	public ArrayList<ArrayList<TaggedTerm>> _taggedPhraseList;
 	
 	public TaggedTopic(){}
 	
@@ -18,8 +18,8 @@ public class TaggedTopic {
 	public void setTaggedTerms(ArrayList<TaggedTerm> taggedTerms){
 		this._taggedTerms = taggedTerms;
 	}
-	public void setTaggedPhrases(ArrayList<TaggedTerm> taggedPhrases){
-		this._taggedPhrases = taggedPhrases;
+	public void setTaggedPhraseList(ArrayList<ArrayList<TaggedTerm>> taggedPhraseList){
+		this._taggedPhraseList = taggedPhraseList;
 	}
 	//
 	public String toString(){
@@ -29,9 +29,9 @@ public class TaggedTopic {
 			strBuffer.append(taggedTerm.toString()+"\t");			
 		}
 		strBuffer.append("\n");
-		if(null != _taggedPhrases){
-			for(TaggedTerm taggedTerm: _taggedPhrases){
-				strBuffer.append(taggedTerm.toString()+"\t");			
+		if(null != _taggedPhraseList){
+			for(ArrayList<TaggedTerm> taggedPhrase: _taggedPhraseList){
+				strBuffer.append(taggedPhrase.toString()+"\t");			
 			}
 			strBuffer.append("\n");
 		}		

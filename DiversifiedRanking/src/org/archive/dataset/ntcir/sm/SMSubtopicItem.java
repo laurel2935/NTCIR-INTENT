@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 public class SMSubtopicItem {
+	public SubtopicInstance itemDelegater = null;
 	//gourp members of SubtopicInstance
 	public ArrayList<SubtopicInstance> subtopicInstanceGroup = null;
 	//for computing similarity among different SMSubtopicItem
@@ -17,9 +18,14 @@ public class SMSubtopicItem {
 		//
 		this.termModifierGroupList = new ArrayList<ArrayList<String>>();
 		this.phraseModifierGroupList = new ArrayList<ArrayList<String>>();
+		//initial delegater
+		itemDelegater = subtopicInstance;
 	}
 	
 	public void addSubtopicInstance(SubtopicInstance member){
+		if(member._text.length() > itemDelegater._text.length()){
+			itemDelegater = member;
+		}
 		this.subtopicInstanceGroup.add(member);
 	}
 	

@@ -213,6 +213,15 @@ public class SMTopic {
 			}else{
 				boolean matched = false;
 				for(SMSubtopicItem item: this.smSubtopicItemList){
+					if(instance.shrinkMatch(item.itemDelegater)){
+						item.addSubtopicInstance(instance);
+						matched = true;
+						if(DEBUG){
+							System.out.println("matched for :\t"+instance.toString());
+						}
+						break;
+					}
+					/*
 					for(SubtopicInstance taggedInstance: item.subtopicInstanceGroup){
 						if(DEBUG){
 							System.out.println("matching ---\t"+taggedInstance.toString());
@@ -229,6 +238,7 @@ public class SMTopic {
 					if(matched){
 						break;
 					}
+					*/
 				}
 				//
 				if(matched){

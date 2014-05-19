@@ -10,7 +10,14 @@ public class TaggedTerm {
 	}
 	//
 	public boolean koMatch(KernelObject ko){
+		/*
 		if(termStr.equals(ko.koStr) && posTag.equals(ko.posTag)){
+			return true;
+		}else {
+			return false;
+		}
+		*/
+		if(termStr.equals(ko.koStr)){
 			return true;
 		}else {
 			return false;

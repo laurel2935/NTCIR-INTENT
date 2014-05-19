@@ -1,5 +1,10 @@
 package org.archive.dataset.ntcir.sm;
 
+import java.util.ArrayList;
+import java.util.Collections;
+
+import org.archive.nlp.chunk.lpt.addon.LTPPosTag;
+
 
 public class Modifier implements Comparable{
 	public String moStr;
@@ -40,16 +45,22 @@ public class Modifier implements Comparable{
 	//
 	public  int compareTo(Object o){
 		Modifier comp = (Modifier)o;
-		if(this.fre > comp.fre){
-			return -1;
-		}else if(this.fre < comp.fre){
-			return 1;
-		}else{
-			return 0;
-		}
+		//
+		return LTPPosTag.compare(this.posTag, comp.posTag);
 	}
 	//
 	public String toString(){
 		return moStr+" "+posTag;
+	}
+	
+	public static void main(String []args){
+		//1
+		//before:	[特产 n, 哪里 r, 买 v, 最 d, 便宜 a]
+		//after:	[特产 n, 哪里 r, 买 v, 最 d, 便宜 a]
+		ArrayList<Modifier> moList = new ArrayList<Modifier>();
+		moList.add(new Modifier("哪里", "r"));
+		moList.add(new Modifier("买", "v"));
+		Collections.sort(moList);
+		System.out.println(moList);
 	}
 }

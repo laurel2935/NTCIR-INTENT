@@ -16,7 +16,7 @@ public class TestExamples
 
  		// 1. SET UP:
  		//   Let's make it easy for the user. So, rather than set pointers in 'Environment Variables' etc. let's allow the user to define exactly where they have put WordNet(s)
-		String dir = System.getProperty("user.dir").substring(0, 3).replaceAll("\\\\", "/")+"Tool/WordNet";
+		String dir = "C:/Program Files (x86)/WordNet";
 		System.out.println(System.getProperty("user.dir").substring(0, 3).replaceAll("\\\\", "/")+"Tool/WordNet");
 		//System.
 		//That is, you may have version 3.0 sitting in the above directory e.g. C:/Program Files/WordNet/3.0/dict

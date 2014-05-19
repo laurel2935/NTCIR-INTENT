@@ -1,34 +1,63 @@
 package org.archive.nlp.chunk.lpt.addon;
 
+import java.util.HashSet;
+
 public class LTPPosTag {
 	//Tag	Description	Example	Tag	Description	Example
-	public final static String a  = "a"; //adjective	ÃÀÀö
-	public final static String nI = "ni";//organization name	±£ÏÕ¹«Ë¾
-	public final static String b ="b";//other noun-modifier	´óÐÍ, Î÷Ê½
-	public final static String nL ="nl";//location noun	³Ç½¼
-	public final static String c ="c";//conjunction	ºÍ, ËäÈ»	
-	public final static String nS ="ns";//geographical name	±±¾©
-	public final static String d ="d";//adverb	ºÜ	
-	public final static String nT ="nt";//temporal noun	½üÈÕ, Ã÷´ú
-	public final static String e ="e";//exclamation	°¥	
-	public final static String nZ ="nz";//other proper noun	Åµ±´¶û½±
-	public final static String g ="g";//morpheme	´Ä, Éû	
-	public final static String o ="o";//onomatopoeia	»©À²
-	public final static String h ="h";//prefix	°¢, Î±	
-	public final static String p ="p";//preposition	ÔÚ, °Ñ
-	public final static String i ="i";//idiom	°Ù»¨Æë·Å	
-	public final static String q ="q";//quantity	¸ö
-	public final static String j ="j";//abbreviation	¹«¼ì·¨	
-	public final static String r ="r";//pronoun	ÎÒÃÇ
-	public final static String k ="k";//suffix	½ç, ÂÊ	
-	public final static String u ="u";//auxiliary	µÄ, µØ
-	public final static String m ="m";//number	Ò», µÚÒ»	
-	public final static String v ="v";//verb	ÅÜ, Ñ§Ï°
-	public final static String n ="n";//general noun	Æ»¹û	
-	public final static String wP ="wp";//punctuation	£¬¡££¡
-	public final static String nD ="nd";//direction noun	ÓÒ²à	
+	public final static String a  = "a"; //adjective	ï¿½ï¿½ï¿½ï¿½
+	public final static String nI = "ni";//organization name	ï¿½ï¿½ï¿½Õ¹ï¿½Ë¾
+	public final static String b ="b";//other noun-modifier	ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½Ê½
+	public final static String nL ="nl";//location noun	ï¿½Ç½ï¿½
+	public final static String c ="c";//conjunction	ï¿½ï¿½, ï¿½ï¿½È»	
+	public final static String nS ="ns";//geographical name	ï¿½ï¿½ï¿½ï¿½
+	public final static String d ="d";//adverb	ï¿½ï¿½	
+	public final static String nT ="nt";//temporal noun	ï¿½ï¿½ï¿½ï¿½, ï¿½ï¿½ï¿½ï¿½
+	public final static String e ="e";//exclamation	ï¿½ï¿½	
+	public final static String nZ ="nz";//other proper noun	Åµï¿½ï¿½ï¿½ï¿½
+	public final static String g ="g";//morpheme	ï¿½ï¿½, ï¿½ï¿½	
+	public final static String o ="o";//onomatopoeia	ï¿½ï¿½ï¿½ï¿½
+	public final static String h ="h";//prefix	ï¿½ï¿½, Î±	
+	public final static String p ="p";//preposition	ï¿½ï¿½, ï¿½ï¿½
+	public final static String i ="i";//idiom	ï¿½Ù»ï¿½ï¿½ï¿½ï¿½	
+	public final static String q ="q";//quantity	ï¿½ï¿½
+	public final static String j ="j";//abbreviation	ï¿½ï¿½ï¿½ì·¨	
+	public final static String r ="r";//pronoun	ï¿½ï¿½ï¿½ï¿½
+	public final static String k ="k";//suffix	ï¿½ï¿½, ï¿½ï¿½	
+	public final static String u ="u";//auxiliary	ï¿½ï¿½, ï¿½ï¿½
+	public final static String m ="m";//number	Ò», ï¿½ï¿½Ò»	
+	public final static String v ="v";//verb	ï¿½ï¿½, Ñ§Ï°
+	public final static String n ="n";//general noun	Æ»ï¿½ï¿½	
+	public final static String wP ="wp";//punctuation	ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	public final static String nD ="nd";//direction noun	ï¿½Ò²ï¿½	
 	public final static String wS ="ws";//foreign words	CPU
-	public final static String nH ="nh";//person name	¶Å¸¦, ÌÀÄ·	
-	public final static String x ="x";//non-lexeme	ÌÑ, °¿
+	public final static String nH ="nh";//person name	ï¿½Å¸ï¿½, ï¿½ï¿½Ä·	
+	public final static String x ="x";//non-lexeme	ï¿½ï¿½, ï¿½ï¿½
+	
+	private static HashSet<String> FirLevelPosTagSet = new HashSet<String>();
+	private static void iniFirLevelPosTagSet(){
+		String [] array = {"ni", "nl", "ns", "nt", "nz", "nh", "ws", "n", "i", "j", "v"};
+		for(int i=0; i<array.length; i++){
+			FirLevelPosTagSet.add(array[i]);
+		}
+	}
+	
+	public static int compare(String aPosTag, String bPosTag){
+		if(FirLevelPosTagSet.size() == 0){
+			iniFirLevelPosTagSet();
+		}		
+		if(FirLevelPosTagSet.contains(aPosTag)&&FirLevelPosTagSet.contains(bPosTag)){
+			//System.out.println("01");
+			return 0;
+		}else if(!FirLevelPosTagSet.contains(aPosTag) && !FirLevelPosTagSet.contains(bPosTag)){
+			//System.out.println("02");
+			return 0;
+		}else if(FirLevelPosTagSet.contains(aPosTag) && !FirLevelPosTagSet.contains(bPosTag)){
+			//System.out.println(-1);
+			return -1;
+		}else if(!FirLevelPosTagSet.contains(aPosTag) && FirLevelPosTagSet.contains(bPosTag)){}{
+			//System.out.println(1);
+			return 1;
+		}
+	}
 
 }
