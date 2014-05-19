@@ -36,7 +36,7 @@ import org.archive.util.Language.Lang;
 
 public class NTCIRLoader {
 	
-	private final static boolean DEBUG = true;
+	private final static boolean DEBUG = false;
 	
 	private static boolean ICTCLAS2014_INI = false;
 	public static final String CODE_UTF8 = "UTF-8";
@@ -538,9 +538,9 @@ public class NTCIRLoader {
 		}
 		
 		//
-		ShallowParser shallowParser = null;
+		ShallowParser enShallowParser = null;
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
-			shallowParser = new ShallowParser(Lang.English);
+			enShallowParser = new ShallowParser(Lang.English);
 		}				
 		//perform intent role annotation for each topic
 		TermIRAnnotator termIRAnnotator = new TermIRAnnotator();
@@ -549,7 +549,7 @@ public class NTCIRLoader {
 			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
 				LTPIRAnnotator.getTaggedTopic(smTopic);				
 			}else{
-				smTopic.setTaggedTopic(shallowParser.getTaggedTopic(smTopic.getTopicText()));
+				enShallowParser.getTaggedTopic(smTopic);
 			}
 			
 			if(DEBUG){				
@@ -565,7 +565,16 @@ public class NTCIRLoader {
 			}			
 			//
 			smTopic.checkIRAnnotation();
-		}		
+		}
+		
+		if(DEBUG){
+			for(SMTopic smTopic: smTopicList){
+				if(smTopic.CompleteSentence){
+					System.out.println("Sentence topic:\t"+smTopic.getTopicText());
+				}
+			}
+		}
+		
 		//perform shallow parsing for subtopic string 	
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_term = new HashMap<String, ArrayList<TaggedTerm>>();
 		HashMap<String, ArrayList<ArrayList<TaggedTerm>>> stInstance_all_phrase = new HashMap<String, ArrayList<ArrayList<TaggedTerm>>>();
@@ -578,8 +587,8 @@ public class NTCIRLoader {
 					String rq = smTopic.uniqueRelatedQueries.get(i);
 								
 					if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
-						stInstance_all_term.put(rq, shallowParser.getTaggedTerms(rq));
-						stInstance_all_phrase.put(rq, shallowParser.getTaggedPhraseList(rq));
+						stInstance_all_term.put(rq, enShallowParser.getTaggedTerms(rq));
+						stInstance_all_phrase.put(rq, enShallowParser.getTaggedPhraseList(rq));
 					}else{
 						ArrayList<TaggedTerm> taggedTerms = LTPIRAnnotator.getTaggedTerm(smTopic, i);						
 						if(null == taggedTerms){
@@ -736,9 +745,9 @@ public class NTCIRLoader {
 		//NTCIRLoader.loadNTCIR10TopicList();
 		
 		//3
-		NTCIRLoader.openPrinter();
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, true);
-		NTCIRLoader.closePrinter();
+		//NTCIRLoader.openPrinter();
+		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
+		//NTCIRLoader.closePrinter();
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
 	}
 	

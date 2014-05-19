@@ -27,12 +27,18 @@ import org.archive.ntcir.sm.clustering.ap.APClustering;
 import org.archive.ntcir.sm.similarity.editdistance.GregorEditDistance;
 import org.archive.ntcir.sm.similarity.editdistance.StandardEditDistance;
 import org.archive.ntcir.sm.similarity.editdistance.definition.SuperString;
+import org.archive.ntcir.sm.similarity.hownet.concept.LiuConceptParser;
+import org.archive.ntcir.sm.similarity.wordnet.WordNetSimilarity;
+import org.archive.util.Pair;
 import org.archive.util.Language.Lang;
 import org.archive.util.io.IOText;
+import org.archive.util.tuple.StrDouble;
 import org.archive.util.tuple.StrStr;
 
 public class SubtopicMining {
 	private final static boolean DEBUG = true;
+	
+	public static HashMap<Pair,Double> _simCache = new HashMap<Pair, Double>();
 	
 	public void run(RunParameter runParameter) throws Exception{
 		
@@ -47,9 +53,7 @@ public class SubtopicMining {
 		writer.newLine();
 		//		
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == runParameter.eval){
-			//runParameter.loadLTMLForChTopics(runParameter.topicList);
-			runParameter.segment(runParameter.topicList);
-			
+						
 			chRun(runParameter, writer);
 			
 		}else{
@@ -60,6 +64,10 @@ public class SubtopicMining {
 	}	
 	//
 	private static double getMedian(ArrayList<InteractionData> releMatrix){	
+		if(0 == releMatrix.size()){
+			System.err.println("Zero ReleMatrix Error!");
+			return 0.0;
+		}
 		ArrayList<Double> vList = new ArrayList<Double>();
 		for(InteractionData iData: releMatrix){
 			vList.add(iData.getSim());
@@ -73,14 +81,17 @@ public class SubtopicMining {
 	 }
 	
 	private void chRun(RunParameter runParameter, BufferedWriter writer){
-		
-		runParameter.loadLTMLForChTopics(runParameter.topicList);
-		
+			
 		for(int i=0; i<runParameter.topicList.size(); i++){
 			
-			SMTopic smTopic = runParameter.topicList.get(i);						
+			SMTopic smTopic = runParameter.topicList.get(i);
+			
 			if(DEBUG){
 				System.out.println("Processing topic "+ smTopic.getID()+"\t"+smTopic.getTopicText());
+			}
+			
+			if(smTopic.belongToBadCase()){
+				continue;
 			}
 			
 			RankedList rankedList = null;
@@ -102,15 +113,32 @@ public class SubtopicMining {
 		    		Set<String> keySet = clusterMap.keySet();
 		    		int id = 1;
 		    		for(String key: keySet){
-		    			System.out.println("Exemplar-"+(id++)+":\t"+getSubtopicString(smTopic, key));
+		    			System.out.println("Exemplar-Item-"+(id++)+":\t"+getItem(smTopic, key).itemDelegater.toString());
 		    			Collection<String> memberSet = clusterMap.get(key).getElements();
 		    			int mID = 1;
 		    			for(String memKey: memberSet){
-		    				System.out.println("\t"+(mID++)+":\t"+getSubtopicString(smTopic, memKey));
+		    				System.out.println("\t"+(mID++)+":\t"+getItem(smTopic, memKey).itemDelegater.toString());
 		    			}
 		    			System.out.println();
 		    		}		    		
 		    	}
+			}else if(ClusteringFunction.K_UFL == runParameter.cFunction){
+				ArrayList<InteractionData> releMatrix = getChReleMatrix(smTopic, runParameter);
+				ArrayList<InteractionData> costMatrix = getCostMatrix(releMatrix);
+				
+				ArrayList<Double> fList = new ArrayList<Double>();
+				for(int j=0; j<smTopic.smSubtopicItemList.size(); j++){
+		    		fList.add(0.0);
+		    	}
+				
+		    	double lambda = 0.5;
+		    	int iterations = 5000;
+		    	int convits = 10;
+		    	double preferences = 0-getMedian(releMatrix);
+		    	int preK = 5;
+		    	K_UFL kUFL = new K_UFL(lambda, iterations, convits, preferences, preK, UFLMode.C_Same_F, costMatrix, fList);
+		    	//    	
+		    	kUFL.run();
 			}
 			
 			/*
@@ -131,13 +159,13 @@ public class SubtopicMining {
 		*/
 	}
 	
-	private String getSubtopicString(SMTopic smTopic, String key){
-		String idStr = key.substring(key.indexOf("-")+1);
-		int id = Integer.parseInt(idStr);
-		return smTopic.uniqueRelatedQueries.get(id-1);		
+	private SMSubtopicItem getItem(SMTopic smTopic, String key){		
+		int id = Integer.parseInt(key);
+		return smTopic.smSubtopicItemList.get(id);		
 	}
 	
 	private ArrayList<InteractionData> getChReleMatrix(SMTopic smTopic, RunParameter runParameter){
+		
 		ArrayList<InteractionData> chReleMatrix = new ArrayList<InteractionData>();
 		
 		if(runParameter.simFunction==SimilarityFunction.StandardTermEditDistance
@@ -240,6 +268,38 @@ public class SubtopicMining {
 			}
 			
 			return chReleMatrix;
+		}else if(runParameter.simFunction == SimilarityFunction.AveragedSemanticSimilarity){
+			double termIRWeight = 0.4; double phraseIRWeight = 0.6;	
+			ArrayList<SMSubtopicItem> itemList = smTopic.smSubtopicItemList;
+			
+			//WordNetSimilarity.JCSimilarity_Average(word_1, word_2);
+			for(int i=0; i<itemList.size()-1; i++){
+				SMSubtopicItem iItem = itemList.get(i);			
+				ArrayList<ArrayList<String>> iTermModifierGroupList = iItem.termModifierGroupList;
+				ArrayList<ArrayList<String>> iPhraseModifierGroupList = iItem.phraseModifierGroupList;
+				
+				for(int j=i+1; j<itemList.size(); j++){
+					SMSubtopicItem jItem = itemList.get(j);
+					ArrayList<ArrayList<String>> jTermModifierGroupList = jItem.termModifierGroupList;
+					ArrayList<ArrayList<String>> jPhraseModifierGroupList = jItem.phraseModifierGroupList;
+					
+					double simValue = 0.0;
+
+					for(int k=0; k<iTermModifierGroupList.size(); k++){
+						simValue += ((termIRWeight/iTermModifierGroupList.size())*
+								getSimilarity(iTermModifierGroupList.get(k), jTermModifierGroupList.get(k), Lang.Chinese));
+					}
+					
+					for(int k=0; k<iPhraseModifierGroupList.size(); k++){
+						simValue += ((phraseIRWeight/iPhraseModifierGroupList.size())*
+								getSimilarity(iPhraseModifierGroupList.get(k), jPhraseModifierGroupList.get(k), Lang.Chinese));
+					}
+					
+					chReleMatrix.add(new InteractionData(Integer.toString(i), Integer.toString(j), simValue));
+				}
+			}
+			
+			return chReleMatrix;
 		}else{
 			return null;
 		}		
@@ -257,9 +317,14 @@ public class SubtopicMining {
 		
 		for(int i=0; i<runParameter.topicList.size(); i++){
 			
-			SMTopic smTopic = runParameter.topicList.get(i);						
+			SMTopic smTopic = runParameter.topicList.get(i);	
+			
 			if(DEBUG){
 				System.out.println("Processing topic "+ smTopic.getID()+"\t"+smTopic.getTopicText());
+			}
+			
+			if(smTopic.belongToBadCase()){
+				continue;
 			}
 			
 			RankedList rankedList = null;
@@ -281,11 +346,11 @@ public class SubtopicMining {
 		    		Set<String> keySet = clusterMap.keySet();
 		    		int id = 1;
 		    		for(String key: keySet){
-		    			System.out.println("Exemplar-"+(id++)+":\t"+getSubtopicString(smTopic, key));
+		    			System.out.println("Exemplar-"+(id++)+":\t"+getItem(smTopic, key).itemDelegater.toString());
 		    			Collection<String> memberSet = clusterMap.get(key).getElements();
 		    			int mID = 1;
 		    			for(String memKey: memberSet){
-		    				System.out.println("\t"+(mID++)+":\t"+getSubtopicString(smTopic, memKey));
+		    				System.out.println("\t"+(mID++)+":\t"+getItem(smTopic, memKey).itemDelegater.toString());
 		    			}
 		    			System.out.println();
 		    		}		    		
@@ -369,10 +434,70 @@ public class SubtopicMining {
 			}
 			
 			return enReleMatrix;
+		}else if(runParameter.simFunction == SimilarityFunction.AveragedSemanticSimilarity){
+			//WordNetSimilarity.JCSimilarity_Average(word_1, word_2);
+			for(int i=0; i<itemList.size()-1; i++){
+				SMSubtopicItem iItem = itemList.get(i);			
+				ArrayList<ArrayList<String>> iTermModifierGroupList = iItem.termModifierGroupList;
+				ArrayList<ArrayList<String>> iPhraseModifierGroupList = iItem.phraseModifierGroupList;
+				
+				for(int j=i+1; j<itemList.size(); j++){
+					SMSubtopicItem jItem = itemList.get(j);
+					ArrayList<ArrayList<String>> jTermModifierGroupList = jItem.termModifierGroupList;
+					ArrayList<ArrayList<String>> jPhraseModifierGroupList = jItem.phraseModifierGroupList;
+					
+					double simValue = 0.0;
+
+					for(int k=0; k<iTermModifierGroupList.size(); k++){
+						simValue += ((termIRWeight/iTermModifierGroupList.size())*
+								getSimilarity(iTermModifierGroupList.get(k), jTermModifierGroupList.get(k), Lang.English));
+					}
+					
+					for(int k=0; k<iPhraseModifierGroupList.size(); k++){
+						simValue += ((phraseIRWeight/iPhraseModifierGroupList.size())*
+								getSimilarity(iPhraseModifierGroupList.get(k), jPhraseModifierGroupList.get(k), Lang.English));
+					}
+					
+					enReleMatrix.add(new InteractionData(Integer.toString(i), Integer.toString(j), simValue));
+				}
+			}
+			
+			return enReleMatrix;
 		}else{
 			return null;
 		}		
 	}
+	private double getSimilarity(ArrayList<String> aTermList, ArrayList<String> bTermList, Lang lang)
+	{
+		if(0==aTermList.size() || 0==bTermList.size()){
+			return 0.0;
+		}
+		
+		double simSum = 0.0;
+		for(String a: aTermList){
+			for(String b: bTermList){
+				simSum += getSimilarity(a, b, lang);
+			}
+		}
+		
+		return simSum/(aTermList.size()+bTermList.size());
+		
+	}
+	private static double getSimilarity(String aTerm, String bTerm, Lang lang){
+		Pair sim_key = new Pair(aTerm, bTerm);
+		Double simScore = null;
+		if (null == (simScore=_simCache.get(sim_key))) {
+			if(Lang.English == lang){
+				simScore = WordNetSimilarity.JCSimilarity_Average(aTerm, bTerm);
+			}else{
+				simScore = LiuConceptParser.getInstance().getSimilarity(aTerm, bTerm);
+			}
+			
+			_simCache.put(sim_key, simScore);
+		}
+		return simScore;
+	}
+	
 	private static ArrayList<InteractionData> getCostMatrix(ArrayList<InteractionData> interList){
 		ArrayList<InteractionData> costMatrix = new ArrayList<InteractionData>();
 		for(InteractionData itr: interList){
@@ -401,8 +526,8 @@ public class SubtopicMining {
 		//2 
 		String runTitle = "testTitle";
 		String runIntroduction = "testIntroduction";
-		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
-				SimilarityFunction.GregorEditDistance, ClusteringFunction.StandardAP);
+		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, runTitle, runIntroduction,
+				SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
 		try {
 			smMining.run(runParameter);
 		} catch (Exception e) {

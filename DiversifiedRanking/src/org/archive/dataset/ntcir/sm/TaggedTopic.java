@@ -24,7 +24,7 @@ public class TaggedTopic {
 	//
 	public String toString(){
 		StringBuffer strBuffer = new StringBuffer();
-		strBuffer.append(_pennString+"\n");
+		//strBuffer.append(_pennString+"\n");
 		for(TaggedTerm taggedTerm: _taggedTerms){
 			strBuffer.append(taggedTerm.toString()+"\t");			
 		}

@@ -21,12 +21,40 @@ public class WordNetSimilarity {
 	}		
 	//on the premise that existing in WordNet
 	public static double JCSimilarity_Average(String word_1, String word_2){
+		//not included
+		if(!WordNetFactory.existInWordNet(word_1) || !WordNetFactory.existInWordNet(word_2)){
+			return 0.0;
+		}
+		
 		Vector<String> commonPOSVec = WordNetFactory.commonPOSVec(word_1, word_2);
+		
+		if(null==commonPOSVec || commonPOSVec.size()==0){
+			return 0.0;
+		}
+		
 		int count = 0;
 		double temp;
 		double sum = 0;
 		for(String pos: commonPOSVec){
-			TreeMap<String, Double> scores = jcn.jcn(word_1, word_2, pos);			
+			
+			if(null == pos || null==word_1 || null==word_2){
+				continue;
+			}
+			TreeMap<String, Double> scores = null;
+			try {
+				scores = jcn.jcn(word_1, word_2, pos);
+			} catch (Exception e) {
+				// TODO: handle exception
+				//e.printStackTrace();
+				System.err.println("En Similarity Error!");
+				continue;
+			}
+			
+			
+			if(null == scores){
+				continue;
+			}
+			
 			for(String s : scores.keySet()){
 				//System.out.println(s + "\t" + scores.get(s));
 				//
@@ -42,8 +70,13 @@ public class WordNetSimilarity {
 			}
 		}	
 		//
+		
+		if(0==count){
+			return 0.0;
+		}
+		
 		double value = sum/count;
-		System.out.println(value);
+		//System.out.println(value);
 		return value;			
 	}
 	//

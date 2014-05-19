@@ -23,7 +23,7 @@ public class RunParameter {
 	//set up parameters
 	//////////////
 	
-	public static enum SimilarityFunction{StandardTermEditDistance, SemanticTermEditDistance, GregorEditDistance}
+	public static enum SimilarityFunction{StandardTermEditDistance, SemanticTermEditDistance, GregorEditDistance, AveragedSemanticSimilarity}
 	
 	public static enum ClusteringFunction{StandardAP, K_UFL}
 	
@@ -61,7 +61,7 @@ public class RunParameter {
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
 			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, true);
 		}else{
-			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, false);
+			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, true);
 		}	
 	}
 	

@@ -20,9 +20,9 @@ public class IRAnnotation {
 		this.moSet = moSet;	
 		//
 		if(null != moSet){
-			System.out.println("before:\t"+moSet);
+			//System.out.println("before:\t"+moSet);
 			Collections.sort(moSet);
-			System.out.println("after:\t"+moSet);
+			//System.out.println("after:\t"+moSet);
 		}
 	}		
 	//

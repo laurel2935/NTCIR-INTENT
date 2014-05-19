@@ -6,7 +6,7 @@ import java.util.Vector;
 import org.archive.util.Language.Lang;
 
 public abstract class IRAnnotator {
-	private final static boolean DEBUG = true;
+	private final static boolean DEBUG = false;
 	
 	//
 	protected IRAnnotation getIRAnnotation(int koIndex, ArrayList<TaggedTerm> topicTaggedTerms){

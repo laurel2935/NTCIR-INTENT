@@ -15,6 +15,7 @@ public class SMTopic {
 	private String _text;
 	private TaggedTopic _taggedTopic;
 	public boolean DirectTermAndNoIRAnnotation = false;
+	public boolean CompleteSentence = false;
 	private ArrayList<IRAnnotation> _termIRAnnotationList;
 	private ArrayList<IRAnnotation> _phraseIRAnnotationList;
 	//for Chinese topic
@@ -69,6 +70,10 @@ public class SMTopic {
 	}
 	public String getTopicText(){
 		return this._text;
+	}
+	//
+	public void setSentenceState(boolean aSentence){
+		this.CompleteSentence = aSentence;
 	}
 	//
 	public void setTaggedTopic(TaggedTopic taggedTopic){

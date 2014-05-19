@@ -25,7 +25,7 @@ import edu.stanford.nlp.ling.TaggedWord;
 //import sun.launcher.resources.launcher;
 
 public class LTPIRAnnotator {
-	private final static boolean DEBUG = true;
+	private final static boolean DEBUG = false;
 	
 	public ArrayList<IRAnnotation> irAnnotate(TTree tTree){
 		ArrayList<IRAnnotation> results = new ArrayList<IRAnnotation>();
@@ -226,6 +226,30 @@ public class LTPIRAnnotator {
 		}		
 	}
 	//
+	public static boolean completeSentence(TTree tTree){
+		TNode root = tTree.getRoot();
+		//one child
+		if(!root.isLeaf() && root.getChildren().size()>1){
+			Vector<TNode> children = root.getChildren();
+			if(hasLTPRelationTag(children, LTPRelationTag.VOB) && hasLTPRelationTag(children, LTPRelationTag.SBV)){
+				return true;
+			}else{
+				return false;
+			}			
+		}else{
+			return false;
+		}
+		
+	}
+	private static boolean hasLTPRelationTag(Vector<TNode> nodeVector, String relationTag){
+		for(TNode node: nodeVector){
+			if(node.getRelateTag().equals(relationTag)){
+				return true;
+			}
+		}
+		return false;
+	}
+	//
 	private static boolean leaves(Vector<TNode> children){
 		for(TNode tNode: children){
 			if(!tNode.isLeaf()){
@@ -325,6 +349,9 @@ public class LTPIRAnnotator {
 				
 		String topicXMLFile = tDir+smTopic.getID()+".xml";
 		LTML topicLTML = RunParameter.loadLTML(topicXMLFile);
+		
+		smTopic.setSentenceState(completeSentence(new TTree(topicLTML.getWords(0))));
+		
 		ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
 		for(Word word: topicLTML.getWords(0)){
     		taggedTerms.add(new TaggedTerm(word.getWS(), word.getPOS()));

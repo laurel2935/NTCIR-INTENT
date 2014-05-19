@@ -2,10 +2,12 @@ package org.archive.nlp.chunk;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.ntcir.sm.TaggedTerm;
 import org.archive.dataset.ntcir.sm.TaggedTopic;
 import org.archive.util.Language;
@@ -15,14 +17,23 @@ import edu.stanford.nlp.ling.HasWord;
 import edu.stanford.nlp.ling.TaggedWord;
 import edu.stanford.nlp.ling.Word;
 import edu.stanford.nlp.parser.lexparser.LexicalizedParser;
+import edu.stanford.nlp.pipeline.Annotation;
+import edu.stanford.nlp.process.PTBTokenizer;
 import edu.stanford.nlp.process.Tokenizer;
+import edu.stanford.nlp.process.TokenizerFactory;
+import edu.stanford.nlp.process.WordTokenFactory;
+import edu.stanford.nlp.trees.EnglishGrammaticalRelations;
+import edu.stanford.nlp.trees.GrammaticalRelation;
+import edu.stanford.nlp.trees.GrammaticalStructure;
 import edu.stanford.nlp.trees.GrammaticalStructureFactory;
 import edu.stanford.nlp.trees.Tree;
+import edu.stanford.nlp.trees.TreeCoreAnnotations.TreeAnnotation;
 import edu.stanford.nlp.trees.TreebankLanguagePack;
+import edu.stanford.nlp.trees.TypedDependency;
 
 public class ShallowParser {
 	//for debugging
-	private static final boolean DEBUG = true;
+	private static final boolean DEBUG = false;
 	//setting
     private static final String[] en_options = { "-maxLength", "80", "-retainTmpSubcategories" };
     private static final String[] ch_options = { "-maxLength", "80"};
@@ -50,7 +61,50 @@ public class ShallowParser {
     	this.tlp = lp.getOp().langpack();
     	//this.gsf = tlp.grammaticalStructureFactory();
     }
-    
+    //
+    public boolean completeSentence(String inputText){    	
+    	Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(inputText));
+        List<? extends HasWord> sentence = toke.tokenize();   
+        Tree parse = lp.parse(sentence);
+    	GrammaticalStructureFactory gsf = tlp.grammaticalStructureFactory();
+    	GrammaticalStructure gs = gsf.newGrammaticalStructure(parse);
+    	Collection<TypedDependency> tdCollection = gs.typedDependenciesCollapsed();
+    	
+    	if(hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.NOMINAL_SUBJECT) && hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.COPULA)
+    			|| hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.DIRECT_OBJECT)&&hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.ADVERBIAL_MODIFIER)){
+    		return true;
+    	}else{
+    		return false;
+    	}
+    }
+    public boolean completeSentence(Tree parse){ 
+    	GrammaticalStructureFactory gsf = tlp.grammaticalStructureFactory();
+    	GrammaticalStructure gs = gsf.newGrammaticalStructure(parse);
+    	Collection<TypedDependency> tdCollection = gs.typedDependenciesCollapsed();
+    	
+    	if(hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.NOMINAL_SUBJECT) && exactCOPEnGramRelation(tdCollection)
+    			|| hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.DIRECT_OBJECT)&&hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.ADVERBIAL_MODIFIER)){
+    		return true;
+    	}else{
+    		return false;
+    	}
+    }
+    private static boolean hasEnGramRelation(Collection<TypedDependency> tdCollection, GrammaticalRelation egr){
+    	for(TypedDependency td : tdCollection) {
+      	  if(td.reln().equals(egr)) {
+      	    return true;
+      	  }
+      	}
+    	return false;
+    }
+    private static boolean exactCOPEnGramRelation(Collection<TypedDependency> tdCollection){
+    	for(TypedDependency td : tdCollection) {
+      	  if(td.reln().equals(EnglishGrammaticalRelations.COPULA)) {
+      		return td.dep().nodeString().equals("'s")? false:true;      		
+      	  }
+      	}
+    	return false;
+    }
     /////////////////////////
     //for chunk parsing
     /////////////////////////
@@ -101,16 +155,17 @@ public class ShallowParser {
     	}
     }
     //
-    public TaggedTopic getTaggedTopic(String topicText){
+    public void getTaggedTopic(SMTopic smTopic){
     	TaggedTopic taggedTopic = new TaggedTopic();
     	// Use the default tokenizer for this TreebankLanguagePack
-        Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(topicText));
+        Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(smTopic.getTopicText()));
         List<? extends HasWord> sentence = toke.tokenize();
         Tree parse = lp.parse(sentence);        
         taggedTopic.setPennString(parse.pennString());
         
-        //term
+        smTopic.setSentenceState(completeSentence(parse));
         
+        //term        
         ArrayList<TaggedWord> taggedWords = parse.taggedYield(); 
         ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
     	for(TaggedWord word: taggedWords){
@@ -118,8 +173,7 @@ public class ShallowParser {
     	}
     	taggedTopic.setTaggedTerms(taggedTerms);
     	
-    	//phrase
-    	
+    	//phrase    	
     	ArrayList<HashSet<Tree>>  pList = new ArrayList<HashSet<Tree>>();
     	
         int size = parse.getLeaves().size();
@@ -147,7 +201,7 @@ public class ShallowParser {
         	taggedTopic.setTaggedPhraseList(null);
         }
     	
-    	return taggedTopic;        
+        smTopic.setTaggedTopic(taggedTopic);        
     }
     //
     private boolean include(ArrayList<HashSet<Tree>>  tList, HashSet<Tree> element){
@@ -366,6 +420,8 @@ public class ShallowParser {
         //        
         Tree parse = lp.parse(sentence);
         
+        parse.dependencies();
+        
         parse.pennPrint();        
         System.out.println();
         
@@ -397,6 +453,32 @@ public class ShallowParser {
         }
         System.out.println();
     }
+    
+    public void dependencyTest(){
+    	//String text = "My dog also likes eating sausage";
+    	String text = "men's shoe sizes conversion";
+    	Tokenizer<? extends HasWord> toke = this.tlp.getTokenizerFactory().getTokenizer(new StringReader(text));
+        List<? extends HasWord> sentence = toke.tokenize();        
+        //
+        System.out.println("before parsing...");
+        System.out.println(sentence.toString());
+        //        
+        Tree parse = lp.parse(sentence);
+    	GrammaticalStructureFactory gsf = tlp.grammaticalStructureFactory();
+    	GrammaticalStructure gs = gsf.newGrammaticalStructure(parse);
+    	Collection<TypedDependency> tdSet = gs.typedDependenciesCollapsed();
+    	
+    	for(TypedDependency td : tdSet) {
+    		System.out.println(td);
+      	}
+    	System.out.println("-------------");
+    	for(TypedDependency td : tdSet) {
+    	  if(td.reln().equals(EnglishGrammaticalRelations.COPULA)) {
+    		  System.out.println(td.dep().nodeString());
+    	    System.out.println(td);
+    	  }
+    	}
+    }
 	
 	
 	//
@@ -414,7 +496,12 @@ public class ShallowParser {
 		//shallowParser.getSimple2LevelTrees("a sentence to be parsed", "NP");		
 		
 		//3
+		//ShallowParser shallowParser = new ShallowParser(Language.Lang.English);
+		//shallowParser.getTaggedTopic("business insurance liability");
+		
+		//4
 		ShallowParser shallowParser = new ShallowParser(Language.Lang.English);
-		shallowParser.getTaggedTopic("business insurance liability");
+		shallowParser.dependencyTest();
+		
 	}
 }

@@ -10,7 +10,7 @@ import org.archive.util.Language.Lang;
  * **/
 
 public class TermIRAnnotator extends IRAnnotator {	
-	private final static boolean DEBUG = true;
+	private final static boolean DEBUG = false;
 	
 	public IRAnnotation irAnnotate(ArrayList<TaggedTerm> canTaggedTerms, IRAnnotation topicIRAnnotation){
 		if(null == canTaggedTerms){
