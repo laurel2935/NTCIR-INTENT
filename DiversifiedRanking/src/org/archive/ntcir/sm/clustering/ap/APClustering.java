@@ -144,7 +144,8 @@ public class APClustering {
             	Collections.sort(rList);
             	System.out.println(rList);
             }
-            return convertClusters(clusters);            
+            //return convertClusters(clusters);
+            return clusters;
         } else {
             Map<Integer, Integer> clusters = this.ap.doClusterInt(); 
             if(true){

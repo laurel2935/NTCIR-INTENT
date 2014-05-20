@@ -266,8 +266,12 @@ public class MatrixPropagationAlgorithm extends AffinityPropagationAlgorithm {
         }
         //
         //the indexes of potential exemplars
+        
         I = RA.diag().findG(0);
-        clustersNumber = I.size();        
+        clustersNumber = I.size(); 
+        
+        //System.out.println("Ap Cluster Number:\t"+clustersNumber);
+        
         if(debug){
         	System.out.println("Bigger Zero centers:");
         	for(int eID: I.getVector()){

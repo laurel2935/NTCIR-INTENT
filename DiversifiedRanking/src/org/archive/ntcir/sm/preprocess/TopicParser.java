@@ -18,6 +18,8 @@ import org.archive.nlp.chunk.lpt.ltpService.LTPOption;
 import org.archive.nlp.chunk.lpt.ltpService.LTPService;
 import org.archive.nlp.chunk.lpt.ltpService.SRL;
 import org.archive.nlp.chunk.lpt.ltpService.Word;
+import org.archive.nlp.fetch.WikiFetcher;
+import org.archive.nlp.fetch.baike.BaikeParser;
 import org.archive.nlp.qpunctuation.QueryPreParser;
 import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.util.Language.Lang;
@@ -361,7 +363,94 @@ public class TopicParser {
         //
 		System.out.println(parstedStr.toString());
 	}
+	
+	/////////////////////
+	//fetch pages
+	/////////////////////
+	public static void fetchWikiPagesForEnTopics(){
+		try {
+			List<SMTopic> smTopicList = NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, false);
+			
+			WikiFetcher enWikiFetcher = new WikiFetcher(Lang.English);
+			
+			for(SMTopic smTopic: smTopicList){
+				String title = smTopic.getTopicText();
+				String idString = smTopic.getID();
+				
+				String pageFile = OutputDirectory.NTCIR11_Buffer+"wikipage_"+idString+".txt";
+				String disamPageFile = OutputDirectory.NTCIR11_Buffer+"wikidispage_"+idString+".txt";
+				
+				String page = enWikiFetcher.fetchWikiPage(title);
+				String dispage = enWikiFetcher.fetchWikiDisambiguationPage(title);
+				
+				if(null!=page && page.length()>0){
+					BufferedWriter pageWriter = IOText.getBufferedWriter_UTF8(pageFile);
+					pageWriter.write(page);
+					pageWriter.flush();
+					pageWriter.close();
+				}
+				
+				if(null!=dispage && dispage.length()>0){
+					BufferedWriter dispageWriter = IOText.getBufferedWriter_UTF8(disamPageFile);
+					dispageWriter.write(dispage);
+					dispageWriter.flush();
+					dispageWriter.close();
+				}
+				
+				 try{
+					 System.out.println("snooze...");
+					 Thread.sleep(10000);
+				 }catch(InterruptedException e){
+					 e.printStackTrace();
+				 }				
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+	}
 	//
+	public static void fetchBaikePolyPagesForChTopics(){
+		try {
+			List<SMTopic> smTopicList = NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
+			
+			BaikeParser baikeFetcher = new BaikeParser();
+			
+			for(SMTopic smTopic: smTopicList){
+				String title = smTopic.getTopicText();
+				String idString = smTopic.getID();
+				
+				String polyFile = OutputDirectory.NTCIR11_Buffer+"baikepoly_"+idString+".txt";
+				
+				ArrayList<String> polyList = baikeFetcher.polyBaikeParse(title, idString);
+				
+				if(null!=polyList && polyList.size()>0){
+					BufferedWriter pageWriter = IOText.getBufferedWriter_UTF8(polyFile);
+					for(String se: polyList){
+						pageWriter.write(se);
+						pageWriter.newLine();
+					}					
+					pageWriter.flush();
+					pageWriter.close();
+				}
+				
+				 try{
+					 System.out.println("snooze...");
+					 Thread.sleep(10000);
+				 }catch(InterruptedException e){
+					 e.printStackTrace();
+				 }				
+			}
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+	}
+	
+	
+	
+	
+	
+	
+	
 	public static void main(String []args){
 		// test
 		//TopicParser.parseTopicTest();
@@ -384,11 +473,15 @@ public class TopicParser {
 		
 		//4
 		//TopicParser.loadTest();
-		String file = "E:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/ntcir-11/SM/ParsedTopic/PerFile/0001.xml";
-		TopicParser.loadParsedObject(file);
+		//String file = "E:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/ntcir-11/SM/ParsedTopic/PerFile/0001.xml";
+		//TopicParser.loadParsedObject(file);
 		
 		//5
 		//TopicParser.parseTest();
+		
+		//6
+		//TopicParser.fetchWikiPagesForEnTopics();
+		TopicParser.fetchBaikePolyPagesForChTopics();
 	}
 
 }

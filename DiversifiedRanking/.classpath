@@ -30,5 +30,7 @@
 	<classpathentry kind="lib" path="JAR_LOC/wordnet/edu.sussex.nlp.jws.beta.11.jar"/>
 	<classpathentry kind="lib" path="JAR_LOC/wordnet/jwnl.jar"/>
 	<classpathentry kind="lib" path="H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/HttpClient/commons-httpclient-3.0.1.jar"/>
+	<classpathentry kind="lib" path="H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/bliki/bliki-core-3.0.19.jar"/>
+	<classpathentry kind="lib" path="H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/htmlparser/htmlparser_inner.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 public class SMTopic {
-	private static boolean DEBUG = true;
+	private static boolean DEBUG = false;
 	public static enum BadCase{NoRelatedQuery, NoIRAnnotation}
 	
 	//
@@ -33,6 +33,9 @@ public class SMTopic {
 	
 	public ArrayList<SMSubtopicItem> smSubtopicItemList;
 	public ArrayList<SubtopicInstance> oddSubtopicInstances;
+	
+	//polysemy
+	public ArrayList<String> polysemyList;
 	
 	public SMTopic(String id, String text){
 		this._id = id;
@@ -153,7 +156,9 @@ public class SMTopic {
 	public String toString(){
 		StringBuffer strBuffer = new StringBuffer();
 		strBuffer.append(this._id+" - "+this._text+"\n");
-		strBuffer.append(this._taggedTopic.toString());
+		if(null != this._taggedTopic){
+			strBuffer.append(this._taggedTopic.toString());
+		}		
 		return strBuffer.toString();
 	}
 	//
@@ -262,5 +267,9 @@ public class SMTopic {
 		for(SMSubtopicItem smSubtopicItem: this.smSubtopicItemList){
 			smSubtopicItem.getModifierGroupList();
 		}
+	}
+	
+	public void setPolysemyList(ArrayList<String> polysemyList){
+		this.polysemyList = polysemyList;
 	}
 }

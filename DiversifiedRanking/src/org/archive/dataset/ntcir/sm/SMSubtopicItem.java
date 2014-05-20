@@ -3,7 +3,7 @@ package org.archive.dataset.ntcir.sm;
 import java.util.ArrayList;
 import java.util.HashSet;
 
-public class SMSubtopicItem {
+public class SMSubtopicItem implements Comparable{
 	public SubtopicInstance itemDelegater = null;
 	//gourp members of SubtopicInstance
 	public ArrayList<SubtopicInstance> subtopicInstanceGroup = null;
@@ -11,6 +11,8 @@ public class SMSubtopicItem {
 	//union of the first <SMTopic.ShrinkThreshold> modifiers of member's IRAnnotation corresponding to each topic irAnnotation
 	public ArrayList<ArrayList<String>> termModifierGroupList = null;
 	public ArrayList<ArrayList<String>> phraseModifierGroupList = null;
+	
+	public double weight = 0.0;
 	
 	SMSubtopicItem(SubtopicInstance subtopicInstance){
 		this.subtopicInstanceGroup = new ArrayList<SubtopicInstance>();
@@ -71,4 +73,15 @@ public class SMSubtopicItem {
 			this.phraseModifierGroupList.add(phraseModifierGroup);
 		}
 	}
+	
+	public int compareTo(Object o) {	
+		SMSubtopicItem cmp = (SMSubtopicItem)o;
+		if(this.subtopicInstanceGroup.size() > cmp.subtopicInstanceGroup.size()){
+			return -1;
+		}else if(this.subtopicInstanceGroup.size() < cmp.subtopicInstanceGroup.size()){
+			return 1;
+		}else{
+			return 0;
+		}
+	}	
 }

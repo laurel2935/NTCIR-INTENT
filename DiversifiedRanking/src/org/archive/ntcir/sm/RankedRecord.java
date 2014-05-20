@@ -11,23 +11,33 @@ public class RankedRecord {
 	//
 	public String topicID;
 	private static String zeroStr = "0";
-	public String stStr;
-	public int rank;
-	public double rankValue;
+	public String firStStr;
+	public int firRank;
+	public double firRankValue;
+	public String secStStr;
+	public int secRank;
+	public double secRankValue;
 	public String runTitle;
 	//
-	public RankedRecord(String topicID, String stStr, int rank, double rankV, String runTitle){
+	public RankedRecord(String topicID, String firStStr, int firRank, double firRankV,
+			String secStStr, int secRank, double secRankV, String runTitle){
 		this.topicID = topicID;
-		this.stStr = stStr;
-		this.rank = rank;
-		this.rankValue = rankV;
+		this.firStStr = firStStr;
+		this.firRank = firRank;
+		this.firRankValue = firRankV;
+		
+		this.secStStr = secStStr;
+		this.secRank = secRank;
+		this.secRankValue = secRankV;		
 		this.runTitle = runTitle;		
 	}
 	//
 	public String toString(){
 		StringBuffer strBuffer = new StringBuffer();
-		strBuffer.append(this.topicID+";"+zeroStr+";"+this.stStr+";"+Integer.toString(this.rank)+";");
-		strBuffer.append(dataFormat.format(this.rankValue)+";"+this.runTitle);
+		strBuffer.append(this.topicID+";");
+		strBuffer.append(zeroStr+";"+this.firStStr+";"+Integer.toString(this.firRank)+";"+dataFormat.format(this.firRankValue)+";");
+		strBuffer.append(zeroStr+";"+this.secStStr+";"+Integer.toString(this.secRank)+";"+dataFormat.format(this.secRankValue)+";");
+		strBuffer.append(this.runTitle);
 		return strBuffer.toString();
 	}
 

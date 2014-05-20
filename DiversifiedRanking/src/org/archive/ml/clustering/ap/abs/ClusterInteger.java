@@ -41,7 +41,7 @@ import java.util.HashSet;
 public class ClusterInteger implements Comparable<ClusterInteger> {
 
     private Integer name;
-    private Collection<Integer> elements = new HashSet<Integer>();
+    public Collection<Integer> elements = new HashSet<Integer>();
 
     public ClusterInteger(final Integer name) {
         this.name = name;

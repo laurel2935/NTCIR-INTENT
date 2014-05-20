@@ -11,6 +11,7 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Vector;
 
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -27,12 +28,15 @@ import org.archive.dataset.ntcir.sm.SubtopicInstance;
 import org.archive.dataset.ntcir.sm.TaggedTerm;
 import org.archive.nlp.chunk.ShallowParser;
 import org.archive.nlp.htmlparser.pk.HtmlExtractor;
+import org.archive.nlp.lcs.LCSScaner;
 import org.archive.nlp.qpunctuation.QueryPreParser;
 import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
 import org.archive.util.DocUtils;
 import org.archive.util.FileFinder;
 import org.archive.util.Language.Lang;
+import org.archive.util.io.IOText;
+import org.archive.util.tuple.StrInt;
 
 public class NTCIRLoader {
 	
@@ -532,6 +536,20 @@ public class NTCIRLoader {
 				}
 			}			
 		}
+		
+		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
+			for(SMTopic smTopic: smTopicList){
+				loadChPolysemyList(smTopic);
+				if(DEBUG && null!=smTopic.polysemyList){
+					System.out.println(smTopic.toString());
+					for(String polye : smTopic.polysemyList){
+						System.out.println(polye);
+					}					
+					System.out.println();
+				}
+			}
+		}
+				
 		//
 		if(!PerformIRAnnotation){
 			return smTopicList;
@@ -676,6 +694,76 @@ public class NTCIRLoader {
 		return smTopicList;
 	}	
 	
+	private static void loadChPolysemyList(SMTopic smTopic){
+		////baikepoly_0010.txt
+		String dir = OutputDirectory.ROOT+"/ntcir-11/SM/baike/";
+		String id = smTopic.getID();
+		File polyFile = new File(dir+"baikepoly_"+id+".txt");
+		if(polyFile.exists()){
+			ArrayList<ArrayList<String>> polyList = new ArrayList<ArrayList<String>>();
+			
+			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(polyFile.getAbsolutePath());
+			
+			for(String line: lineList){
+				
+				if(line.equals("汉语词语")){
+					continue;
+				}
+				
+				boolean match = false;
+				for(int i=0; i<polyList.size(); i++){
+					ArrayList<String> poly = polyList.get(i);
+					if(segmentMatch(smTopic.getTopicText(), poly, line)){
+						poly.add(line);
+						match = true;
+						break;
+					}
+				}
+				if(!match){
+					ArrayList<String> poly = new ArrayList<String>();
+					poly.add(line);
+					polyList.add(poly);
+				}
+			}
+			
+			ArrayList<String> polysemyList = new ArrayList<String>();
+			for(ArrayList<String> poly: polyList){
+				String p = "";
+				for(String x: poly){
+					p += x;
+					p += "\t";
+				}
+				polysemyList.add(p.trim());
+			}
+			
+			smTopic.setPolysemyList(polysemyList);
+		}		
+	}
+	
+	private static boolean segmentMatch(String exceptText, ArrayList<String> strList, String candidate){
+		for(String str: strList){
+			if(chMatch(exceptText, str, candidate)){
+				return true;
+			}
+		}
+		return false;
+		
+	}
+	private static boolean chMatch(String exceptText, String a, String b){
+		Vector<String> strSet = new Vector<String>();
+		strSet.add(a);
+		strSet.add(b);
+		
+		LCSScaner lcsScaner = new LCSScaner(strSet, Lang.Chinese);
+		ArrayList<StrInt> lcsList = lcsScaner.enumerateLCS_AtLeastK(2);
+		for(StrInt lcs: lcsList){
+			if(lcs.getFirst().length() >= 2 && !lcs.getFirst().equals(exceptText)){
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	public static HashMap<String, ArrayList<String>> loadSystemRun(String sysRunFile, NTCIR_EVAL_TASK eval){
 		return loadSystemRun(sysRunFile, CODE_UTF8, eval);
 	}
@@ -746,7 +834,7 @@ public class NTCIRLoader {
 		
 		//3
 		//NTCIRLoader.openPrinter();
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
+		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
 		//NTCIRLoader.closePrinter();
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
 	}
