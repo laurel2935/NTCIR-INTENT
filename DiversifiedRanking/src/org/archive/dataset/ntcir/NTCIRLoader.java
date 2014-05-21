@@ -42,7 +42,7 @@ import org.archive.util.tuple.StrInt;
 
 public class NTCIRLoader {
 	
-	private final static boolean DEBUG = true;
+	private final static boolean DEBUG = false;
 	
 	private static boolean ICTCLAS2014_INI = false;
 	public static final String CODE_UTF8 = "UTF-8";
@@ -807,6 +807,7 @@ public class NTCIRLoader {
 			}
 			//
 			if(isListStyle(disaList)){
+				smTopic.listStyle = true;
 				//--
 				ArrayList<ArrayList<String>> polyList = new ArrayList<ArrayList<String>>();
 				for(String line: aspectList){

@@ -36,6 +36,8 @@ public class SMTopic {
 	
 	//polysemy
 	public ArrayList<String> polysemyList;
+	//for en topic
+	public boolean listStyle = false;
 	
 	public SMTopic(String id, String text){
 		this._id = id;

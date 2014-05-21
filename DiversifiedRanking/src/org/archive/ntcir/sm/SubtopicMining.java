@@ -106,9 +106,9 @@ public class SubtopicMining {
 			}
 			
 			RankedList rankedList = null;
-			
+			//
 			if(null != smTopic.polysemyList){
-				rankedList = getRankedListForPolyTopic(smTopic, runParameter.runTitle);
+				rankedList = getRankedListForPolyTopic(smTopic, runParameter.runTitle, Lang.Chinese);
 			}else if(smTopic.CompleteSentence){
 				rankedList = new RankedList();
 				
@@ -254,40 +254,23 @@ public class SubtopicMining {
 		writer.close();
 		//*/
 	}
-		
-	public RankedList getRankedListForPolyTopic(SMTopic smTopic, String runTitle){
+	//	
+	public RankedList getRankedListForPolyTopic(SMTopic smTopic, String runTitle, Lang lang){
 		
 		System.out.println("processing polysemy topic:\t"+smTopic.toString());
 		System.out.println("item number:\t"+smTopic.smSubtopicItemList.size());
 		
 		ArrayList<String> polysemyList = smTopic.polysemyList;
 		
-		HashMap<String, PolyCluster> polyClusterMap = new HashMap<String, PolyCluster>();
-		PolyCluster otherPolyCluster = new PolyCluster("unk");
+		ArrayList<PolyCluster> clusterList = new ArrayList<PolyCluster>();
 		
-		//literal content match
-		for(SMSubtopicItem item: smTopic.smSubtopicItemList){
-			String bestPolyStr = bestMatch(polysemyList, item, smTopic.getTopicText());
-			if(null != bestPolyStr){
-				if(polyClusterMap.containsKey(bestPolyStr)){
-					polyClusterMap.get(bestPolyStr).addSMSubtopicItem(item);
-				}else {
-					PolyCluster polyCluster = new PolyCluster(bestPolyStr);
-					polyCluster.addSMSubtopicItem(item);
-					polyClusterMap.put(bestPolyStr, polyCluster);
-				}
-			}else {
-				otherPolyCluster.addSMSubtopicItem(item);
-			}			
-		}
-		//semantic similarity based match
-		if(polyClusterMap.size() < 4){
-			polyClusterMap.clear();
-			otherPolyCluster = null;
-			otherPolyCluster = new PolyCluster("unk");
+		if(Lang.Chinese == lang){
+			HashMap<String, PolyCluster> polyClusterMap = new HashMap<String, PolyCluster>();
+			PolyCluster otherPolyCluster = new PolyCluster("unk");
 			
+			//literal content match
 			for(SMSubtopicItem item: smTopic.smSubtopicItemList){
-				String bestPolyStr = bestMatch_sim(polysemyList, item, smTopic, Lang.Chinese);
+				String bestPolyStr = bestMatch(polysemyList, item, smTopic.getTopicText(), Lang.Chinese);
 				if(null != bestPolyStr){
 					if(polyClusterMap.containsKey(bestPolyStr)){
 						polyClusterMap.get(bestPolyStr).addSMSubtopicItem(item);
@@ -300,43 +283,161 @@ public class SubtopicMining {
 					otherPolyCluster.addSMSubtopicItem(item);
 				}			
 			}
-		}
-		
-		ArrayList<PolyCluster> polyClusterList = new ArrayList<PolyCluster>();
-		for(Entry<String, PolyCluster> entry: polyClusterMap.entrySet()){
-			PolyCluster polyCluster = entry.getValue();
-			polyCluster.calInstanceNumber(smTopic.getTopicText());
-			Collections.sort(polyCluster.smSubtopicItemList);
-			polyClusterList.add(polyCluster);
-		}
-		
-		Collections.sort(polyClusterList);	
-		
-		ArrayList<PolyCluster> clusterList = new ArrayList<PolyCluster>();
-		
-		if(polyClusterList.size() >= 5){
-			for(int i=0; i<5; i++){
-				clusterList.add(polyClusterList.get(i));
-			}		
-		}else{
-			clusterList.addAll(polyClusterList);
-			if(null!= otherPolyCluster.smSubtopicItemList && otherPolyCluster.smSubtopicItemList.size() > 0){
-				Collections.sort(otherPolyCluster.smSubtopicItemList);
-				clusterList.add(otherPolyCluster);
-			}			
-		}					
-		
-		if(DEBUG){
-			int id = 1;
-			for(PolyCluster polyCluster: polyClusterList){
-				System.out.println("cluster-"+id+": instance number: "+polyCluster.instanceNumber);
-				for(SMSubtopicItem item: polyCluster.smSubtopicItemList){
-					System.out.println(item.subtopicInstanceGroup.size()+"\t"+item.itemDelegater._text);
+			//semantic similarity based match
+			if(polyClusterMap.size() < 4){
+				polyClusterMap.clear();
+				otherPolyCluster = null;
+				otherPolyCluster = new PolyCluster("unk");
+				
+				for(SMSubtopicItem item: smTopic.smSubtopicItemList){
+					String bestPolyStr = bestMatch_sim(polysemyList, item, smTopic, Lang.Chinese);
+					if(null != bestPolyStr){
+						if(polyClusterMap.containsKey(bestPolyStr)){
+							polyClusterMap.get(bestPolyStr).addSMSubtopicItem(item);
+						}else {
+							PolyCluster polyCluster = new PolyCluster(bestPolyStr);
+							polyCluster.addSMSubtopicItem(item);
+							polyClusterMap.put(bestPolyStr, polyCluster);
+						}
+					}else {
+						otherPolyCluster.addSMSubtopicItem(item);
+					}			
 				}
-				System.out.println();
-				id++;
 			}
+			
+			ArrayList<PolyCluster> polyClusterList = new ArrayList<PolyCluster>();
+			for(Entry<String, PolyCluster> entry: polyClusterMap.entrySet()){
+				PolyCluster polyCluster = entry.getValue();
+				polyCluster.calInstanceNumber(smTopic.getTopicText());
+				Collections.sort(polyCluster.smSubtopicItemList);
+				polyClusterList.add(polyCluster);
+			}
+			
+			Collections.sort(polyClusterList);	
+			
+			if(polyClusterList.size() >= 5){
+				for(int i=0; i<5; i++){
+					clusterList.add(polyClusterList.get(i));
+				}		
+			}else{
+				clusterList.addAll(polyClusterList);
+				if(null!= otherPolyCluster.smSubtopicItemList && otherPolyCluster.smSubtopicItemList.size() > 0){
+					Collections.sort(otherPolyCluster.smSubtopicItemList);
+					clusterList.add(otherPolyCluster);
+				}			
+			}	
+			
+			if(DEBUG){
+				int id = 1;
+				for(PolyCluster polyCluster: polyClusterList){
+					System.out.println("cluster-"+id+": instance number: "+polyCluster.instanceNumber);
+					for(SMSubtopicItem item: polyCluster.smSubtopicItemList){
+						System.out.println(item.subtopicInstanceGroup.size()+"\t"+item.itemDelegater._text);
+					}
+					System.out.println();
+					id++;
+				}
+			}
+			
+		}else{
+			//English topic
+			HashMap<String, PolyCluster> polyClusterMap = new HashMap<String, PolyCluster>();
+			PolyCluster otherPolyCluster = new PolyCluster("unk");
+			
+			if(smTopic.listStyle){
+				//literal content match
+				for(SMSubtopicItem item: smTopic.smSubtopicItemList){
+					String bestPolyStr = bestMatch(polysemyList, item, smTopic.getTopicText(), Lang.English);
+					if(null != bestPolyStr){
+						if(polyClusterMap.containsKey(bestPolyStr)){
+							polyClusterMap.get(bestPolyStr).addSMSubtopicItem(item);
+						}else {
+							PolyCluster polyCluster = new PolyCluster(bestPolyStr);
+							polyCluster.addSMSubtopicItem(item);
+							polyClusterMap.put(bestPolyStr, polyCluster);
+						}
+					}else {
+						otherPolyCluster.addSMSubtopicItem(item);
+					}			
+				}
+				
+				//semantic similarity based match
+				if(polyClusterMap.size() < 4){
+					polyClusterMap.clear();
+					otherPolyCluster = null;
+					otherPolyCluster = new PolyCluster("unk");
+					
+					for(SMSubtopicItem item: smTopic.smSubtopicItemList){
+						String bestPolyStr = bestMatch_sim(polysemyList, item, smTopic, Lang.English);
+						if(null != bestPolyStr){
+							if(polyClusterMap.containsKey(bestPolyStr)){
+								polyClusterMap.get(bestPolyStr).addSMSubtopicItem(item);
+							}else {
+								PolyCluster polyCluster = new PolyCluster(bestPolyStr);
+								polyCluster.addSMSubtopicItem(item);
+								polyClusterMap.put(bestPolyStr, polyCluster);
+							}
+						}else {
+							otherPolyCluster.addSMSubtopicItem(item);
+						}			
+					}
+				}
+				
+			}else{
+				
+				for(SMSubtopicItem item: smTopic.smSubtopicItemList){
+					String bestPolyStr = bestMatch_sim(polysemyList, item, smTopic, Lang.English);
+					if(null != bestPolyStr){
+						if(polyClusterMap.containsKey(bestPolyStr)){
+							polyClusterMap.get(bestPolyStr).addSMSubtopicItem(item);
+						}else {
+							PolyCluster polyCluster = new PolyCluster(bestPolyStr);
+							polyCluster.addSMSubtopicItem(item);
+							polyClusterMap.put(bestPolyStr, polyCluster);
+						}
+					}else {
+						otherPolyCluster.addSMSubtopicItem(item);
+					}			
+				}
+			}
+			//common for en
+			ArrayList<PolyCluster> polyClusterList = new ArrayList<PolyCluster>();
+			for(Entry<String, PolyCluster> entry: polyClusterMap.entrySet()){
+				PolyCluster polyCluster = entry.getValue();
+				polyCluster.calInstanceNumber(smTopic.getTopicText());
+				Collections.sort(polyCluster.smSubtopicItemList);
+				polyClusterList.add(polyCluster);
+			}
+			
+			Collections.sort(polyClusterList);	
+			
+			if(polyClusterList.size() >= 5){
+				for(int i=0; i<5; i++){
+					clusterList.add(polyClusterList.get(i));
+				}		
+			}else{
+				clusterList.addAll(polyClusterList);
+				if(null!= otherPolyCluster.smSubtopicItemList && otherPolyCluster.smSubtopicItemList.size() > 0){
+					Collections.sort(otherPolyCluster.smSubtopicItemList);
+					clusterList.add(otherPolyCluster);
+				}			
+			}	
+			
+			if(DEBUG){
+				int id = 1;
+				for(PolyCluster polyCluster: polyClusterList){
+					System.out.println("cluster-"+id+": instance number: "+polyCluster.instanceNumber);
+					for(SMSubtopicItem item: polyCluster.smSubtopicItemList){
+						System.out.println(item.subtopicInstanceGroup.size()+"\t"+item.itemDelegater._text);
+					}
+					System.out.println();
+					id++;
+				}
+			}
+			
 		}
+		
+		//common for en and ch
 		
 		for(PolyCluster polyCluster: clusterList){
 			polyCluster.delegaterItem = polyCluster.smSubtopicItemList.get(0);		
@@ -364,14 +465,22 @@ public class SubtopicMining {
 	}
 	
 	public ArrayList<String> getSeg(SMTopic smTopic, String subtopiStr, Lang lang){
-		if(this._segCache.containsKey(subtopiStr)){
-			return this._segCache.get(subtopiStr);
+		if(_segCache.containsKey(subtopiStr)){
+			return _segCache.get(subtopiStr);
 		}else {
 			if(Lang.Chinese == lang){
 				String reference = Tokenizer.isDirectWord(smTopic.getTopicText(), Lang.Chinese)?smTopic.getTopicText():null;
-				return Tokenizer.adaptiveQuerySegment(Lang.Chinese, subtopiStr, reference, true, true);	
+				ArrayList<String> tList = Tokenizer.adaptiveQuerySegment(Lang.Chinese, subtopiStr, reference, true, true);
+				_segCache.put(subtopiStr, tList);
+				return 	tList;
 			}else{
-				return null;
+				ArrayList<String> tList = new ArrayList<String>();
+				String [] tArray = subtopiStr.split(" ");
+				for(int i=0; i<tArray.length; i++){
+					tList.add(tArray[i]);
+				}
+				_segCache.put(subtopiStr, tList);
+				return tList;
 			}
 		}
 	}
@@ -596,11 +705,11 @@ public class SubtopicMining {
 	}
 	
 	
-	public static String bestMatch(ArrayList<String> polysemyList, SMSubtopicItem item, String exceptText){
+	public static String bestMatch(ArrayList<String> polysemyList, SMSubtopicItem item, String exceptText, Lang lang){
 		String bestPolyString = null;
 		int maxsize = 0;
 		for(String polyString: polysemyList){
-			HashSet<String> matSet = matchedStr(polyString, item, exceptText);
+			HashSet<String> matSet = matchedStr(polyString, item, exceptText, lang);
 			if(null != matSet){
 				if(matSet.size() > maxsize){
 					maxsize = matSet.size();
@@ -624,20 +733,30 @@ public class SubtopicMining {
 		return bestPolyString;
 	}
 	
-	public static HashSet<String> matchedStr(String polyString, SMSubtopicItem item, String exceptText){
+	public static HashSet<String> matchedStr(String polyString, SMSubtopicItem item, String exceptText, Lang lang){
 		HashSet<String> set = new HashSet<String>();
 		
 		for(SubtopicInstance instance: item.subtopicInstanceGroup){
 			Vector<String> strSet = new Vector<String>();
 			strSet.add(instance._text);
 			strSet.add(polyString);
-			LCSScaner lcsScaner = new LCSScaner(strSet, Lang.Chinese);
-			ArrayList<StrInt> lcsList = lcsScaner.enumerateLCS_AtLeastK(2);
-			for(StrInt lcs: lcsList){
-				if(lcs.getFirst().length() >= 2 && !lcs.getFirst().equals(exceptText)){
-					set.add(lcs.getFirst());
+			if(Lang.Chinese == lang){
+				LCSScaner lcsScaner = new LCSScaner(strSet, Lang.Chinese);
+				ArrayList<StrInt> lcsList = lcsScaner.enumerateLCS_AtLeastK(2);
+				for(StrInt lcs: lcsList){
+					if(lcs.getFirst().length() >= 2 && !lcs.getFirst().equals(exceptText)){
+						set.add(lcs.getFirst());
+					}
 				}
-			}
+			}else{
+				LCSScaner lcsScaner = new LCSScaner(strSet, Lang.English);
+				ArrayList<StrInt> lcsList = lcsScaner.enumerateLCS_AtLeastK(2);
+				for(StrInt lcs: lcsList){
+					if(!lcs.getFirst().equals(exceptText)){
+						set.add(lcs.getFirst());
+					}
+				}
+			}			
 		}
 		if(set.size() > 0){
 			return set;
@@ -813,11 +932,11 @@ public class SubtopicMining {
 		return wList;
 	}
 	
-	private void enRun(RunParameter runParameter, BufferedWriter writer){
+	private void enRun(RunParameter runParameter, BufferedWriter writer) throws Exception{
 		
-		for(int i=0; i<runParameter.topicList.size(); i++){
+		for(int t=0; t<runParameter.topicList.size(); t++){
 			
-			SMTopic smTopic = runParameter.topicList.get(i);	
+			SMTopic smTopic = runParameter.topicList.get(t);	
 			
 			if(DEBUG){
 				System.out.println("Processing topic "+ smTopic.getID()+"\t"+smTopic.getTopicText());
@@ -829,67 +948,128 @@ public class SubtopicMining {
 			
 			RankedList rankedList = null;
 			
-			if(ClusteringFunction.StandardAP == runParameter.cFunction){
+			if(null != smTopic.polysemyList){
+				rankedList = getRankedListForPolyTopic(smTopic, runParameter.runTitle, Lang.English);
+			}else if(smTopic.CompleteSentence){
+				rankedList = new RankedList();
 				
-				ArrayList<InteractionData> releMatrix = getEnReleMatrix(smTopic, runParameter);				
+				RankedRecord record = new RankedRecord(smTopic.getID(), smTopic.getTopicText(), 1, 1.0,
+						smTopic.getTopicText(), 1, 1.0, runParameter.runTitle);
 				
-		    	double lambda = 0.5;
-		    	int iterations = 5000;
-		    	int convits = 10;
-		    	double preferences = getMedian(releMatrix);    	
-		    	APClustering apClustering = new APClustering(lambda, iterations, convits, preferences, releMatrix);
-		    	apClustering.setParemeters();
-		    	Map<String, ClusterString> clusterMap = (Map<String, ClusterString>)apClustering.run();
-		    	//rankedList = DCGK.staticDCG_K(runParameter, smTopic, clusterMap);
-		    	if(DEBUG){
-		    		System.out.println("Cluster size:\t"+clusterMap.size());
-		    		Set<String> keySet = clusterMap.keySet();
-		    		int id = 1;
-		    		for(String key: keySet){
-		    			System.out.println("Exemplar-"+(id++)+":\t"+getItem(smTopic, key).itemDelegater.toString());
-		    			Collection<String> memberSet = clusterMap.get(key).getElements();
-		    			int mID = 1;
-		    			for(String memKey: memberSet){
-		    				System.out.println("\t"+(mID++)+":\t"+getItem(smTopic, memKey).itemDelegater.toString());
-		    			}
-		    			System.out.println();
-		    		}		    		
-		    	}
-			}else if(ClusteringFunction.K_UFL == runParameter.cFunction){
-				ArrayList<InteractionData> releMatrix = getEnReleMatrix(smTopic, runParameter);
-				ArrayList<InteractionData> costMatrix = getCostMatrix(releMatrix);
+				rankedList.addRecord(record);	
 				
-				ArrayList<Double> fList = new ArrayList<Double>();
-				for(int j=0; j<smTopic.smSubtopicItemList.size(); j++){
-		    		fList.add(0.0);
-		    	}
+				System.out.println("For clear topic:");
+				System.out.println(rankedList.tosString());
 				
-		    	double lambda = 0.5;
-		    	int iterations = 5000;
-		    	int convits = 10;
-		    	double preferences = 0-getMedian(releMatrix);
-		    	int preK = 5;
-		    	K_UFL kUFL = new K_UFL(lambda, iterations, convits, preferences, preK, UFLMode.C_Same_F, costMatrix, fList);
-		    	//    	
-		    	kUFL.run();
+			}else{
+				
+				if(ClusteringFunction.StandardAP == runParameter.cFunction){
+					
+					ArrayList<ItemCluster> itemClusterList = apCluster(smTopic.smSubtopicItemList, Lang.English);
+					for(ItemCluster itemCluster: itemClusterList){
+						itemCluster.calInstanceNumber(smTopic.getTopicText());
+						Collections.sort(itemCluster.itemList);
+					}
+					Collections.sort(itemClusterList);
+					double sum = 0.0;
+					for(ItemCluster itemCluster: itemClusterList){
+						sum += itemCluster.instanceNumber;
+					}
+					for(ItemCluster itemCluster: itemClusterList){
+						//itemCluster.weight = itemCluster.instanceNumber/sum;
+						itemCluster.weight = 1.0/itemCluster.instanceNumber;
+						for(SMSubtopicItem item: itemCluster.itemList){
+							item.weight = itemCluster.weight*(item.subtopicInstanceGroup.size()*1.0/itemCluster.instanceNumber);
+						}
+					}
+					//--
+					int itemN = (int)sum;					
+					int seatN = Math.min(50, itemN);	
+					
+					Vector<Double> quotient = new Vector<Double>(itemClusterList.size());
+					Vector<Double> voteArray = new Vector<Double>(itemClusterList.size());
+					Vector<Double> doneSeatArray = new Vector<Double>(itemClusterList.size());
+					
+					for(int k=0; k<itemClusterList.size(); k++){
+						quotient.add(0.0);
+						voteArray.add(itemClusterList.get(k).weight);
+						//voteArray[k] = itemClusterList.get(k).weight;
+						doneSeatArray.add(0.0);
+					}
+					
+					rankedList = new RankedList();
+					
+					int s = 1;
+					do {
+						calQuotient(quotient, voteArray, doneSeatArray);
+						int i = getMaxIndex(quotient);
+						
+						if(-1 == i){
+							break;
+						}
+						
+						if(itemClusterList.get(i).itemList.size() > 0){
+							SMSubtopicItem item = itemClusterList.get(i).itemList.get(0);
+							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
+									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runParameter.runTitle);
+							
+							rankedList.addRecord(record);
+							
+							itemClusterList.get(i).itemList.remove(0);
+							
+							doneSeatArray.set(i, doneSeatArray.get(i)+1);
+							
+							s++;
+						}else {
+							//quotient[i] = Double.MIN_VALUE;
+							quotient.set(i, -1.0);
+						}
+					} while (s<=seatN);
+					
+					System.out.println("For infor topic:");
+					if(null!=rankedList && null!=rankedList.recordList){
+						System.out.println(rankedList.tosString());
+					}else{
+						System.err.println("Odd infor case!");
+					}
+					
+				}else if(ClusteringFunction.K_UFL == runParameter.cFunction){
+					ArrayList<InteractionData> releMatrix = getEnReleMatrix(smTopic, runParameter);
+					ArrayList<InteractionData> costMatrix = getCostMatrix(releMatrix);
+					
+					ArrayList<Double> fList = new ArrayList<Double>();
+					for(int j=0; j<smTopic.smSubtopicItemList.size(); j++){
+			    		fList.add(0.0);
+			    	}
+					
+			    	double lambda = 0.5;
+			    	int iterations = 5000;
+			    	int convits = 10;
+			    	double preferences = 0-getMedian(releMatrix);
+			    	int preK = 5;
+			    	K_UFL kUFL = new K_UFL(lambda, iterations, convits, preferences, preK, UFLMode.C_Same_F, costMatrix, fList);
+			    	//    	
+			    	kUFL.run();
+				}
 			}
 			
-			/*
-			if(null != rankedList){				
+			///*
+			if(null!=rankedList && null!=rankedList.recordList){				
 				for(RankedRecord record: rankedList.recordList){
 					writer.write(record.toString());
 					writer.newLine();
 				}
 			}else{
-				new Exception("Null RankedList Error!").printStackTrace();
+				System.err.println("Null RankedList Error!");
+				continue;
 			}
-			*/
+			//*/
 		}
 		//
-		/*
+		///*
 		writer.flush();
 		writer.close();
-		*/
+		//*/
 	}
 	private ArrayList<InteractionData> getEnReleMatrix(SMTopic smTopic, RunParameter runParameter){
 		double termIRWeight = 0.4; double phraseIRWeight = 0.6;
@@ -1034,7 +1214,7 @@ public class SubtopicMining {
 		//2 
 		String runTitle = "testTitle";
 		String runIntroduction = "testIntroduction";
-		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
+		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, runTitle, runIntroduction,
 				SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
 		try {
 			smMining.run(runParameter);

@@ -46,7 +46,7 @@ public class WordNetSimilarity {
 			} catch (Exception e) {
 				// TODO: handle exception
 				//e.printStackTrace();
-				System.err.println("En Similarity Error!");
+				//System.err.println("En Similarity Error!");
 				continue;
 			}
 			
