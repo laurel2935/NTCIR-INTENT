@@ -40,6 +40,7 @@ import org.archive.ntcir.sm.similarity.wordnet.WordNetSimilarity;
 import org.archive.util.Pair;
 import org.archive.util.Language.Lang;
 import org.archive.util.io.IOText;
+import org.archive.util.pattern.PatternFactory;
 import org.archive.util.tuple.StrDouble;
 import org.archive.util.tuple.StrInt;
 import org.archive.util.tuple.StrStr;
@@ -155,6 +156,8 @@ public class SubtopicMining {
 					
 					rankedList = new RankedList();
 					//--
+					//double outputF = 1.0;
+					double outputS = 1.0;
 					int s = 1;
 					do {
 						calQuotient(quotient, voteArray, doneSeatArray);
@@ -166,8 +169,31 @@ public class SubtopicMining {
 						
 						if(itemClusterList.get(i).itemList.size() > 0){
 							SMSubtopicItem item = itemClusterList.get(i).itemList.get(0);
+							
+							if(1 == s){
+								outputS = item.weight;								
+							}else if(item.weight >= outputS){
+								outputS = outputS-epsilon;
+							}else{
+								outputS = item.weight;
+							}
+							
+							/*
+							if(1 == s){
+								outputF = itemClusterList.get(i).weight;
+							}else if(itemClusterList.get(i).weight >= outputF){
+								outputF = outputF - epsilon;
+							}else{
+								outputF = itemClusterList.get(i).weight;
+							}
+							*/
+							
+							/*
 							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
-									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runParameter.runTitle);
+									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputV, runParameter.runTitle);
+							*/
+							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
+									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputS, runParameter.runTitle);
 							
 							rankedList.addRecord(record);
 							
@@ -438,7 +464,21 @@ public class SubtopicMining {
 		}
 		
 		//common for en and ch
-		
+		if(Lang.Chinese == lang){
+			for(PolyCluster polyCluster: clusterList){
+				if(polyCluster.polysemyString.equals("unk")){
+					polyCluster.polysemyString = polyCluster.smSubtopicItemList.get(0).itemDelegater._text;
+				}else {
+					String [] array = polyCluster.polysemyString.split("\t");
+					polyCluster.polysemyString = array[0];
+				}
+				//polyCluster.delegaterItem = polyCluster.smSubtopicItemList.get(0);		
+			}
+		}else{
+			for(PolyCluster polyCluster: clusterList){				
+				polyCluster.delegaterItem = polyCluster.smSubtopicItemList.get(0);		
+			}
+		}
 		for(PolyCluster polyCluster: clusterList){
 			polyCluster.delegaterItem = polyCluster.smSubtopicItemList.get(0);		
 		}
@@ -460,7 +500,7 @@ public class SubtopicMining {
 			}
 		}
 		
-		return generateRankedList(smTopic, clusterList, runTitle);
+		return generateRankedList(smTopic, clusterList, runTitle, lang);
 		
 	}
 	
@@ -485,7 +525,7 @@ public class SubtopicMining {
 		}
 	}
 	
-	public static RankedList generateRankedList(SMTopic smTopic, ArrayList<PolyCluster> clusterList, String runTitle){
+	public static RankedList generateRankedList(SMTopic smTopic, ArrayList<PolyCluster> clusterList, String runTitle, Lang lang){
 		
 		int itemN = 0;
 		for(PolyCluster c: clusterList){
@@ -510,6 +550,8 @@ public class SubtopicMining {
 		//System.out.println("votes:\t"+voteVector);
 		RankedList rankedList = new RankedList();
 		int s = 1;
+		double outputS = 1.0;
+		//double outputF = 1.0;
 		do {
 			calQuotient(quotient, voteVector, doneSeatVector);
 			int i = getMaxIndex(quotient);
@@ -520,8 +562,35 @@ public class SubtopicMining {
 			
 			if(clusterList.get(i).smSubtopicItemList.size() > 0){
 				SMSubtopicItem item = clusterList.get(i).smSubtopicItemList.get(0);
-				RankedRecord record = new RankedRecord(smTopic.getID(), clusterList.get(i).delegaterItem.subtopicInstanceGroup.get(0)._text,
-						(i+1), clusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runTitle);
+				RankedRecord record = null;
+				/*
+				if(Lang.Chinese == lang){
+					record = new RankedRecord(smTopic.getID(), clusterList.get(i).polysemyString,
+							(i+1), clusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runTitle);
+				}else{
+					record = new RankedRecord(smTopic.getID(), clusterList.get(i).delegaterItem.subtopicInstanceGroup.get(0)._text,
+							(i+1), clusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runTitle);
+				}	
+				*/
+				if(1 == s){
+					outputS = item.weight;					
+				}else if(item.weight >= outputS){
+					outputS = outputS-epsilon;
+				}else{
+					outputS = item.weight;
+				}
+				/*
+				if(1 == s){
+					outputF = clusterList.get(i).weight;
+				}else if(clusterList.get(i).weight>=outputF){
+					outputF = outputF - epsilon;
+				}else{
+					outputF =  clusterList.get(i).weight;
+				}
+				*/
+				
+				record = new RankedRecord(smTopic.getID(), clusterList.get(i).delegaterItem.subtopicInstanceGroup.get(0)._text,
+						(i+1), clusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputS, runTitle);
 				
 				rankedList.addRecord(record);
 				
@@ -1000,6 +1069,9 @@ public class SubtopicMining {
 					rankedList = new RankedList();
 					
 					int s = 1;
+					double outputS = 1.0;
+					//double outputF = 1.0;
+					
 					do {
 						calQuotient(quotient, voteArray, doneSeatArray);
 						int i = getMaxIndex(quotient);
@@ -1010,8 +1082,26 @@ public class SubtopicMining {
 						
 						if(itemClusterList.get(i).itemList.size() > 0){
 							SMSubtopicItem item = itemClusterList.get(i).itemList.get(0);
+							
+							if(1 == s){
+								outputS = item.weight;								
+							}else if(item.weight >= outputS){
+								outputS = outputS-epsilon;
+							}else{
+								outputS = item.weight;
+							}
+							/*
+							if(1 == s){
+								outputF = itemClusterList.get(i).weight;
+							}else if(itemClusterList.get(i).weight >= outputF){
+								outputF = outputF- epsilon;
+							}else {
+								outputF = itemClusterList.get(i).weight;
+							}
+							*/
+							
 							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
-									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runParameter.runTitle);
+									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputS, runParameter.runTitle);
 							
 							rankedList.addRecord(record);
 							
@@ -1167,11 +1257,15 @@ public class SubtopicMining {
 		Pair sim_key = new Pair(aTerm, bTerm);
 		Double simScore = null;
 		if (null == (simScore=_simCache.get(sim_key))) {
-			if(Lang.English == lang){
+			if(!PatternFactory.containHanCharacter(aTerm) && !PatternFactory.containHanCharacter(bTerm)){
 				simScore = WordNetSimilarity.JCSimilarity_Average(aTerm, bTerm);
 			}else{
-				simScore = LiuConceptParser.getInstance().getSimilarity(aTerm, bTerm);
-			}
+				if(Lang.English == lang){
+					simScore = WordNetSimilarity.JCSimilarity_Average(aTerm, bTerm);
+				}else{
+					simScore = LiuConceptParser.getInstance().getSimilarity(aTerm, bTerm);
+				}
+			}			
 			
 			_simCache.put(sim_key, simScore);
 		}
@@ -1187,7 +1281,7 @@ public class SubtopicMining {
 	}
 	
 	private static Random noiseGenerator = new Random();
-	private static final double epsilon = 0.000001;
+	private static final double epsilon = 0.00000001;
 	protected static double generateNoiseHelp() {			
         double ran_tmp = noiseGenerator.nextDouble();
         double noise_tmp = epsilon * ran_tmp;
@@ -1211,9 +1305,30 @@ public class SubtopicMining {
 		}
 		*/
 		
-		//2 
-		String runTitle = "testTitle";
-		String runIntroduction = "testIntroduction";
+		/////////////////
+		//Subtopic Mining for Ch-Topics
+		/////////////////
+		/*
+		String runTitle = "TUTA1-S-C-1A";
+		String runIntroduction = "Corresponding to the Chinese subtopic mining subtask, we rely on the categorical knowledge of Baidu-Baike, the online natural language processing service, "
+				+ "to identify the ambiguous topics, clear topics. Based on the Affinity Propagation clustering approach to cluster the subtopic strings.";
+		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
+				SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
+		try {
+			smMining.run(runParameter);
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}	
+		*/
+		
+		//////////////////////
+		//Subtopic Mining for En-Topics
+		/////////////////////
+		///*
+		String runTitle = "TUTA1-S-E-1A";
+		String runIntroduction = "Corresponding to the English subtopic mining subtask, we rely on the categorical knowledge of Wikipedia and the Stanford Parser "
+				+ "to identify the ambiguous topics, clear topics. Based on the Affinity Propagation clustering approach to cluster the subtopic strings.";
 		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, runTitle, runIntroduction,
 				SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
 		try {
@@ -1222,6 +1337,7 @@ public class SubtopicMining {
 			// TODO: handle exception
 			e.printStackTrace();
 		}	
+		//*/
 	}
 	
 

@@ -7,7 +7,7 @@ import java.text.DecimalFormat;
  * 
  * **/
 public class RankedRecord {
-	private static DecimalFormat dataFormat =new DecimalFormat("0.###");
+	private static DecimalFormat dataFormat =new DecimalFormat("0.########");
 	//
 	public String topicID;
 	private static String zeroStr = "0";

@@ -1,7 +1,10 @@
 package org.archive.dataset.ntcir.sm;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+
+import org.archive.util.tuple.StrInt;
 
 public class SMTopic {
 	private static boolean DEBUG = false;
@@ -30,6 +33,7 @@ public class SMTopic {
 	
 	//
 	public ArrayList<String> uniqueRelatedQueries;
+	public HashMap<String, StrInt> rqMap;
 	
 	public ArrayList<SMSubtopicItem> smSubtopicItemList;
 	public ArrayList<SubtopicInstance> oddSubtopicInstances;
@@ -103,41 +107,68 @@ public class SMTopic {
 	//
 	public void getUniqueRelatedQueries(){
 		this.uniqueRelatedQueries = new ArrayList<String>();
-		HashSet<String> qSet = new HashSet<String>();
+		
+		this.rqMap = new HashMap<String, StrInt>();
+		
+		//HashSet<String> qSet = new HashSet<String>();
 		for(String q: this.suggestionBaidu){
-			if(!qSet.contains(q)){
-				qSet.add(q);
+			if(!rqMap.containsKey(q)){
+				StrInt strInt = new StrInt(q);
+				rqMap.put(q, strInt);				
+				
 				this.uniqueRelatedQueries.add(q);
+			}else{
+				rqMap.get(q).intPlus1();
 			}
 		}
 		for(String q: this.suggestionBing){
-			if(!qSet.contains(q)){
-				qSet.add(q);
+			if(!rqMap.containsKey(q)){
+				StrInt strInt = new StrInt(q);
+				rqMap.put(q, strInt);				
+				
 				this.uniqueRelatedQueries.add(q);
+			}else{
+				rqMap.get(q).intPlus1();
 			}
 		}
 		for(String q: this.suggestionGoogle){
-			if(!qSet.contains(q)){
-				qSet.add(q);
+			if(!rqMap.containsKey(q)){
+				StrInt strInt = new StrInt(q);
+				rqMap.put(q, strInt);				
+				
 				this.uniqueRelatedQueries.add(q);
+			}else{
+				rqMap.get(q).intPlus1();
 			}
 		}
 		for(String q: this.suggestionSougou){
-			if(!qSet.contains(q)){
-				qSet.add(q);
+			if(!rqMap.containsKey(q)){
+				StrInt strInt = new StrInt(q);
+				rqMap.put(q, strInt);				
+				
 				this.uniqueRelatedQueries.add(q);
+			}else{
+				rqMap.get(q).intPlus1();
 			}
 		}
 		for(String q: this.suggestionYahoo){
-			if(!qSet.contains(q)){
-				qSet.add(q);
+			if(!rqMap.containsKey(q)){
+				StrInt strInt = new StrInt(q);
+				rqMap.put(q, strInt);				
+				
 				this.uniqueRelatedQueries.add(q);
+			}else{
+				rqMap.get(q).intPlus1();
 			}
 		}
 		for(String q: this.relatedQList){
-			if(!qSet.contains(q)){
-				qSet.add(q);
+			if(!rqMap.containsKey(q)){
+				StrInt strInt = new StrInt(q);
+				rqMap.put(q, strInt);				
+				
 				this.uniqueRelatedQueries.add(q);
+			}else{
+				rqMap.get(q).intPlus1();
 			}
 		}
 		//
@@ -268,6 +299,7 @@ public class SMTopic {
 		//
 		for(SMSubtopicItem smSubtopicItem: this.smSubtopicItemList){
 			smSubtopicItem.getModifierGroupList();
+			smSubtopicItem.resetDelegater(this);
 		}
 	}
 	

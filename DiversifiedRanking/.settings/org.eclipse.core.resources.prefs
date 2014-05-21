@@ -1,11 +1,12 @@
 eclipse.preferences.version=1
 encoding//src/org/archive/nlp/chunk/lpt/ltpService/LTPOption.java=UTF-8
 encoding//src/org/archive/nlp/chunk/lpt/ltpService/examples/Example1.java=UTF-8
-encoding//src/org/archive/nlp/tokenizer/ictclas/ICTCLAS2014.java=UTF-8
+encoding//src/org/archive/nlp/tokenizer/ictclas/ICTCLAS2014.java=gbk
 encoding//src/org/archive/ntcir/sm/RunParameter.java=UTF-8
 encoding//src/org/archive/ntcir/sm/SubtopicMining.java=UTF-8
 encoding//src/org/archive/ntcir/sm/preprocess/TopicParser.java=UTF-8
 encoding//src/org/archive/ntcir/sm/similarity/editdistance/definition/Term.java=UTF-8
 encoding//src/org/archive/ntcir/sm/similarity/hownet/concept/XiaConceptParser.java=UTF-8
 encoding//src/org/archive/ntcir/sm/similarity/hownet/sememe/BaseSememeParser.java=UTF-8
+encoding//src/org/archive/util/pattern/PatternFactory.java=gbk
 encoding/<project>=UTF-8

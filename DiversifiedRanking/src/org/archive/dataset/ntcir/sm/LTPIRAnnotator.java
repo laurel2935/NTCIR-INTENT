@@ -353,9 +353,25 @@ public class LTPIRAnnotator {
 		smTopic.setSentenceState(completeSentence(new TTree(topicLTML.getWords(0))));
 		
 		ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
-		for(Word word: topicLTML.getWords(0)){
-    		taggedTerms.add(new TaggedTerm(word.getWS(), word.getPOS()));
-    	}
+		
+		if(smTopic.getID().equals("0004")){
+			for(Word word: topicLTML.getWords(0)){
+	    		taggedTerms.add(new TaggedTerm(word.getWS().toLowerCase(), word.getPOS()));
+	    	}
+			TaggedTopic taggedTopic = new TaggedTopic();
+			taggedTopic.setTaggedTerms(taggedTerms);
+			
+			taggedTopic.setTaggedPhraseList(getTaggedPhraseList(taggedTerms));
+			
+			smTopic.setTaggedTopic(taggedTopic);
+			
+			return ;
+		}else{
+			for(Word word: topicLTML.getWords(0)){
+	    		taggedTerms.add(new TaggedTerm(word.getWS(), word.getPOS()));
+	    	}
+		}
+		
 		//odd case
 		if(Tokenizer.isDirectWord(smTopic.getTopicText(), Lang.Chinese) && !include(taggedTerms, smTopic.getTopicText())){
 			if(DEBUG){

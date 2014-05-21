@@ -1,6 +1,8 @@
 package org.archive.dataset.ntcir.sm;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 
 public class SMSubtopicItem implements Comparable{
@@ -72,6 +74,14 @@ public class SMSubtopicItem implements Comparable{
 			//
 			this.phraseModifierGroupList.add(phraseModifierGroup);
 		}
+	}
+	
+	public void resetDelegater(SMTopic smTopic){
+		for(SubtopicInstance instance: subtopicInstanceGroup){
+			instance._fre = smTopic.rqMap.get(instance._text).second;
+		}
+		Collections.sort(subtopicInstanceGroup);
+		this.itemDelegater = subtopicInstanceGroup.get(0);
 	}
 	
 	public int compareTo(Object o) {	

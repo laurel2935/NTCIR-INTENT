@@ -536,7 +536,11 @@ public class NTCIRLoader {
 						smTopic.uniqueRelatedQueries.remove(k);
 					}					
 				}
-			}			
+			}
+			if(smTopic.getID().equals("0004")){
+				System.out.println(smTopic.getTopicText());
+				System.out.println(smTopic.uniqueRelatedQueries);
+			}
 		}
 		
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
@@ -980,7 +984,7 @@ public class NTCIRLoader {
 		
 		//3
 		//NTCIRLoader.openPrinter();
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, false);
+		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
 		//NTCIRLoader.closePrinter();
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
 	}

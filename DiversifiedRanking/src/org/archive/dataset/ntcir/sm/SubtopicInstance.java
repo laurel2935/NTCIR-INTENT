@@ -4,11 +4,12 @@ import java.util.ArrayList;
 /**
  * corresponding to a subtopic instance
  * **/
-public class SubtopicInstance {
+public class SubtopicInstance implements Comparable {
 	//public static enum OddCase {NoMatchKO}
 	//corresponding to each kernel-object of the topic
 	//null will be added if it doesn't include the kernel-object
 	public String _text;
+	public int _fre;
 	//public ArrayList<OddCase> oddCases = null;
 	private boolean odd = true;
 	
@@ -67,5 +68,16 @@ public class SubtopicInstance {
 	//
 	public String toString(){
 		return this._text;
+	}
+	
+	public int compareTo(Object o) {	
+		SubtopicInstance cmp = (SubtopicInstance)o;
+		if(this._fre > cmp._fre){
+			return -1;
+		}else if(this._fre < cmp._fre){
+			return 1;
+		}else{
+			return 0;
+		}
 	}
 }
