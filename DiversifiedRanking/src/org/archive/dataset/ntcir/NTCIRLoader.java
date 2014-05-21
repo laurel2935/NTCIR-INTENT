@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Vector;
 
@@ -30,6 +31,7 @@ import org.archive.nlp.chunk.ShallowParser;
 import org.archive.nlp.htmlparser.pk.HtmlExtractor;
 import org.archive.nlp.lcs.LCSScaner;
 import org.archive.nlp.qpunctuation.QueryPreParser;
+import org.archive.nlp.stopword.StopWordChecker;
 import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
 import org.archive.util.DocUtils;
@@ -40,7 +42,7 @@ import org.archive.util.tuple.StrInt;
 
 public class NTCIRLoader {
 	
-	private final static boolean DEBUG = false;
+	private final static boolean DEBUG = true;
 	
 	private static boolean ICTCLAS2014_INI = false;
 	public static final String CODE_UTF8 = "UTF-8";
@@ -540,7 +542,18 @@ public class NTCIRLoader {
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
 			for(SMTopic smTopic: smTopicList){
 				loadChPolysemyList(smTopic);
-				if(DEBUG && null!=smTopic.polysemyList){
+				if(null!=smTopic.polysemyList && DEBUG){
+					System.out.println(smTopic.toString());
+					for(String polye : smTopic.polysemyList){
+						System.out.println(polye);
+					}					
+					System.out.println();
+				}
+			}
+		}else{
+			for(SMTopic smTopic: smTopicList){
+				loadEnDisamList(smTopic);
+				if(null!=smTopic.polysemyList && DEBUG){
 					System.out.println(smTopic.toString());
 					for(String polye : smTopic.polysemyList){
 						System.out.println(polye);
@@ -713,7 +726,7 @@ public class NTCIRLoader {
 				boolean match = false;
 				for(int i=0; i<polyList.size(); i++){
 					ArrayList<String> poly = polyList.get(i);
-					if(segmentMatch(smTopic.getTopicText(), poly, line)){
+					if(segmentMatch(smTopic.getTopicText(), poly, line, Lang.Chinese)){
 						poly.add(line);
 						match = true;
 						break;
@@ -740,11 +753,125 @@ public class NTCIRLoader {
 		}		
 	}
 	
-	private static boolean segmentMatch(String exceptText, ArrayList<String> strList, String candidate){
-		for(String str: strList){
-			if(chMatch(exceptText, str, candidate)){
-				return true;
+	private static void loadEnDisamList(SMTopic smTopic){
+		////baikepoly_0010.txt
+		String dir = OutputDirectory.ROOT+"/ntcir-11/SM/wikipage/";
+		String id = smTopic.getID();
+		File disaFile = new File(dir+"wikidispage_"+id+"_on.txt");
+		if(disaFile.exists()){
+			ArrayList<ArrayList<String>> disaList = new ArrayList<ArrayList<String>>();
+			
+			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(disaFile.getAbsolutePath());
+			
+			ArrayList<String> disa = new ArrayList<String>();			
+			for(String line: lineList){
+				
+				if(line.length() == 0){
+					continue;
+				}
+				
+				if(line.startsWith("@")){
+					if(disa.size()>0){
+						disaList.add(disa);
+						disa = new ArrayList<String>();
+					}else {
+						continue;
+					}					
+				}else{
+					disa.add(line);
+				}
 			}
+			if(disa.size() > 0){
+				disaList.add(disa);
+			}
+			
+			ArrayList<String> aspectList = new ArrayList<String>();
+			for(ArrayList<String> asm: disaList){
+				HashSet<String> termSet = new HashSet<String>();
+				for(String str: asm){
+					String tokens[] = str.split(DocUtils.SPLIT_TOKENS);
+					for(int i=0; i<tokens.length; i++){
+						String to = tokens[i].toLowerCase();
+						if(to.length()>0 && !termSet.contains(to) && !StopWordChecker.isStopWord(to)){
+							termSet.add(to);
+						}
+					}
+				}
+				//
+				String [] t = termSet.toArray(new String[0]);
+				StringBuffer buffer = new StringBuffer();
+				for(int j=0; j<t.length; j++){
+					buffer.append(t[j]+" ");
+				}
+				aspectList.add(buffer.toString().trim());
+			}
+			//
+			if(isListStyle(disaList)){
+				//--
+				ArrayList<ArrayList<String>> polyList = new ArrayList<ArrayList<String>>();
+				for(String line: aspectList){
+					boolean match = false;
+					for(int i=0; i<polyList.size(); i++){
+						ArrayList<String> poly = polyList.get(i);
+						if(segmentMatch(smTopic.getTopicText(), poly, line, Lang.English)){
+							poly.add(line);
+							match = true;
+							break;
+						}
+					}
+					if(!match){
+						ArrayList<String> poly = new ArrayList<String>();
+						poly.add(line);
+						polyList.add(poly);
+					}
+				}
+				//--
+				aspectList = new ArrayList<String>();
+				for(ArrayList<String> asm: polyList){
+					HashSet<String> termSet = new HashSet<String>();
+					for(String str: asm){
+						String tokens[] = str.split(" ");
+						for(int i=0; i<tokens.length; i++){
+							String to = tokens[i];
+							if(!termSet.contains(to)){
+								termSet.add(to);
+							}
+						}
+					}
+					//
+					String [] t = termSet.toArray(new String[0]);
+					StringBuffer buffer = new StringBuffer();
+					for(int j=0; j<t.length; j++){
+						buffer.append(t[j]+" ");
+					}
+					aspectList.add(buffer.toString().trim());
+				}
+			}
+			
+			smTopic.setPolysemyList(aspectList);
+		}		
+	}
+	
+	private static boolean isListStyle(ArrayList<ArrayList<String>> disaList){
+		for(ArrayList<String> element: disaList){
+			if(element.size() > 1){
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	private static boolean segmentMatch(String exceptText, ArrayList<String> strList, String candidate, Lang lang){
+		for(String str: strList){
+			if(Lang.Chinese == lang){
+				if(chMatch(exceptText, str, candidate)){
+					return true;
+				}
+			}else{
+				if(enMatch(exceptText, str, candidate)){
+					return true;
+				}
+			}			
 		}
 		return false;
 		
@@ -760,6 +887,24 @@ public class NTCIRLoader {
 			if(lcs.getFirst().length() >= 2 && !lcs.getFirst().equals(exceptText)){
 				return true;
 			}
+		}
+		return false;
+	}
+	
+	private static boolean enMatch(String exceptText, String a, String b){
+		Vector<String> strSet = new Vector<String>();
+		strSet.add(a);
+		strSet.add(b);
+		
+		LCSScaner lcsScaner = new LCSScaner(strSet, Lang.English);
+		ArrayList<StrInt> lcsList = lcsScaner.enumerateLCS_AtLeastK(2);
+		for(StrInt lcs: lcsList){
+			if(lcs.getFirst().split(" ").length >= 1){
+				return true;
+			}
+		}
+		if(lcsList.size() >= 2){
+			return true;
 		}
 		return false;
 	}
@@ -834,7 +979,7 @@ public class NTCIRLoader {
 		
 		//3
 		//NTCIRLoader.openPrinter();
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
+		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, false);
 		//NTCIRLoader.closePrinter();
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
 	}

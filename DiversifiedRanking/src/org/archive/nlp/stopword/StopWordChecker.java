@@ -12,7 +12,7 @@ import java.util.HashSet;
 
 public class StopWordChecker {
 
-	public HashSet<String> _ignoreWords;
+	public static HashSet<String> _ignoreWords = new HashSet<String>();
 	public final static String IGNORE_WORDS_ABS = "dic/stopwords_en.txt";
 
 	public StopWordChecker() {
@@ -25,7 +25,7 @@ public class StopWordChecker {
 		loadStopWords(src);
 	}
 
-	public void loadStopWords(String src) {
+	public static void loadStopWords(String src) {
         try {
             String line;
             BufferedReader br = new BufferedReader(new FileReader(src));
@@ -40,7 +40,7 @@ public class StopWordChecker {
 
 	}
 	
-    private boolean malformedWord(String s) {
+    private static boolean malformedWord(String s) {
 	    //System.out.println(s);
 	    if (!Character.isLetterOrDigit(s.charAt(0))) {
 	        return true;
@@ -55,7 +55,10 @@ public class StopWordChecker {
     }
 
 	
-	public boolean isStopWord(String s) {
+	public static boolean isStopWord(String s) {
+		if(_ignoreWords.size() == 0){
+			loadStopWords(IGNORE_WORDS_ABS);
+		}
 		return malformedWord(s) || _ignoreWords.contains(s);
 	}
 	
