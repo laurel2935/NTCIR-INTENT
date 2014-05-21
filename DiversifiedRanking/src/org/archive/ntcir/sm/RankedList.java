@@ -16,4 +16,13 @@ public class RankedList {
 	public int getSize(){
 		return this.recordList.size();
 	}
+	//
+	public String tosString() {
+		StringBuffer buffer = new StringBuffer();
+		for(RankedRecord r: recordList){
+			buffer.append(r.toString());
+			buffer.append("\n");			
+		}
+		return buffer.toString();		
+	}
 }

@@ -35,6 +35,9 @@ public class RankedRecord {
 	public String toString(){
 		StringBuffer strBuffer = new StringBuffer();
 		strBuffer.append(this.topicID+";");
+		if(Double.isNaN(this.firRankValue) || Double.isNaN(this.secRankValue)){
+			System.err.println("Nan Error!");
+		}		
 		strBuffer.append(zeroStr+";"+this.firStStr+";"+Integer.toString(this.firRank)+";"+dataFormat.format(this.firRankValue)+";");
 		strBuffer.append(zeroStr+";"+this.secStStr+";"+Integer.toString(this.secRank)+";"+dataFormat.format(this.secRankValue)+";");
 		strBuffer.append(this.runTitle);

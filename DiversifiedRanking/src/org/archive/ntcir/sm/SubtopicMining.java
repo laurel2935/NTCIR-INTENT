@@ -28,6 +28,7 @@ import org.archive.nlp.chunk.lpt.ltpService.LTML;
 import org.archive.nlp.chunk.lpt.ltpService.Word;
 import org.archive.nlp.lcs.LCSScaner;
 import org.archive.nlp.qpunctuation.QueryPreParser;
+import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.ntcir.sm.RunParameter.ClusteringFunction;
 import org.archive.ntcir.sm.RunParameter.SimilarityFunction;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
@@ -47,6 +48,8 @@ public class SubtopicMining {
 	private final static boolean DEBUG = true;
 	
 	public static HashMap<Pair,Double> _simCache = new HashMap<Pair, Double>();
+	
+	public static HashMap<String, ArrayList<String>> _segCache = new HashMap<String, ArrayList<String>>();
 	
 	public void run(RunParameter runParameter) throws Exception{
 		
@@ -112,7 +115,10 @@ public class SubtopicMining {
 				RankedRecord record = new RankedRecord(smTopic.getID(), smTopic.getTopicText(), 1, 1.0,
 						smTopic.getTopicText(), 1, 1.0, runParameter.runTitle);
 				
-				rankedList.addRecord(record);				
+				rankedList.addRecord(record);	
+				
+				System.out.println("For clear topic:");
+				System.out.println(rankedList.tosString());
 			}else{
 				if(ClusteringFunction.StandardAP == runParameter.cFunction){
 					ArrayList<ItemCluster> itemClusterList = apCluster(smTopic.smSubtopicItemList, Lang.Chinese);
@@ -126,7 +132,8 @@ public class SubtopicMining {
 						sum += itemCluster.instanceNumber;
 					}
 					for(ItemCluster itemCluster: itemClusterList){
-						itemCluster.weight = itemCluster.instanceNumber/sum;
+						//itemCluster.weight = itemCluster.instanceNumber/sum;
+						itemCluster.weight = 1.0/itemCluster.instanceNumber;
 						for(SMSubtopicItem item: itemCluster.itemList){
 							item.weight = itemCluster.weight*(item.subtopicInstanceGroup.size()*1.0/itemCluster.instanceNumber);
 						}
@@ -147,10 +154,43 @@ public class SubtopicMining {
 					}
 					
 					rankedList = new RankedList();
-					
+					//--
+					int s = 1;
+					do {
+						calQuotient(quotient, voteArray, doneSeatArray);
+						int i = getMaxIndex(quotient);
+						
+						if(-1 == i){
+							break;
+						}
+						
+						if(itemClusterList.get(i).itemList.size() > 0){
+							SMSubtopicItem item = itemClusterList.get(i).itemList.get(0);
+							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
+									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runParameter.runTitle);
+							
+							rankedList.addRecord(record);
+							
+							itemClusterList.get(i).itemList.remove(0);
+							
+							doneSeatArray.set(i, doneSeatArray.get(i)+1);
+							
+							s++;
+						}else {
+							//quotient[i] = Double.MIN_VALUE;
+							quotient.set(i, -1.0);
+						}
+					} while (s<=seatN);
+					//--
+					/*
 					for(int s=0; s<seatN; s++){
 						calQuotient(quotient, voteArray, doneSeatArray);
 						int i = getMaxIndex(quotient);
+						
+						if(-1 == i){
+							break;
+						}
+						
 						if(itemClusterList.get(i).itemList.size() > 0){
 							SMSubtopicItem item = itemClusterList.get(i).itemList.get(0);
 							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
@@ -165,7 +205,16 @@ public class SubtopicMining {
 							//quotient[i] = Double.MIN_VALUE;
 							quotient.set(i, -1.0);
 						}	
-					}					
+					}	
+					*/
+					
+					System.out.println("For infor topic:");
+					if(null!=rankedList && null!=rankedList.recordList){
+						System.out.println(rankedList.tosString());
+					}else{
+						System.err.println("Odd infor case!");
+					}
+					
 					
 				}else if(ClusteringFunction.K_UFL == runParameter.cFunction){
 					ArrayList<InteractionData> releMatrix = getChReleMatrix(smTopic, runParameter);
@@ -193,7 +242,9 @@ public class SubtopicMining {
 					writer.newLine();
 				}
 			}else{
-				new Exception("Null RankedList Error!").printStackTrace();
+				System.err.println("Null RankedList Error!");
+				continue;
+				//new Exception("Null RankedList Error!").printStackTrace();
 			}
 			//*/
 		}
@@ -214,6 +265,7 @@ public class SubtopicMining {
 		HashMap<String, PolyCluster> polyClusterMap = new HashMap<String, PolyCluster>();
 		PolyCluster otherPolyCluster = new PolyCluster("unk");
 		
+		//literal content match
 		for(SMSubtopicItem item: smTopic.smSubtopicItemList){
 			String bestPolyStr = bestMatch(polysemyList, item, smTopic.getTopicText());
 			if(null != bestPolyStr){
@@ -226,8 +278,28 @@ public class SubtopicMining {
 				}
 			}else {
 				otherPolyCluster.addSMSubtopicItem(item);
-			}
+			}			
+		}
+		//semantic similarity based match
+		if(polyClusterMap.size() < 4){
+			polyClusterMap.clear();
+			otherPolyCluster = null;
+			otherPolyCluster = new PolyCluster("unk");
 			
+			for(SMSubtopicItem item: smTopic.smSubtopicItemList){
+				String bestPolyStr = bestMatch_sim(polysemyList, item, smTopic, Lang.Chinese);
+				if(null != bestPolyStr){
+					if(polyClusterMap.containsKey(bestPolyStr)){
+						polyClusterMap.get(bestPolyStr).addSMSubtopicItem(item);
+					}else {
+						PolyCluster polyCluster = new PolyCluster(bestPolyStr);
+						polyCluster.addSMSubtopicItem(item);
+						polyClusterMap.put(bestPolyStr, polyCluster);
+					}
+				}else {
+					otherPolyCluster.addSMSubtopicItem(item);
+				}			
+			}
 		}
 		
 		ArrayList<PolyCluster> polyClusterList = new ArrayList<PolyCluster>();
@@ -248,7 +320,7 @@ public class SubtopicMining {
 			}		
 		}else{
 			clusterList.addAll(polyClusterList);
-			if(otherPolyCluster.smSubtopicItemList.size() > 0){
+			if(null!= otherPolyCluster.smSubtopicItemList && otherPolyCluster.smSubtopicItemList.size() > 0){
 				Collections.sort(otherPolyCluster.smSubtopicItemList);
 				clusterList.add(otherPolyCluster);
 			}			
@@ -270,14 +342,15 @@ public class SubtopicMining {
 			polyCluster.delegaterItem = polyCluster.smSubtopicItemList.get(0);		
 		}
 		
-		double sum = 0.0;		
+		//double sum = 0.0;		
+		
+		//for(PolyCluster polyCluster: clusterList){
+		//	sum += polyCluster.instanceNumber;
+		//}
 		
 		for(PolyCluster polyCluster: clusterList){
-			sum += polyCluster.instanceNumber;
-		}
-		
-		for(PolyCluster polyCluster: clusterList){
-			polyCluster.weight = polyCluster.instanceNumber/sum;
+			//polyCluster.weight = polyCluster.instanceNumber/sum;
+			polyCluster.weight = 1.0/clusterList.size();
 		}
 		
 		for(PolyCluster polyCluster: clusterList){
@@ -288,6 +361,19 @@ public class SubtopicMining {
 		
 		return generateRankedList(smTopic, clusterList, runTitle);
 		
+	}
+	
+	public ArrayList<String> getSeg(SMTopic smTopic, String subtopiStr, Lang lang){
+		if(this._segCache.containsKey(subtopiStr)){
+			return this._segCache.get(subtopiStr);
+		}else {
+			if(Lang.Chinese == lang){
+				String reference = Tokenizer.isDirectWord(smTopic.getTopicText(), Lang.Chinese)?smTopic.getTopicText():null;
+				return Tokenizer.adaptiveQuerySegment(Lang.Chinese, subtopiStr, reference, true, true);	
+			}else{
+				return null;
+			}
+		}
 	}
 	
 	public static RankedList generateRankedList(SMTopic smTopic, ArrayList<PolyCluster> clusterList, String runTitle){
@@ -314,7 +400,33 @@ public class SubtopicMining {
 		}
 		//System.out.println("votes:\t"+voteVector);
 		RankedList rankedList = new RankedList();
-		
+		int s = 1;
+		do {
+			calQuotient(quotient, voteVector, doneSeatVector);
+			int i = getMaxIndex(quotient);
+			
+			if(-1 == i){
+				break;
+			}
+			
+			if(clusterList.get(i).smSubtopicItemList.size() > 0){
+				SMSubtopicItem item = clusterList.get(i).smSubtopicItemList.get(0);
+				RankedRecord record = new RankedRecord(smTopic.getID(), clusterList.get(i).delegaterItem.subtopicInstanceGroup.get(0)._text,
+						(i+1), clusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), item.weight, runTitle);
+				
+				rankedList.addRecord(record);
+				
+				clusterList.get(i).smSubtopicItemList.remove(0);
+				
+				doneSeatVector.set(i, doneSeatVector.get(i)+1);
+				
+				s++;
+			}else {
+				//quotient[i] = Double.MIN_VALUE;
+				quotient.set(i, -1.0);
+			}
+		} while (s<=seatN);
+		/*
 		for(int s=0; s<seatN; s++){
 			calQuotient(quotient, voteVector, doneSeatVector);
 			//System.out.println(quotient);
@@ -339,6 +451,9 @@ public class SubtopicMining {
 				//quotient[i] = Double.MIN_VALUE;
 			}	
 		}
+		*/
+		System.out.println("For poly topic:");
+		System.out.println(rankedList.tosString());
 		
 		return rankedList;		
 	}
@@ -495,6 +610,19 @@ public class SubtopicMining {
 		}
 		return bestPolyString;
 	}
+	//
+	public String bestMatch_sim(ArrayList<String> polysemyList, SMSubtopicItem item, SMTopic smTopic, Lang lang){
+		String bestPolyString = null;
+		double maxVale = 0.0;
+		for(String polyString: polysemyList){
+			double v = matchSim(polyString, item, smTopic, lang);
+			if(v > maxVale){
+				maxVale = v;
+				bestPolyString = polyString;
+			}			
+		}
+		return bestPolyString;
+	}
 	
 	public static HashSet<String> matchedStr(String polyString, SMSubtopicItem item, String exceptText){
 		HashSet<String> set = new HashSet<String>();
@@ -517,6 +645,19 @@ public class SubtopicMining {
 			return null;
 		}		
 	}
+	
+	public double matchSim(String polyString, SMSubtopicItem item, SMTopic smTopic, Lang lang){
+		double sum = 0.0;
+		for(SubtopicInstance instance: item.subtopicInstanceGroup){
+			if(!instance._text.equals(smTopic.getTopicText())){
+				ArrayList<String> aList = getSeg(smTopic, polyString, lang);
+				ArrayList<String> bList = getSeg(smTopic, instance._text, lang);
+				sum += getSimilarity(aList, bList, lang);
+			}			
+		}
+		return sum/item.subtopicInstanceGroup.size();
+	}
+	
 	
 	private SMSubtopicItem getItem(SMTopic smTopic, String key){		
 		int id = Integer.parseInt(key);
