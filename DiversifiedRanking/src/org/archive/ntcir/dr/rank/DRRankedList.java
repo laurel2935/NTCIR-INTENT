@@ -1,13 +1,14 @@
-package org.archive.ntcir.sm;
+package org.archive.ntcir.dr.rank;
 
 import java.util.Vector;
 
-public class RankedList {
-	public Vector<RankedRecord> recordList;
-	//
-	public void addRecord(RankedRecord record){
+public class DRRankedList {
+	
+	public Vector<DRRankedRecord> recordList;
+	
+	public void addRecord(DRRankedRecord record){
 		if(null == this.recordList){
-			this.recordList = new Vector<RankedRecord>();
+			this.recordList = new Vector<DRRankedRecord>();
 		}
 		//
 		this.recordList.add(record);
@@ -19,7 +20,7 @@ public class RankedList {
 	//
 	public String tosString() {
 		StringBuffer buffer = new StringBuffer();
-		for(RankedRecord r: recordList){
+		for(DRRankedRecord r: recordList){
 			buffer.append(r.toString());
 			buffer.append("\n");			
 		}

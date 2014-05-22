@@ -7,11 +7,14 @@ package org.archive.nicta.ranker.mmr;
 
 import java.util.*;
 
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
+import org.archive.ntcir.dr.rank.DRRunParameter;
 import org.archive.util.Pair;
 import org.archive.util.Triple;
+import org.archive.util.tuple.StrDouble;
 
 
 // TODO: Refactor addDoc so that it takes a doc repository and a doc name...
@@ -197,5 +200,10 @@ public class MMR extends ResultRanker {
 	
 	public String getString(){
 		return "MMR="+_sim.getString()+"+"+_div.getString();
+	}
+	
+	//--
+	public ArrayList<StrDouble> getResultList(DRRunParameter drRunParameter, SMTopic smTopic, ArrayList<String> subtopicList, int cutoff){
+		return null;
 	}
 }

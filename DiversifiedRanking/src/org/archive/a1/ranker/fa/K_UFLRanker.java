@@ -4,12 +4,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.ufl.K_UFL;
 import org.archive.ml.ufl.K_UFL.UFLMode;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
+import org.archive.ntcir.dr.rank.DRRunParameter;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.StrDouble;
 
@@ -151,6 +153,11 @@ public class K_UFLRanker extends ResultRanker{
 	public String getDescription() {
 		// TODO Auto-generated method stub
 		return "K_UFL - sbkernel: " + _kernel.getKernelDescription();
+	}
+	
+	//--
+	public ArrayList<StrDouble> getResultList(DRRunParameter drRunParameter, SMTopic smTopic, ArrayList<String> subtopicList, int cutoff){
+		return null;
 	}
 
 }

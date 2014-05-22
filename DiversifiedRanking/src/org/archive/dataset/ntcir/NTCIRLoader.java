@@ -37,6 +37,7 @@ import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
 import org.archive.util.DocUtils;
 import org.archive.util.FileFinder;
 import org.archive.util.Language.Lang;
+import org.archive.util.format.StandardFormat;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.StrInt;
 import org.archive.util.tuple.StrStr;
@@ -89,9 +90,20 @@ public class NTCIRLoader {
 	/////////////////
 	//document
 	////////////////
-	private final static String NTCIR10_DOC_HTML_DIR = "E:/Data_Log/DataSource_Raw/NTCIR-10/DocumentRanking/doc/"+TOP_K+"/";
-	private final static String NTCIR10_DOC_TEXT_BUFFER_DIR = "./buffer/doc/ntcir-10/"+TOP_K+"/c_extracted/";
-	private final static String NTCIR10_DOC_SEGMENT_BUFFER_DIR = "./buffer/doc/ntcir-10/"+TOP_K+"/c_segmented/";
+	//private final static String NTCIR10_DOC_HTML_DIR = "E:/Data_Log/DataSource_Raw/NTCIR-10/DocumentRanking/doc/"+TOP_K+"/";
+	//private final static String NTCIR10_DOC_TEXT_BUFFER_DIR = "./buffer/doc/ntcir-10/"+TOP_K+"/c_extracted/";
+	//private final static String NTCIR10_DOC_SEGMENT_BUFFER_DIR = "./buffer/doc/ntcir-10/"+TOP_K+"/c_segmented/";
+	
+	private final static String [] NTCIR10_DOC = {DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/docs/",
+		DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/c_extracted/", 
+			DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/c_segmented/"};
+	
+	private final static String [] NTCIR11_DOC = {DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/docs/",
+													DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/c_extracted/", 
+														DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/c_segmented/"};
+	
+	
+	
 	/*
 	private final static String TREC_QRELS   = "";
 	private final static String QUERY_FILE   = "";
@@ -102,7 +114,259 @@ public class NTCIRLoader {
 	//private static HITHtmlExtractor htmlExtractor = new HITHtmlExtractor();
 	private static HtmlExtractor htmlExtractor = new HtmlExtractor();
 	
+	//topicID -> baseline line of doc names
+	public static HashMap<String, ArrayList<String>> loadNTCIR11Baseline_EN(){
+		HashMap<String, ArrayList<String>> baselineMap = new HashMap<String, ArrayList<String>>();
+		
+		String baselineFile = DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/EN/EntireBaseline.txt";
+		ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(baselineFile);
+		
+		for(String line: lineList){
+			String[] fields = line.split("\\s");
+			String topicID = fields[0];
+			
+			if(baselineMap.containsKey(topicID)){
+				baselineMap.get(topicID).add(fields[2]);
+			}else{
+				ArrayList<String> baseline = new ArrayList<String>();
+				baseline.add(fields[2]);
+				baselineMap.put(topicID, baseline);
+			}
+		}
+		
+		return baselineMap;
+	}
+	//
+	public static HashMap<String, ArrayList<String>> loadNTCIR11Baseline_CH(){
+		HashMap<String, ArrayList<String>> baselineMap = new HashMap<String, ArrayList<String>>();
+		
+		String baselineFile = DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/BASELINE.txt";
+		ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(baselineFile);
+		
+		for(String line: lineList){
+			String[] fields = line.split("\\s");
+			String topicID = fields[0];
+			
+			if(baselineMap.containsKey(topicID)){
+				//baselineMap.get(topicID).add(fields[2]);
+				baselineMap.get(topicID).add(line);
+			}else{
+				ArrayList<String> baseline = new ArrayList<String>();
+				//baseline.add(fields[2]);
+				baseline.add(line);
+				baselineMap.put(topicID, baseline);
+			}
+		}
+		
+		return baselineMap;
+	}
+	//docName -> docContent
+	public static HashMap<String, String> loadNTCIR11BaselineDocs_EN(){
+		HashMap<String, String> docMap = new HashMap<String, String>();
+		
+		String docDir = DataSetDiretory.ROOT+"ntcir/ntcir-11/DR/EN/Clueweb12ForNTCIR11/";
+		
+		try {
+			for(int i=1; i<=25; i++){
+				String file = docDir+StandardFormat.serialFormat(i, "00")+".txt";				
+				ArrayList<String> lineList = IOText.getLinesAsAList(file, "utf-8");
+				
+				String firstTarget = null;
+				int firstIndex = 0;
+				for(int k=0; k<lineList.size(); k++){
+					String line = lineList.get(k);
+					if(line.indexOf("Q0")>0 && line.indexOf("clueweb12")>=0 && line.indexOf("indri")>=0){
+						firstIndex = k;
+						firstTarget = line;
+						break;
+					}
+				}
+				
+				String [] fields = null;		
+				String docName = null;
+				StringBuffer buffer = null;
+				//first doc
+				fields = firstTarget.split("\\s");				
+				docName = fields[2];				
+				buffer = new StringBuffer();				
+				
+				for(int k=firstIndex+1; k<lineList.size(); k++){
+					String line = lineList.get(k);
+					
+					if(line.indexOf("Q0")>0 && line.indexOf("clueweb12")>=0 && line.indexOf("indri")>=0){
+						docMap.put(docName, buffer.toString());						
+						buffer = null;
+						//						
+						fields = line.split("\\s");
+						docName = fields[2];
+						buffer = new StringBuffer();						
+					}else{
+						buffer.append(line);
+						buffer.append("\n");						
+					}
+				}
+				
+				docMap.put(docName, buffer.toString());				
+				buffer = null;
+			}
+		
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+		
+		return docMap;
+	}
+
+	public static HashMap<String,String> loadNTCIR11Docs_CH(){
+		String htmlDir=null, docTextBufferDir=null, segmentBufferDir=null;
+		
+		htmlDir = NTCIR11_DOC[0];
+		docTextBufferDir = NTCIR11_DOC[1];
+		segmentBufferDir = NTCIR11_DOC[2];
+		
+		if(!ICTCLAS2014_INI){
+			ICTCLAS2014.iniConfig();
+			ICTCLAS2014_INI = true;
+		}
+		
+		int bPOSTagged = 0;
+		//
+		HashMap<String,String> ntcirDocs = new HashMap<String,String>();
+		ArrayList<File> files = FileFinder.GetAllFiles(htmlDir, "", true);
+		//
+		//String query_id = null;
+		String doc_name = null;
+		String doc_segmented = null;
+		String doc_extracted = null;
+		File f_segmented = null;
+		File f_extracted = null;
+		//
+		int nullFileCount = -1;
+		ArrayList<String> idList = new ArrayList<String>();		
+		try {
+			for(File f: files){					
+				int index = f.getAbsolutePath().lastIndexOf("\\");
+				//query_id = f.getAbsolutePath().substring(index-4, index);
+				doc_name = f.getAbsolutePath().substring(index+1, f.getAbsolutePath().indexOf("."));
+				//System.out.println(f.getAbsolutePath());
+				//System.out.println(query_id+"\t"+doc_name);
+				//if(Integer.parseInt(query_id) <= 100){
+				//	continue;
+				//}
+				
+//				if(!idList.contains(query_id)){
+//					if(nullFileCount > 0){
+//						if (DEBUG) {
+//							System.out.println("Null File Count for\t"+idList.get(idList.size()-1)+"\t"+nullFileCount);
+//							System.out.println();
+//						}						
+//					}
+//					//
+//					idList.add(query_id);
+//					if (DEBUG) {
+//						System.out.println("Running for \t"+query_id);
+//					}					
+//					nullFileCount = 0;
+//				}
+								
+				///*
+				f_segmented = new File(segmentBufferDir + doc_name);
+				if(f_segmented.exists()){
+					doc_segmented = DocUtils.ReadFile(f_segmented, true);
+					if (DEBUG) {
+						System.out.println("Load buffered doc_segmented for\t"+doc_name);
+					}					
+					
+					if(doc_segmented.length()>10){
+						ntcirDocs.put(doc_name, doc_segmented);
+					}else{
+						ntcirDocs.put(doc_name, null);
+						nullFileCount++;
+					}
+				}else {
+					f_extracted = new File(docTextBufferDir + doc_name);
+					if(f_extracted.exists()){
+						doc_extracted = DocUtils.ReadFile(f_extracted, true);
+						if (DEBUG) {
+							System.out.println("Load buffered doc_extracted for\t"+doc_name);
+						}						
+						//generated segmented file
+					}else{
+						/*
+						if(null == (doc_extracted = htmlExtractor.extractFromHtml(f.getAbsolutePath()))){
+							doc_extracted = "0";
+						}
+						*/
+						StringBuffer sBuffer = htmlExtractor.htmlToText(new File(f.getAbsolutePath()), "GB2312");
+						if(null == sBuffer){
+							doc_extracted = "0";
+						}else{
+							doc_extracted = sBuffer.toString();
+						}
+						//new
+						File _dir1 = new File(docTextBufferDir);
+						if(!_dir1.exists()){
+							_dir1.mkdir();
+						}
+						DocUtils.createNewFile(f_extracted, doc_extracted);
+						if (DEBUG) {
+							System.out.println("Generate doc_extracted for\t"+doc_name);
+						}						
+					}
+					//
+					if(doc_extracted.length() > 10){
+						if (DEBUG) {
+							System.out.println("Begin segmenting!");
+						}						
+						if(doc_extracted.length() > 5000){
+							doc_extracted = doc_extracted.substring(0, 5000);
+						}
+						doc_segmented = ICTCLAS2014.CLibrary.Instance.NLPIR_ParagraphProcess(doc_extracted, bPOSTagged);
+						if (DEBUG) {
+							System.out.println("Finish segmenting!");
+						}						
+						if(null == doc_segmented){
+							doc_segmented = "0";
+						}
+					}else{
+						doc_segmented = "0";
+					}					
+					//new					
+					File _dir2 = new File(segmentBufferDir);
+					if(!_dir2.exists()){
+						_dir2.mkdir();
+					}
+					DocUtils.createNewFile(f_segmented, doc_segmented);
+					if (DEBUG) {
+						System.out.println("Generate doc_segmented for\t"+doc_name);
+					}					
+					//
+					if(doc_segmented.length()>10){
+						ntcirDocs.put(doc_name, doc_segmented);
+					}else{
+						ntcirDocs.put(doc_name, null);
+						nullFileCount++;
+					}					
+				}
+				//*/				
+			}				
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		//
+		ICTCLAS2014.exitConfig();
+		//
+		return ntcirDocs;
+	}
+	
 	public static HashMap<String,String> loadNTCIR10Docs(){
+		String htmlDir=null, docTextBufferDir=null, segmentBufferDir=null;
+		
+		htmlDir = NTCIR10_DOC[0];
+		docTextBufferDir = NTCIR10_DOC[1];
+		segmentBufferDir = NTCIR10_DOC[2];	
+				
 		if(!ICTCLAS2014_INI){
 			ICTCLAS2014.iniConfig();
 			ICTCLAS2014_INI = true;
@@ -111,7 +375,7 @@ public class NTCIRLoader {
 		int bPOSTagged = 0;
 		//
 		HashMap<String,String> ntcir10Docs = new HashMap<String,String>();
-		ArrayList<File> files = FileFinder.GetAllFiles(NTCIR10_DOC_HTML_DIR, "", true);
+		ArrayList<File> files = FileFinder.GetAllFiles(htmlDir, "", true);
 		//
 		String query_id = null;
 		String doc_name = null;
@@ -148,7 +412,7 @@ public class NTCIRLoader {
 				}
 								
 				///*
-				f_segmented = new File(NTCIR10_DOC_SEGMENT_BUFFER_DIR + query_id + "/" +doc_name);
+				f_segmented = new File(segmentBufferDir + query_id + "/" +doc_name);
 				if(f_segmented.exists()){
 					doc_segmented = DocUtils.ReadFile(f_segmented, true);
 					if (DEBUG) {
@@ -162,7 +426,7 @@ public class NTCIRLoader {
 						nullFileCount++;
 					}
 				}else {
-					f_extracted = new File(NTCIR10_DOC_TEXT_BUFFER_DIR + query_id + "/" +doc_name);
+					f_extracted = new File(docTextBufferDir + query_id + "/" +doc_name);
 					if(f_extracted.exists()){
 						doc_extracted = DocUtils.ReadFile(f_extracted, true);
 						if (DEBUG) {
@@ -182,7 +446,7 @@ public class NTCIRLoader {
 							doc_extracted = sBuffer.toString();
 						}
 						//new
-						File _dir1 = new File(NTCIR10_DOC_TEXT_BUFFER_DIR + query_id + "/");
+						File _dir1 = new File(docTextBufferDir + query_id + "/");
 						if(!_dir1.exists()){
 							_dir1.mkdir();
 						}
@@ -210,7 +474,7 @@ public class NTCIRLoader {
 						doc_segmented = "0";
 					}					
 					//new
-					File _dir2 = new File(NTCIR10_DOC_SEGMENT_BUFFER_DIR + query_id + "/");
+					File _dir2 = new File(segmentBufferDir + query_id + "/");
 					if(!_dir2.exists()){
 						_dir2.mkdir();
 					}
@@ -1005,7 +1269,37 @@ public class NTCIRLoader {
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
 		
 		//4
-		NTCIRLoader.loadNTCIR11TopicList(Lang.English);
+		//NTCIRLoader.loadNTCIR11TopicList(Lang.English);
+		
+		//5
+		/*
+		HashMap<String, ArrayList<String>> enNtcir11BaselineMap = NTCIRLoader.loadNTCIR11Baseline_EN();
+		ArrayList<String> baseline = ntcir11BaselineMap.get("0053");
+		for(String doc: baseline){
+			System.out.println(doc);
+		}
+		*/
+		
+		//6 clueweb12-0208wb-10-16191
+		//HashMap<String, String> enNtcir11docMap = NTCIRLoader.loadNTCIR11BaselineDocs_EN();
+		//System.out.println(enNtcir11docMap.get("clueweb12-0208wb-10-16191"));
+		
+		//7
+		/*
+		HashMap<String, ArrayList<String>> chNtcir11BaselineMap = NTCIRLoader.loadNTCIR11Baseline_CH();
+		ArrayList<String> baseline = chNtcir11BaselineMap.get("0003");
+		for(String doc: baseline){
+			System.out.println(doc);
+		}
+		*/
+		
+		//8
+		HashMap<String, String> chNtcir11docMap = NTCIRLoader.loadNTCIR11Docs_CH();
+		//System.out.println(enNtcir11docMap.get("clueweb12-0208wb-10-16191"));
+		
+		
+		
+		
 	}
 	
 }

@@ -29,8 +29,8 @@ import org.archive.nlp.chunk.lpt.ltpService.Word;
 import org.archive.nlp.lcs.LCSScaner;
 import org.archive.nlp.qpunctuation.QueryPreParser;
 import org.archive.nlp.tokenizer.Tokenizer;
-import org.archive.ntcir.sm.RunParameter.ClusteringFunction;
-import org.archive.ntcir.sm.RunParameter.SimilarityFunction;
+import org.archive.ntcir.sm.SMRunParameter.ClusteringFunction;
+import org.archive.ntcir.sm.SMRunParameter.SimilarityFunction;
 import org.archive.ntcir.sm.clustering.ap.APClustering;
 import org.archive.ntcir.sm.similarity.editdistance.GregorEditDistance;
 import org.archive.ntcir.sm.similarity.editdistance.StandardEditDistance;
@@ -52,7 +52,7 @@ public class SubtopicMining {
 	
 	public static HashMap<String, ArrayList<String>> _segCache = new HashMap<String, ArrayList<String>>();
 	
-	public void run(RunParameter runParameter) throws Exception{
+	public void run(SMRunParameter runParameter) throws Exception{
 		
 		//formal system result
 		File dirFile = new File(runParameter.outputDir);
@@ -92,7 +92,7 @@ public class SubtopicMining {
     	}
 	 }
 	
-	private void chRun(RunParameter runParameter, BufferedWriter writer) throws Exception{
+	private void chRun(SMRunParameter runParameter, BufferedWriter writer) throws Exception{
 			
 		for(int t=0; t<runParameter.topicList.size(); t++){
 			
@@ -106,14 +106,14 @@ public class SubtopicMining {
 				continue;
 			}
 			
-			RankedList rankedList = null;
+			SMRankedList rankedList = null;
 			//
 			if(null != smTopic.polysemyList){
 				rankedList = getRankedListForPolyTopic(smTopic, runParameter.runTitle, Lang.Chinese);
 			}else if(smTopic.CompleteSentence){
-				rankedList = new RankedList();
+				rankedList = new SMRankedList();
 				
-				RankedRecord record = new RankedRecord(smTopic.getID(), smTopic.getTopicText(), 1, 1.0,
+				SMRankedRecord record = new SMRankedRecord(smTopic.getID(), smTopic.getTopicText(), 1, 1.0,
 						smTopic.getTopicText(), 1, 1.0, runParameter.runTitle);
 				
 				rankedList.addRecord(record);	
@@ -154,7 +154,7 @@ public class SubtopicMining {
 						doneSeatArray.add(0.0);
 					}
 					
-					rankedList = new RankedList();
+					rankedList = new SMRankedList();
 					//--
 					//double outputF = 1.0;
 					double outputS = 1.0;
@@ -192,7 +192,7 @@ public class SubtopicMining {
 							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
 									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputV, runParameter.runTitle);
 							*/
-							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
+							SMRankedRecord record = new SMRankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
 									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputS, runParameter.runTitle);
 							
 							rankedList.addRecord(record);
@@ -263,7 +263,7 @@ public class SubtopicMining {
 			}
 			///*
 			if(null != rankedList && null!=rankedList.recordList){				
-				for(RankedRecord record: rankedList.recordList){
+				for(SMRankedRecord record: rankedList.recordList){
 					writer.write(record.toString());
 					writer.newLine();
 				}
@@ -281,7 +281,7 @@ public class SubtopicMining {
 		//*/
 	}
 	//	
-	public RankedList getRankedListForPolyTopic(SMTopic smTopic, String runTitle, Lang lang){
+	public SMRankedList getRankedListForPolyTopic(SMTopic smTopic, String runTitle, Lang lang){
 		
 		System.out.println("processing polysemy topic:\t"+smTopic.toString());
 		System.out.println("item number:\t"+smTopic.smSubtopicItemList.size());
@@ -525,7 +525,7 @@ public class SubtopicMining {
 		}
 	}
 	
-	public static RankedList generateRankedList(SMTopic smTopic, ArrayList<PolyCluster> clusterList, String runTitle, Lang lang){
+	public static SMRankedList generateRankedList(SMTopic smTopic, ArrayList<PolyCluster> clusterList, String runTitle, Lang lang){
 		
 		int itemN = 0;
 		for(PolyCluster c: clusterList){
@@ -548,7 +548,7 @@ public class SubtopicMining {
 			doneSeatVector.add(0.0);
 		}
 		//System.out.println("votes:\t"+voteVector);
-		RankedList rankedList = new RankedList();
+		SMRankedList rankedList = new SMRankedList();
 		int s = 1;
 		double outputS = 1.0;
 		//double outputF = 1.0;
@@ -562,7 +562,7 @@ public class SubtopicMining {
 			
 			if(clusterList.get(i).smSubtopicItemList.size() > 0){
 				SMSubtopicItem item = clusterList.get(i).smSubtopicItemList.get(0);
-				RankedRecord record = null;
+				SMRankedRecord record = null;
 				/*
 				if(Lang.Chinese == lang){
 					record = new RankedRecord(smTopic.getID(), clusterList.get(i).polysemyString,
@@ -589,7 +589,7 @@ public class SubtopicMining {
 				}
 				*/
 				
-				record = new RankedRecord(smTopic.getID(), clusterList.get(i).delegaterItem.subtopicInstanceGroup.get(0)._text,
+				record = new SMRankedRecord(smTopic.getID(), clusterList.get(i).delegaterItem.subtopicInstanceGroup.get(0)._text,
 						(i+1), clusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputS, runTitle);
 				
 				rankedList.addRecord(record);
@@ -852,7 +852,7 @@ public class SubtopicMining {
 		return smTopic.smSubtopicItemList.get(id);		
 	}
 	
-	private ArrayList<InteractionData> getChReleMatrix(SMTopic smTopic, RunParameter runParameter){
+	private ArrayList<InteractionData> getChReleMatrix(SMTopic smTopic, SMRunParameter runParameter){
 		
 		ArrayList<InteractionData> chReleMatrix = new ArrayList<InteractionData>();
 		
@@ -1001,7 +1001,7 @@ public class SubtopicMining {
 		return wList;
 	}
 	
-	private void enRun(RunParameter runParameter, BufferedWriter writer) throws Exception{
+	private void enRun(SMRunParameter runParameter, BufferedWriter writer) throws Exception{
 		
 		for(int t=0; t<runParameter.topicList.size(); t++){
 			
@@ -1015,14 +1015,14 @@ public class SubtopicMining {
 				continue;
 			}
 			
-			RankedList rankedList = null;
+			SMRankedList rankedList = null;
 			
 			if(null != smTopic.polysemyList){
 				rankedList = getRankedListForPolyTopic(smTopic, runParameter.runTitle, Lang.English);
 			}else if(smTopic.CompleteSentence){
-				rankedList = new RankedList();
+				rankedList = new SMRankedList();
 				
-				RankedRecord record = new RankedRecord(smTopic.getID(), smTopic.getTopicText(), 1, 1.0,
+				SMRankedRecord record = new SMRankedRecord(smTopic.getID(), smTopic.getTopicText(), 1, 1.0,
 						smTopic.getTopicText(), 1, 1.0, runParameter.runTitle);
 				
 				rankedList.addRecord(record);	
@@ -1066,7 +1066,7 @@ public class SubtopicMining {
 						doneSeatArray.add(0.0);
 					}
 					
-					rankedList = new RankedList();
+					rankedList = new SMRankedList();
 					
 					int s = 1;
 					double outputS = 1.0;
@@ -1100,7 +1100,7 @@ public class SubtopicMining {
 							}
 							*/
 							
-							RankedRecord record = new RankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
+							SMRankedRecord record = new SMRankedRecord(smTopic.getID(), itemClusterList.get(i).exemplar.subtopicInstanceGroup.get(0)._text,
 									(i+1), itemClusterList.get(i).weight, item.subtopicInstanceGroup.get(0)._text, (s), outputS, runParameter.runTitle);
 							
 							rankedList.addRecord(record);
@@ -1145,7 +1145,7 @@ public class SubtopicMining {
 			
 			///*
 			if(null!=rankedList && null!=rankedList.recordList){				
-				for(RankedRecord record: rankedList.recordList){
+				for(SMRankedRecord record: rankedList.recordList){
 					writer.write(record.toString());
 					writer.newLine();
 				}
@@ -1161,7 +1161,7 @@ public class SubtopicMining {
 		writer.close();
 		//*/
 	}
-	private ArrayList<InteractionData> getEnReleMatrix(SMTopic smTopic, RunParameter runParameter){
+	private ArrayList<InteractionData> getEnReleMatrix(SMTopic smTopic, SMRunParameter runParameter){
 		double termIRWeight = 0.4; double phraseIRWeight = 0.6;
 		
 		ArrayList<InteractionData> enReleMatrix = new ArrayList<InteractionData>();
@@ -1329,7 +1329,7 @@ public class SubtopicMining {
 		String runTitle = "TUTA1-S-E-1A";
 		String runIntroduction = "Corresponding to the English subtopic mining subtask, we rely on the categorical knowledge of Wikipedia and the Stanford Parser "
 				+ "to identify the ambiguous topics, clear topics. Based on the Affinity Propagation clustering approach to cluster the subtopic strings.";
-		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, runTitle, runIntroduction,
+		SMRunParameter runParameter = new SMRunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, runTitle, runIntroduction,
 				SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
 		try {
 			smMining.run(runParameter);

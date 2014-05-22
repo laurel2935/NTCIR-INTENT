@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.trec.query.TREC68Query;
 import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.dataset.trec.query.TRECQuery;
@@ -23,6 +24,7 @@ import org.archive.nicta.evaluation.metricfunction.Metric;
 import org.archive.nicta.evaluation.metricfunction.NDEval10Losses;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
+import org.archive.ntcir.dr.rank.DRRunParameter;
 import org.archive.util.DevNullPrintStream;
 import org.archive.util.Pair;
 import org.archive.util.VectorUtils;
@@ -991,6 +993,11 @@ public class MDP extends ResultRanker {
 				ps.print("\t" + metricArray[i] + ":" +resultFormat.format(v[i]));
 			}			
 		ps.println();		
+	}
+	
+	//--
+	public ArrayList<StrDouble> getResultList(DRRunParameter drRunParameter, SMTopic smTopic, ArrayList<String> subtopicList, int cutoff){
+		return null;
 	}
 
 }

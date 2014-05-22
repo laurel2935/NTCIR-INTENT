@@ -16,9 +16,9 @@ import org.archive.nlp.chunk.lpt.addon.TTree;
 import org.archive.nlp.chunk.lpt.ltpService.LTML;
 import org.archive.nlp.chunk.lpt.ltpService.Word;
 import org.archive.nlp.tokenizer.Tokenizer;
-import org.archive.ntcir.sm.RunParameter;
-import org.archive.ntcir.sm.RunParameter.ClusteringFunction;
-import org.archive.ntcir.sm.RunParameter.SimilarityFunction;
+import org.archive.ntcir.sm.SMRunParameter;
+import org.archive.ntcir.sm.SMRunParameter.ClusteringFunction;
+import org.archive.ntcir.sm.SMRunParameter.SimilarityFunction;
 import org.archive.util.Language.Lang;
 
 import edu.stanford.nlp.ling.TaggedWord;
@@ -348,7 +348,7 @@ public class LTPIRAnnotator {
 		String tDir = OutputDirectory.ROOT+"ntcir-11/SM/ParsedTopic/PerFile/";
 				
 		String topicXMLFile = tDir+smTopic.getID()+".xml";
-		LTML topicLTML = RunParameter.loadLTML(topicXMLFile);
+		LTML topicLTML = SMRunParameter.loadLTML(topicXMLFile);
 		
 		smTopic.setSentenceState(completeSentence(new TTree(topicLTML.getWords(0))));
 		
@@ -426,7 +426,7 @@ public class LTPIRAnnotator {
 			if(!xmlFile.exists()){
 				return null;
 			}
-			LTML subTLTML = RunParameter.loadLTML(subTXMLFile);
+			LTML subTLTML = SMRunParameter.loadLTML(subTXMLFile);
 			ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
 			for(Word word: subTLTML.getWords(0)){
 	    		taggedTerms.add(new TaggedTerm(word.getWS(), word.getPOS()));
@@ -439,7 +439,7 @@ public class LTPIRAnnotator {
 		//1
 		String runTitle = "testTitle";
 		String runIntroduction = "testIntroduction";
-		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
+		SMRunParameter runParameter = new SMRunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
 				SimilarityFunction.GregorEditDistance, ClusteringFunction.StandardAP);
 		try {
 			HashMap<String, LTML> kHashMap = runParameter.loadLTMLForChTopics(runParameter.topicList);

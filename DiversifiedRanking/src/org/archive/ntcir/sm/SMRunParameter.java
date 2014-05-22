@@ -18,7 +18,7 @@ import org.archive.ntcir.sm.preprocess.TopicParser.StringType;
 import org.archive.util.Language.Lang;
 import org.archive.util.io.IOText;
 
-public class RunParameter {
+public class SMRunParameter {
 	//////////////
 	//set up parameters
 	//////////////
@@ -51,7 +51,7 @@ public class RunParameter {
 	
 	
 	
-	public RunParameter(NTCIR_EVAL_TASK eval, String runTitle, String runIntroduction, SimilarityFunction simFunction, ClusteringFunction cFunction){		
+	public SMRunParameter(NTCIR_EVAL_TASK eval, String runTitle, String runIntroduction, SimilarityFunction simFunction, ClusteringFunction cFunction){		
 		this.eval = eval;
 		this.runTitle = runTitle;		
 		this.runIntroduction = "<SYSDESC>"+runIntroduction+"</SYSDESC>";
@@ -62,6 +62,8 @@ public class RunParameter {
 			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, true);
 		}else{
 			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, true);
+			//
+			//segment(this.topicList);
 		}	
 	}
 	

@@ -5,12 +5,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Vector;
 
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.dataset.trec.query.TRECSubtopic;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.ufl.Mat;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
+import org.archive.ntcir.dr.rank.DRRunParameter;
 import org.archive.ntcir.sm.pro.DCKUFL;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.StrDouble;
@@ -151,6 +153,96 @@ public class DCKUFLRanker extends ResultRanker{
 	public String getDescription() {
 		// TODO Auto-generated method stub
 		return "DCKUFL - sbkernel: " + _kernel.getKernelDescription();
+	}
+	
+	
+	//
+	//--
+	public ArrayList<StrDouble> getResultList(DRRunParameter drRunParameter, SMTopic smTopic, ArrayList<String> subtopicList, int cutoff){
+		//
+		ArrayList<InteractionData> releMatrix = getReleMatrix(subtopicList);
+		ArrayList<InteractionData> subSimMatrix = getSubtopicSimMatrix(subtopicList);
+		ArrayList<Double> capList = getCapacityList(subtopicList, cutoff);
+		ArrayList<Double> popList = getPopularityList(subtopicList);
+		    	
+    	int preK = (int)Mat.sum(capList); 
+    	
+    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
+    	dckufl.run();
+    	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
+    	//(1)final ranking by similarity between query and document
+    	ArrayList<StrDouble> objList = new ArrayList<StrDouble>();
+    	Object queryRepr = _kernel.getNoncachedObjectRepresentation(convert(drRunParameter.SegmentedStringMap.get(smTopic.getTopicText())));
+    	for(String docName: facilityList){
+    		objList.add(new StrDouble(docName, _kernel.sim(queryRepr, _kernel.getObjectRepresentation(docName))));
+    	}
+    	//(2)??? similarity between subtopic vector and document
+    	
+    	Collections.sort(objList, new PairComparatorBySecond_Desc<String, Double>());
+    	
+    	return objList;	
+	}
+	
+	private static String convert(ArrayList<String> tList){
+		StringBuffer buffer = new StringBuffer();
+		for(String t: tList){
+			buffer.append(t);
+			buffer.append(" ");
+		}
+		return buffer.toString().trim();
+	}
+	
+	private ArrayList<InteractionData> getReleMatrix(ArrayList<String> subtopicList){
+		//
+		initTonNDocsForInnerKernels();
+		
+		ArrayList<InteractionData> releMatrix = new ArrayList<InteractionData>();		
+		//subtopic <-> docs		
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);
+		
+		for(int i=0; i<subtopicList.size(); i++){
+			String subtopic = subtopicList.get(i);
+			Object subtopicRepr = _kernel.getNoncachedObjectRepresentation(subtopic);
+			for(String docName: topNDocNames){
+				Object docRepr = _kernel.getObjectRepresentation(docName);
+				//
+				releMatrix.add(new InteractionData(Integer.toString(i), docName, _kernel.sim(subtopicRepr, docRepr)));
+			}
+		}		
+		//
+		return releMatrix;		
+	}
+	//similarity among subtopics
+	private ArrayList<InteractionData> getSubtopicSimMatrix(ArrayList<String> subtopicList){
+		ArrayList<InteractionData> simMatrix = new ArrayList<InteractionData>();
+		
+		for(int i=0; i<subtopicList.size()-1; i++){
+			String iSubtopic = subtopicList.get(i);
+			Object iRepr = _kernel.getNoncachedObjectRepresentation(iSubtopic);
+			for(int j=i+1; j<subtopicList.size(); j++){
+				String jSubtopic = subtopicList.get(j);
+				Object jRepr = _kernel.getNoncachedObjectRepresentation(jSubtopic);
+				//
+				simMatrix.add(new InteractionData(Integer.toString(i), Integer.toString(j), _kernel.sim(iRepr, jRepr)));
+			}
+		}
+		//
+		return simMatrix;	
+	}
+	//equal size of capacity of each subtopic
+	private ArrayList<Double> getCapacityList(ArrayList<String> subtopicList, int topK){
+		int subtopicNumber = subtopicList.size();
+		if(topK%subtopicNumber == 0){
+			double cap = topK/subtopicNumber;
+			return Mat.getUniformList(cap, subtopicNumber);
+		}else{
+			double cap = topK/subtopicNumber+1;
+			return Mat.getUniformList(cap, subtopicNumber);
+		}		
+	}
+	private ArrayList<Double> getPopularityList(ArrayList<String> subtopicList){
+		int subtopicNumber = subtopicList.size();
+		return Mat.getUniformList(1.0d/subtopicNumber, subtopicNumber);		
 	}
 	
 }

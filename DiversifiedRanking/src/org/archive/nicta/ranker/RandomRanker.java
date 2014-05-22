@@ -8,8 +8,11 @@ package org.archive.nicta.ranker;
 
 import java.util.*;
 
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.trec.query.TRECDivQuery;
+import org.archive.ntcir.dr.rank.DRRunParameter;
 import org.archive.util.Permutation;
+import org.archive.util.tuple.StrDouble;
 
 public class RandomRanker extends ResultRanker {
 	
@@ -59,5 +62,10 @@ public class RandomRanker extends ResultRanker {
 	}
 	public String getString(){
 		return "RandomRanker";
+	}
+	
+	//--
+	public ArrayList<StrDouble> getResultList(DRRunParameter drRunParameter, SMTopic smTopic, ArrayList<String> subtopicList, int cutoff){
+		return null;
 	}
 }

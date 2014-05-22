@@ -10,7 +10,10 @@ package org.archive.nicta.ranker;
 
 import java.util.*;
 
+import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.trec.query.TRECDivQuery;
+import org.archive.ntcir.dr.rank.DRRunParameter;
+import org.archive.util.tuple.StrDouble;
 
 /**
  * ResultRanker runs per query by refreshing "_docTopN" each time.
@@ -54,4 +57,7 @@ public abstract class ResultRanker {
 	public String getDoc(String doc_name) {
 		return _docs_all.get(doc_name);
 	}
+	
+	//--
+	public abstract ArrayList<StrDouble> getResultList(DRRunParameter drRunParameter, SMTopic smTopic, ArrayList<String> subtopicList, int cutoff);
 }
