@@ -39,6 +39,7 @@ import org.archive.util.FileFinder;
 import org.archive.util.Language.Lang;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.StrInt;
+import org.archive.util.tuple.StrStr;
 
 public class NTCIRLoader {
 	
@@ -379,39 +380,54 @@ public class NTCIRLoader {
 		return topicList;
 	}
 	
-	/*
-	private static HashMap<String, String> loadNTCIR11TopicList(){
-		HashMap<String, String> topicList = new HashMap<String, String>();
-		//
-		String line = null;
-		String []strArray = null;
-		//
-		try {
-			BufferedReader reader = new BufferedReader(
-					new InputStreamReader(new FileInputStream(NTCIR11_TOPIC)));
-			
-			while(null != (line=reader.readLine()))
-			{
-				strArray = line.split("\t");
-				if (Integer.parseInt(strArray[0]) > 100) {
-					break;		
-				}else{
-					topicList.put(strArray[0], strArray[1]);
-				}
-				
+	///*
+	private static boolean accept(String idString, Lang lang){
+		//System.out.println(idString.trim());
+		if(Lang.Chinese == lang){
+			int id = Integer.valueOf(idString.trim());			
+			if(id>=1 && id<=50){
+				return true;
+			}else{
+				return false;
 			}
-			reader.close();
-			//
+		}else if(Lang.English == lang){
+			int id = Integer.valueOf(idString.trim());	
+			if(id>=51 && id<=100){
+				return true;
+			}else{
+				return false;
+			}
+		}else{
+			System.err.println("Unaccepted Case Error!");
+			return false;
+		}
+	}
+	
+	public static ArrayList<StrStr> loadNTCIR11TopicList(Lang lang){
+		ArrayList<StrStr> topicList = new ArrayList<StrStr>();
+		
+		try {
+			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(NTCIR11_TOPIC);
+			for(String line: lineList){				
+				String [] strArray = line.split("\t");								
+				if(accept(strArray[0].substring(strArray[0].indexOf("0")+1), lang)){
+					//System.out.println(strArray[0]+"\t\t"+strArray[1]);	
+					
+					topicList.add(new StrStr(strArray[0], strArray[1]));
+				}
+			}
+			
+			return topicList;
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();			
 		}		
-		return topicList;				
+		return null;				
 	}
-	*/
+	//*/
 	
 	/**
-	 * ch: ? for related query
+	 * ch: for related query
 	 * en: 0060
 	 * **/
 	
@@ -984,9 +1000,12 @@ public class NTCIRLoader {
 		
 		//3
 		//NTCIRLoader.openPrinter();
-		NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
+		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
 		//NTCIRLoader.closePrinter();
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
+		
+		//4
+		NTCIRLoader.loadNTCIR11TopicList(Lang.English);
 	}
 	
 }

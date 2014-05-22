@@ -9,17 +9,20 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Vector;
 
 import org.archive.util.tuple.IntStrInt;
 import org.archive.util.tuple.StrInt;
+import org.xml.sax.ContentHandler;
+
+import com.sun.org.apache.xml.internal.serialize.OutputFormat;
+import com.sun.org.apache.xml.internal.serialize.XMLSerializer;
 
 public class IOText {
 	//e.g., line number as the id
 	public static final int STARTID = 1;
 	
-	/**Ä¬ÈÏ±àÂë*/
+	/**Ä¬ï¿½Ï±ï¿½ï¿½ï¿½*/
 	private static final String DEFAULT_ENCODING = "UTF-8";
 	
 	/**
@@ -176,6 +179,25 @@ public class IOText {
 		}
 		return null;
 	}
+	public static ArrayList<String> getLinesAsAList(String targetFile, String code){
+		try {
+			ArrayList<String> lineList = new ArrayList<String>();
+			//
+			BufferedReader reader = getBufferedReader(targetFile, code);
+			String line = null;			
+			while(null != (line=reader.readLine())){
+				if(line.length() > 0){					
+					lineList.add(line);					
+				}				
+			}
+			reader.close();
+			return lineList;			
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		return null;
+	}
 	/**
 	 * 
 	 * @param targetFile
@@ -210,6 +232,33 @@ public class IOText {
 		//generate
 		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), DEFAULT_ENCODING));
 		return writer;
+	}
+	/** 
+	 * @param file
+	 * @return
+	 * @throws IOException
+	 */
+	public static XmlWriter getXmlWriter_UTF8(String targetFile) throws IOException{
+		//check exist
+		File file = new File(targetFile);
+		if(!file.exists()){
+			file.createNewFile();
+			file = new File(targetFile);
+		}
+		//
+		FileOutputStream outputStream = new FileOutputStream(file);
+		OutputStreamWriter outputWriter = new OutputStreamWriter(outputStream, DEFAULT_ENCODING);
+		
+		OutputFormat format = new OutputFormat("XML", DEFAULT_ENCODING, true);
+		format.setOmitXMLDeclaration(true);
+		format.setIndent(1);
+		format.setIndenting(true);
+		
+		XMLSerializer serializer = new XMLSerializer(outputWriter, format);		
+		
+		ContentHandler contentHandler = serializer.asContentHandler();
+		
+		return new XmlWriter(contentHandler, outputStream);
 	}
 
 }

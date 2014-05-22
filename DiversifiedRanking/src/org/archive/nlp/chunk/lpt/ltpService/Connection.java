@@ -56,6 +56,7 @@ public class Connection {
     public static String doPost(String host, int port, String uri,
             HashMap<String, String> paraMap, String charset, String usname,
             String passwd) throws IOException {
+    	
         UrlEncodedFormEntity entity = genEntity(paraMap, charset);
 
         HttpPost httppost = new HttpPost("http://" + host + ":" + port + uri);

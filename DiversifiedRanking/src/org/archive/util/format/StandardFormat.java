@@ -27,7 +27,7 @@ public class StandardFormat {
 	      return null;
 	}
 	/**
-	 * È¡µÃÄê·İ
+	 * å–å¾—å¹´ä»½
 	 * @param date
 	 * @param foramt
 	 * @return
@@ -46,7 +46,7 @@ public class StandardFormat {
 		return null;
 	}	
 	/**
-	 * ĞòÁĞºÅÃüÃû¸ñÊ½
+	 * åºåˆ—å·å‘½åæ ¼å¼
 	 * @param num
 	 * @param pattern
 	 * @return
@@ -55,6 +55,11 @@ public class StandardFormat {
 		//String pattern = "00000000";
 		DecimalFormat df = new DecimalFormat(pattern);
 		return df.format(num);
+	}
+		
+	public static void main(String []args){
+		//1
+		System.out.println(Integer.valueOf("002"));
 	}
 }
 

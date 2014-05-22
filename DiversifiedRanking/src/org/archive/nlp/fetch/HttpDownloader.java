@@ -2,7 +2,9 @@ package org.archive.nlp.fetch;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.ConnectException;
 import java.net.HttpRetryException;
 import java.net.NoRouteToHostException;
@@ -10,6 +12,10 @@ import java.net.ProtocolException;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpException;
@@ -18,6 +24,30 @@ import org.apache.commons.httpclient.HttpMethodRetryHandler;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.auth.AuthScheme;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.AuthState;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.protocol.ClientContext;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.protocol.BasicHttpContext;
+import org.apache.http.protocol.ExecutionContext;
+import org.apache.http.protocol.HttpContext;
+import org.archive.util.tuple.StrStr;
 
 
 /**
@@ -151,11 +181,186 @@ public class HttpDownloader {
 		}
 		return result;
 	}
+	
+	private static UrlEncodedFormEntity genEntity(ArrayList<StrStr> paraList, String charset)throws UnsupportedEncodingException {
+        ArrayList<NameValuePair> params = new ArrayList<NameValuePair>();
+        
+        for(StrStr para: paraList){
+        	NameValuePair nameValuePair = new BasicNameValuePair(para.first, para.second);
+            params.add(nameValuePair);
+        }
+        
+        UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params, charset);
+        
+        return entity;
+    }
+	
+	private static UrlEncodedFormEntity genEntity(String topic, String id, String charset) throws UnsupportedEncodingException{
+		ArrayList<StrStr> paraList = new ArrayList<StrStr>();
+		
+		//paraList.add(new StrStr("type", "indri"));
+		//paraList.add(new StrStr("number", id));
+		//paraList.add(new StrStr("text", "#combine("+topic+")"));
+		paraList.add(new StrStr("q", topic));
+		
+		return genEntity(paraList, charset);		
+	}
+	
+	static class PreemptiveAuth implements HttpRequestInterceptor {
+        public void process(final HttpRequest request, final HttpContext context)
+            throws HttpException, IOException {
+
+            AuthState authState = (AuthState) context
+                .getAttribute(ClientContext.TARGET_AUTH_STATE);
+
+            // If no auth scheme avaialble yet, try to initialize it
+            // preemptively
+            if (authState.getAuthScheme() == null) {
+                AuthScheme authScheme = (AuthScheme) context
+                    .getAttribute("preemptive-auth");
+                CredentialsProvider credsProvider = (CredentialsProvider) context
+                    .getAttribute(ClientContext.CREDS_PROVIDER);
+                HttpHost targetHost = (HttpHost) context
+                    .getAttribute(ExecutionContext.HTTP_TARGET_HOST);
+                if (authScheme != null) {
+                    Credentials creds = credsProvider
+                        .getCredentials(new AuthScope(targetHost
+                                    .getHostName(), targetHost.getPort()));
+                    if (creds == null) {
+                        throw new HttpException(
+                                "No credentials for preemptive authentication");
+                    }
+                    authState.setAuthScheme(authScheme);
+                    authState.setCredentials(creds);
+                }
+            }
+        }
+    }
+	
+	static int mv2beg(byte[] tmp, int pos) {
+        for(int i = pos,j = 0; i<tmp.length; ++i, ++j) {
+            tmp[j] = tmp[i];
+        }
+        return tmp.length - pos;
+    }
+	
+	public static void queryClueweb() throws ClientProtocolException, IOException{
+		
+		String topic = "apple";
+		String id = "0050";
+		
+		String charset = "UTF-8";
+		
+		UrlEncodedFormEntity entity = genEntity(topic, id, charset);
+		//http://boston.lti.cs.cmu.edu/Services/clueweb12_batch/		
+        HttpPost httppost = new HttpPost("http://boston.lti.cs.cmu.edu/Services/clueweb12_b13/lemur.cgi?"+"q="+topic);
+        //httppost.setEntity(entity);
+        
+        DefaultHttpClient httpclient = new DefaultHttpClient();
+        
+        String usname = "tokushima-hty";
+        String passwd = "hybrid#Mash";
+        
+        String host = "http://boston.lti.cs.cmu.edu";
+        String uri = "http://boston.lti.cs.cmu.edu/Services/clueweb12_b13/lemur.cgi?g=p&x=false&q=apple";
+
+        DefaultHttpClient dhttpclient = new DefaultHttpClient();
+        try
+        {
+        	
+            dhttpclient.getCredentialsProvider().setCredentials(new AuthScope(host, 8080), new UsernamePasswordCredentials(usname, passwd));
+            HttpGet dhttpget = new HttpGet(uri);
+
+            System.out.println("executing request " + dhttpget.getRequestLine());
+            HttpResponse dresponse = dhttpclient.execute(dhttpget);
+
+            System.out.println(dresponse.getStatusLine()    );
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        finally
+        {
+            dhttpclient.getConnectionManager().shutdown();
+        }
+        
+        
+        //-
+        
+        /*
+        String host = "http://boston.lti.cs.cmu.edu";        
+        httpclient.getCredentialsProvider().setCredentials(new AuthScope(host, AuthScope.ANY_PORT), new UsernamePasswordCredentials(usname, passwd));
+
+//        BasicScheme basicAuth = new BasicScheme();
+//        BasicHttpContext localcontext = new BasicHttpContext();
+//        localcontext.setAttribute("preemptive-auth", basicAuth);
+//
+//        httpclient.addRequestInterceptor((HttpRequestInterceptor) new PreemptiveAuth(), 0);
+
+        HttpResponse response = httpclient.execute(httppost);
+
+        //System.err.println(response.getStatusLine().toString());
+        if (response.getStatusLine().toString().indexOf("401") >= 0) {
+            throw new RuntimeException("Authorization is denied!");
+        } else if (response.getStatusLine().toString().indexOf("200") < 0) {
+            throw new RuntimeException(response.getStatusLine().toString());
+        } 
+        
+        HttpEntity res_entity = response.getEntity();
+
+        //httpclient.getConnectionManager().closeIdleConnections(0, TimeUnit.SECONDS);
+
+        //StringBuffer result = new StringBuffer();
+        String result = "";
+        if (res_entity != null) {
+            InputStream is = res_entity.getContent();			
+
+            int size;
+            byte[] tmp = new byte[4098];
+            int beg=0,leng=tmp.length;
+            while ((size = is.read(tmp,beg,leng)) != -1)
+                if(leng == size) {
+                    int i;
+                    for(i = tmp.length-1; i>0; --i){
+                        if(tmp[i] == '\n') {
+                            //		    				System.out.println("i: "+i);
+                            beg = i+1;
+                            result += new String(tmp, 0, beg, charset);
+                            beg = mv2beg(tmp, beg);
+                            leng = tmp.length - beg;
+                            break;
+                        }
+                    }
+                    if(i==0) {
+                        System.err.println("Warning: the single sentence is too long!");
+                        result += new String(tmp, 0, tmp.length, charset);			
+                        beg = 0;
+                        leng = tmp.length;
+                    }
+                } else {
+                    result += new String(tmp, 0, beg+size, charset);
+                    beg = 0;
+                    leng = tmp.length;
+                }
+            //		    System.err.println(result);
+            
+
+            res_entity.consumeContent();
+        }
+        */
+
+        //System.out.println(result);
+		
+	}
+	
 	//////////////////////////////test
 	/*
 	 *存在：需要将汉字编码的问题，有可能被google翻译为繁体字；
 	 * */
 	public static void main(String [] args){
+		//1
+		/*
 		try{
 			//System.out.println(queryUrl);
 			//System.out.println(URLEncoder.encode(queryUrl, "utf-8"));
@@ -173,7 +378,18 @@ public class HttpDownloader {
 			System.out.println(buffer.toString());
 		}catch(Exception e){
 			e.printStackTrace();
-		}		
+		}	
+		*/
+		
+		//2
+		try {
+			HttpDownloader.queryClueweb();
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		
+		
 	}
 }
 
