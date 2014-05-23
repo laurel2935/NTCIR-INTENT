@@ -21,12 +21,14 @@ public class PatternFactory {
 	public static Pattern tvPattern = Pattern.compile("[第]*[0-9一二三四五六七八九十]+[部集期号季]");
 	//number and alphabet
 	public static Pattern numAlphabetPattern = Pattern.compile("[a-z0-9A-Z_]+");
+	//alphabet
+	public static Pattern alphabetPattern = Pattern.compile("[a-zA-Z_]+");
 	//number alphabet Chinese
 	public static Pattern nacPattern = Pattern.compile("[a-z0-9A-Z_]+[版号级]");
 	//place pattern
 	public static Pattern placePattern = Pattern.compile("[\u4E00-\u9FFF]+[县省市区国]");
 	//web net	
-	public static String net_1 = "(http|www|ftp|site){1,}(://)?" +
+	public static String net_1 = "(http|www|WWW|ftp|site){1,}(://)?" +
 	"(\\.(\\w+(-\\w+)*))*((:\\d+)?)(/(\\w+(-\\w+)*))*(\\.?(\\w)*)(\\?)?(((\\w*%)*(\\w*\\?)*(\\w*:)*(\\w*\\+)*(\\w*\\.)*(\\w*&)*(\\w*-)*(\\w*=)*(\\w*%)*(\\w*\\?)*(\\w*:)*(\\w*\\+)*(\\w*\\.)*(\\w*&)*(\\w*-)*(\\w*=)*)*(\\w*)*)(/)*";
 	public static String netSum = "("+net_1+"|\\w+(.com)+)";
 	//
@@ -194,6 +196,15 @@ public class PatternFactory {
 			return false;
 		}
 	}	
+	//including alphabet
+	public static boolean containAlphabet(String str){		
+		Matcher mat = alphabetPattern.matcher(str);
+		if(mat.find()){
+			return true;
+		}else{
+			return false;
+		}
+	}
 	//whether all number and alphabet in given str
 	public static boolean allNAStr(String str){		
 		Matcher matcher = numAlphabetPattern.matcher(str);

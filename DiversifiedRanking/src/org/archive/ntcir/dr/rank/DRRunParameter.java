@@ -3,6 +3,7 @@ package org.archive.ntcir.dr.rank;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.archive.OutputDirectory;
 import org.archive.dataset.ntcir.NTCIRLoader;
@@ -13,6 +14,7 @@ import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.util.Language.Lang;
 
 public class DRRunParameter {
+	private final static boolean DEBUG = true;
 	
 	NTCIR_EVAL_TASK eval;
 	protected String runTitle;
@@ -26,51 +28,96 @@ public class DRRunParameter {
 	public HashMap<String, ArrayList<String>> baselineMap;
 	public HashMap<String, ArrayList<String>> SegmentedStringMap = null;
 	
-	public DRRunParameter(NTCIR_EVAL_TASK eval, String runTitle, String runIntroduction, HashMap<String, String> docMap, HashMap<String, ArrayList<String>> baselineMap){		
+	public DRRunParameter(NTCIR_EVAL_TASK eval, String runTitle, String runIntroduction){		
 		this.eval = eval;
 		this.runTitle = runTitle;		
 		this.runIntroduction = "<SYSDESC>"+runIntroduction+"</SYSDESC>";		
 		
-		if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
-			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, true);
+		if(NTCIR_EVAL_TASK.NTCIR11_DR_EN == eval){
+			
+			this.topicList = NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
 			this.docMap = NTCIRLoader.loadNTCIR11BaselineDocs_EN();
 			this.baselineMap = NTCIRLoader.loadNTCIR11Baseline_EN();
-		}else{
-			this.topicList = NTCIRLoader.loadNTCIR11TopicList(eval, true);
+			
+		}else if(NTCIR_EVAL_TASK.NTCIR11_DR_CH == eval){
+			
+			this.topicList = NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, true);
 			this.docMap = NTCIRLoader.loadNTCIR11Docs_CH();
 			this.baselineMap = NTCIRLoader.loadNTCIR11Baseline_CH();
-			//
-			segment(this.topicList);
-		}	
+			//			
+			segment(this.topicList);			
+		}else{
+			System.err.println("Task Input Error!");
+			System.exit(1);
+		}
 	}
 	
-	protected void segment(List<SMTopic> smTopicList){
+	protected HashMap<String, ArrayList<String>> segment(List<SMTopic> smTopicList){		
 		SegmentedStringMap = new HashMap<String, ArrayList<String>>();
 		//
-		for(SMTopic smTopic: smTopicList){			
+		for(SMTopic smTopic: smTopicList){	
+			//System.out.println(smTopic.toString());
 			ArrayList<String> tWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, smTopic.getTopicText(), null, true, true);			
 			if(null != tWords){
-				SegmentedStringMap.put(smTopic.getID(), tWords);
+				SegmentedStringMap.put(smTopic.getTopicText(), tWords);
 			}else{
 				new Exception("Segment Topic Error!").printStackTrace();
 				continue;
-			}			
+			}	
 			
-			int id = 1;
 			String reference = Tokenizer.isDirectWord(smTopic.getTopicText(), Lang.Chinese)?smTopic.getTopicText():null;
 			for(String str: smTopic.uniqueRelatedQueries){
-				if(!QueryPreParser.isOddQuery(str, Lang.Chinese)){
+				
+				if(QueryPreParser.isOddQuery(str, Lang.Chinese)){
 					continue;
 				}
-				String subTKey = smTopic.getID()+"-"+Integer.toString(id);
-				ArrayList<String> subTWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, str, reference, true, true);	
+				//String toSegString = new String(str);
+				//String toReferString = null;
+				//if(null != reference){
+				//	toReferString = new String(reference);
+				//}
+				//String subTKey = smTopic.getID()+"-"+Integer.toString(id);
+				ArrayList<String> subTWords = null;
+				try {
+					//System.out.println(toSegString);
+					subTWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, str, reference, true, true);
+				} catch (Exception e) {
+					// TODO: handle exception
+					System.err.println("segment error!");
+					subTWords = null;
+				}
+					
 				if(null != subTWords){
-					SegmentedStringMap.put(subTKey, subTWords);					
-				}		
-				//
-				id++;
+					SegmentedStringMap.put(str, subTWords);					
+				}	
+				
 			}
 		}
+		if(DEBUG){
+			System.out.println("segmented subtopic string:");
+			for(Entry<String, ArrayList<String>> entry: SegmentedStringMap.entrySet()){
+				System.out.println(entry.getKey()+"\t"+entry.getValue());
+								
+			}
+		}
+		
+		return SegmentedStringMap;
+	}
+	
+	//
+	public static void  main(String []args) {
+		//1
+		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, true);
+		
+		//2		
+		String drRunTitle = "TUTA1-D-C-1B";
+		String drRunIntroduction = "For the Chinese document ranking subtask, the results of subtopic mining are used as input."
+				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
+		
+		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_CH, drRunTitle, drRunIntroduction);
+		
+		//
+		
 	}
 
 }

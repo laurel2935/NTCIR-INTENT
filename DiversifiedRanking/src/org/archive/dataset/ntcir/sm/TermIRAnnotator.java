@@ -90,7 +90,7 @@ public class TermIRAnnotator extends IRAnnotator {
 				return false;
 			}
 		}else{
-			if(posTag.startsWith("n")){
+			if(posTag.startsWith("n") || posTag.startsWith("v")){
 				return true;
 			}else{
 				return false;

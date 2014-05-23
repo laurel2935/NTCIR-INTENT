@@ -1312,7 +1312,7 @@ public class SubtopicMining {
 		String runTitle = "TUTA1-S-C-1A";
 		String runIntroduction = "Corresponding to the Chinese subtopic mining subtask, we rely on the categorical knowledge of Baidu-Baike, the online natural language processing service, "
 				+ "to identify the ambiguous topics, clear topics. Based on the Affinity Propagation clustering approach to cluster the subtopic strings.";
-		RunParameter runParameter = new RunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
+		SMRunParameter runParameter = new SMRunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
 				SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
 		try {
 			smMining.run(runParameter);

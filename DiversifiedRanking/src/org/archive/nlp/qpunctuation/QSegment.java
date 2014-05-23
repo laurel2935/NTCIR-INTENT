@@ -46,4 +46,8 @@ public class QSegment extends Segment{
 	public final int hashCode(){
 		return this.str.hashCode()+this.unitType;
 	}
+	
+	public String toString() {
+		return this.str+"/"+Integer.toString(this.unitType);
+	}
 }

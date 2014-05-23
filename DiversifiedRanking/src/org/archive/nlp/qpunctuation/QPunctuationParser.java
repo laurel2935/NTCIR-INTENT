@@ -24,17 +24,17 @@ public class QPunctuationParser {
 		dotPunctuationSet = new Vector<String>();
 		//blank?
 		dotPunctuationSet.add("+");
-		dotPunctuationSet.add("£´");
+		dotPunctuationSet.add("Ôºã");
 		//
 		dotPunctuationSet.add(",");
-		dotPunctuationSet.add("°¢");
-		dotPunctuationSet.add("£¨");
+		dotPunctuationSet.add("„ÄÅ");
+		dotPunctuationSet.add("Ôºå");
 		//
 		dotPunctuationSet.add(":");
-		dotPunctuationSet.add("£∫");
+		dotPunctuationSet.add("Ôºö");
 		//
 		dotPunctuationSet.add(";");
-		dotPunctuationSet.add("£ª");
+		dotPunctuationSet.add("Ôºõ");
 		//
 		dotPunctuationSet.add("&");
 		dotPunctuationSet.add("#");
@@ -42,10 +42,10 @@ public class QPunctuationParser {
 		//
 		dotPunctuationSet.add("...");
 		//
-		dotPunctuationSet.add("°¢");	
+		dotPunctuationSet.add("„ÄÅ");	
 		//
 		dotPunctuationSet.add(".");
-		dotPunctuationSet.add("°£");
+		dotPunctuationSet.add("„ÄÇ");
 		//
 		dotPunctuationSet.add("/");	
 		//
@@ -53,12 +53,12 @@ public class QPunctuationParser {
 		//
 		dotPunctuationSet.add("-");	
 		//name note
-		dotPunctuationSet.add("°§");
+		dotPunctuationSet.add("¬∑");
 		//
 		dotPunctuationSet.add("?");
-		dotPunctuationSet.add("£ø");
+		dotPunctuationSet.add("Ôºü");
 		//
-		dotPunctuationSet.add("°´");		
+		dotPunctuationSet.add("ÔΩû");		
 	}
 	//initialize the symmetric punctuation
 	static{		
@@ -81,28 +81,28 @@ public class QPunctuationParser {
 		pattern = Pattern.compile("<[^>]{1,50}>");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
-		//£º£æ
-		separatorHead = "£º";
-		separatorTail = "£æ";
-		pattern = Pattern.compile("£º[^£æ]{1,50}£æ");
+		//ÔºúÔºû
+		separatorHead = "Ôºú";
+		separatorTail = "Ôºû";
+		pattern = Pattern.compile("Ôºú[^Ôºû]{1,50}Ôºû");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);		
-		//£º>
-		separatorHead = "£º";
+		//Ôºú>
+		separatorHead = "Ôºú";
 		separatorTail = ">";
-		pattern = Pattern.compile("£º[^>]{1,50}>");
+		pattern = Pattern.compile("Ôºú[^>]{1,50}>");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
-		//<£æ
+		//<Ôºû
 		separatorHead = "<";
-		separatorTail = "£æ";
-		pattern = Pattern.compile("<[^£æ]{1,50}£æ");
+		separatorTail = "Ôºû";
+		pattern = Pattern.compile("<[^Ôºû]{1,50}Ôºû");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
-		//°∂°∑
-		separatorHead = "°∂";
-		separatorTail = "°∑";
-		pattern = Pattern.compile("°∂[^°∑]{1,50}°∑");
+		//„Ää„Äã
+		separatorHead = "„Ää";
+		separatorTail = "„Äã";
+		pattern = Pattern.compile("„Ää[^„Äã]{1,50}„Äã");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
 		//()
@@ -111,10 +111,10 @@ public class QPunctuationParser {
 		pattern = Pattern.compile("\\([^\\)]{1,50}\\)");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
-		//£®£©
-		separatorHead = "£®";
-		separatorTail = "£©";
-		pattern = Pattern.compile("£®[^£©]{1,50}£©");
+		//ÔºàÔºâ
+		separatorHead = "Ôºà";
+		separatorTail = "Ôºâ";
+		pattern = Pattern.compile("Ôºà[^Ôºâ]{1,50}Ôºâ");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
 		//{}
@@ -123,10 +123,10 @@ public class QPunctuationParser {
 		pattern = Pattern.compile("\\{[^\\}]{1,50}\\}");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
-		//°æ°ø
-		separatorHead = "°æ";
-		separatorTail = "°ø";
-		pattern = Pattern.compile("°æ[^°ø]{1,50}°ø");
+		//„Äê„Äë
+		separatorHead = "„Äê";
+		separatorTail = "„Äë";
+		pattern = Pattern.compile("„Äê[^„Äë]{1,50}„Äë");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
 		//[]
@@ -141,10 +141,10 @@ public class QPunctuationParser {
 		pattern = Pattern.compile("\"[^\"]{1,50}\"");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);
-		//°∞°±
-		separatorHead = "°∞";
-		separatorTail = "°±";
-		pattern = Pattern.compile("°∞[^°±]{1,50}°±");
+		//‚Äú‚Äù
+		separatorHead = "‚Äú";
+		separatorTail = "‚Äù";
+		pattern = Pattern.compile("‚Äú[^‚Äù]{1,50}‚Äù");
 		ss = new SPunctuation(separatorHead, separatorTail, pattern);
 		symmetricPunctuationSet.add(ss);		
 	}
@@ -160,7 +160,7 @@ public class QPunctuationParser {
 	}
 	/**
 	 * Interface
-	 * Good example: π˙≤˙»˝¥Û÷¯√˚…±∂æ»Ìº˛£®Ω≠√Ò°¢»–«°¢Ω…Ω£©
+	 * Good example: ÂõΩ‰∫ß‰∏âÂ§ßËëóÂêçÊùÄÊØíËΩØ‰ª∂ÔºàÊ±üÊ∞ë„ÄÅÁëûÊòü„ÄÅÈáëÂ±±Ôºâ
 	 * separate the given query using the separator within the query
 	 * */
 	public static Vector<QSegment> parse(String rawQ){
@@ -314,14 +314,6 @@ public class QPunctuationParser {
 	 * a dot punctuation that acts as a separator
 	 * **/
 	private static boolean separatorDotP(int index, String str){
-		//mainly name °§
-		if(str.substring(index, index+1).equals("°§")){
-			return false;
-		}
-		if(str.substring(index, index+1).equals("+")){
-			return true;
-		}
-		//
 		if((index-1)>=0 && index+1<str.length()){
 			if(PatternFactory.containHanCharacter(str.substring(index-1, index)) || 
 					PatternFactory.containHanCharacter(str.substring(index+1, index+2))){
@@ -392,9 +384,9 @@ public class QPunctuationParser {
 			rawQ = rawQ.replaceAll("<<", "@");
 			rawQ = rawQ.replaceAll(">>", "@");
 		}
-		if(rawQ.indexOf("£º£º")>=0){
-			rawQ = rawQ.replaceAll("£º£º", "@");
-			rawQ = rawQ.replaceAll("£æ£æ", "@");
+		if(rawQ.indexOf("ÔºúÔºú")>=0){
+			rawQ = rawQ.replaceAll("ÔºúÔºú", "@");
+			rawQ = rawQ.replaceAll("ÔºûÔºû", "@");
 		}
 		//
 		Vector<SPunctuationInstance> SSeparatorSet = new Vector<SPunctuationInstance>();
@@ -426,7 +418,7 @@ public class QPunctuationParser {
 	/****/
 	public static void main(String []args){
 		///*		
-		String test = "≤ªœÎ≥§¥Û.∏Ë«˙2.3÷–www.net";
+		String test = "‰∏çÊÉ≥ÈïøÂ§ß.Ê≠åÊõ≤2.3‰∏≠www.net";
 		String test_1 = "I-Worm/Mytob.q";
 		Vector<QSegment> result = QPunctuationParser.parse(test);
 		for(QSegment s: result){

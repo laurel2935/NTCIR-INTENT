@@ -186,10 +186,28 @@ public class NTCIR11DRRanker {
 			}
 		}
 		
+		if(DEBUG){
+			for(Entry<String, ArrayList<String>> entry: lineMap.entrySet()){
+				System.out.println(entry.getKey());
+				for(String line: entry.getValue()){
+					System.out.println("\t"+line);
+				}				
+			}
+		}
+		
 		HashMap<String, ArrayList<String>> subtopicMap = new HashMap<String, ArrayList<String>>();
-		for(Entry<String, ArrayList<String>> entry: subtopicMap.entrySet()){
+		for(Entry<String, ArrayList<String>> entry: lineMap.entrySet()){
 			ArrayList<String> subtopicList = getSubtopicList(drRunParameter, entry.getValue(), lang);
 			subtopicMap.put(entry.getKey(), subtopicList);
+		}
+		
+		if(DEBUG){			
+			for(Entry<String, ArrayList<String>> entry: subtopicMap.entrySet()){
+				System.out.println(entry.getKey());
+				for(String line: entry.getValue()){
+					System.out.println("\t"+line);
+				}				
+			}
 		}
 		
 		return subtopicMap;
@@ -215,15 +233,19 @@ public class NTCIR11DRRanker {
 			for(String substr: group){
 				ArrayList<String> termList = null;
 				if(Lang.Chinese == lang){
-					termList = drRunParameter.SegmentedStringMap.get(substr);					
+					if(drRunParameter.SegmentedStringMap.containsKey(substr)){
+						termList = drRunParameter.SegmentedStringMap.get(substr);
+					}										
 				}else{
 					termList = Tokenizer.segment(substr, lang);
 				}
-				for(String term: termList){
-					if(!termSet.contains(term)){
-						termSet.add(term);
+				if(null != termList){
+					for(String term: termList){
+						if(!termSet.contains(term)){
+							termSet.add(term);
+						}
 					}
-				}				
+				}								
 			}
 			subtopicList.add(convert(termSet.toArray(new String [0])));			
 		}
@@ -252,14 +274,14 @@ public class NTCIR11DRRanker {
 	public static void main(String []args){
 		NTCIR11DRRanker drRanker = new NTCIR11DRRanker();
 		
-		//1
-		HashMap<String, String> chNtcir11docMap = NTCIRLoader.loadNTCIR11Docs_CH();
-		HashMap<String, ArrayList<String>> chNtcir11BaselineMap = NTCIRLoader.loadNTCIR11Baseline_CH();
+		////////////////////
+		//Document Ranking for Ch-Topics
+		////////////////////		
+		String drRunTitle = "TUTA1-D-C-1B";
+		String drRunIntroduction = "For the Chinese document ranking subtask, the results of subtopic mining are used as input."
+				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
 		
-		String drRunTitle = "TUTA1-D-E-1A";
-		String drRunIntroduction = "Corresponding to the English subtopic mining subtask, we rely on the categorical knowledge of Wikipedia and the Stanford Parser "
-				+ "to identify the ambiguous topics, clear topics. Based on the Affinity Propagation clustering approach to cluster the subtopic strings.";
-		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, drRunTitle, drRunIntroduction, chNtcir11docMap, chNtcir11BaselineMap);
+		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_CH, drRunTitle, drRunIntroduction);
 		try {
 			drRanker.run(drRunParameter, Lang.Chinese);
 		} catch (Exception e) {

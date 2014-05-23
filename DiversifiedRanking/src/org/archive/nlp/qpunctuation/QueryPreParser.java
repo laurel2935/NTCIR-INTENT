@@ -16,7 +16,7 @@ import org.archive.util.pattern.PatternFactory;
  * mainly using <<>>,"",...and so on to divide symbol-queries
  * **/
 public class QueryPreParser {	
-	
+	private final static boolean DEBUG = false;
 	//interface
 	/**
 	 * parse a given query into segments based on the symbols included in the query 
@@ -27,6 +27,7 @@ public class QueryPreParser {
 		Vector<QSegment> sSet;
 		//
 		if(PatternFactory.containNonSimpleChC(query)){
+			//System.out.println("containNonSimpleChC");
 			//pattern based unit identification
 			sSet = multiPatternSegment(query);
 			for(QSegment seg: sSet){
@@ -56,6 +57,13 @@ public class QueryPreParser {
 			finalPoll.add(new QSegment(query, false));
 		}
 		//
+		
+		if(DEBUG){
+			for(QSegment qSegment: finalPoll){
+				System.out.println(qSegment.toString());
+			}
+		}
+		
 		return finalPoll;
 	}
 	//
@@ -91,21 +99,21 @@ public class QueryPreParser {
 	 * **/
 	public static boolean isOddQuery(String query, Lang lang){
 		if(Lang.Chinese==lang && query.length()>=30){
-			return false;
+			return true;
 		}else if(Lang.English==lang && query.split(" ").length>=30){
-			return false;
+			return true;
 		}else{
 			if(PatternFactory.containNonSimpleChC(query)){
 				Vector<PSegment> mat;
 				if(null!=(mat=patternMatch(query, PatternFactory.netPattern))){
-					return false;
-				}else if(null!=(mat=patternMatch(query, PatternFactory.mailPattern))){
-					return false;
-				}else{
 					return true;
+				}else if(null!=(mat=patternMatch(query, PatternFactory.mailPattern))){
+					return true;
+				}else{
+					return false;
 				}				
 			}else{
-				return true;
+				return false;
 			}
 		}		
 	}

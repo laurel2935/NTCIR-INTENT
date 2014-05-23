@@ -10,7 +10,7 @@ public class ICTCLAS2014 {
 	//
 	private static final boolean DEBUG = false;
 	
-	private static boolean CONFIGED = false;
+	public static boolean CONFIGED = false;
 
 	//
 	public interface CLibrary extends Library {
@@ -54,11 +54,14 @@ public class ICTCLAS2014 {
 		}else{
 			System.out.println("ok£¡");
 		}
+		//
+		CONFIGED = true;
 	}
 	
 	public static void exitConfig(){
 		try {
 			CLibrary.Instance.NLPIR_Exit();
+			CONFIGED = false;
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();

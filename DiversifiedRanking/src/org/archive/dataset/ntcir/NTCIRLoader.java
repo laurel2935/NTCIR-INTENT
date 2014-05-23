@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Vector;
+import java.util.Map.Entry;
 
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
@@ -39,6 +40,7 @@ import org.archive.util.FileFinder;
 import org.archive.util.Language.Lang;
 import org.archive.util.format.StandardFormat;
 import org.archive.util.io.IOText;
+import org.archive.util.pattern.PatternFactory;
 import org.archive.util.tuple.StrInt;
 import org.archive.util.tuple.StrStr;
 
@@ -224,11 +226,11 @@ public class NTCIRLoader {
 		docTextBufferDir = NTCIR11_DOC[1];
 		segmentBufferDir = NTCIR11_DOC[2];
 		
-		if(!ICTCLAS2014_INI){
-			ICTCLAS2014.iniConfig();
-			ICTCLAS2014_INI = true;
-		}
-		
+//		if(!ICTCLAS2014.CONFIGED && !ICTCLAS2014_INI){
+//			ICTCLAS2014.iniConfig();
+//			ICTCLAS2014_INI = true;
+//		}
+		//System.out.println(ICTCLAS2014.segment("adobe部分源代码被盗"));
 		int bPOSTagged = 0;
 		//
 		HashMap<String,String> ntcirDocs = new HashMap<String,String>();
@@ -355,7 +357,7 @@ public class NTCIRLoader {
 			e.printStackTrace();
 		}
 		//
-		ICTCLAS2014.exitConfig();
+		//ICTCLAS2014.exitConfig();
 		//
 		return ntcirDocs;
 	}
@@ -734,12 +736,12 @@ public class NTCIRLoader {
 					}else if(NTCIR_EVAL_TASK.NTCIR11_SM_EN==eval && Integer.parseInt(id) > 51){
 						smTopicList.add(smTopic);
 					}					
-					//
-					smTopic = new SMTopic(id, text);
+					//					
+					smTopic = new SMTopic(id, text.toLowerCase());
 				}else if(line.indexOf("CandidateFrom") > 0){
 					from = line.substring(line.indexOf(">")+1, line.indexOf("</"));					
 				}else if(line.indexOf("Candidate>") > 0){
-					suggestion = line.substring(line.indexOf(">")+1, line.indexOf("</"));					
+					suggestion = line.substring(line.indexOf(">")+1, line.indexOf("</")).trim().toLowerCase();					
 					//
 					if(from.equals("Baidu")){
 						smTopic.addBaidu(suggestion);
@@ -777,7 +779,10 @@ public class NTCIRLoader {
 						line = line.replaceFirst("<Candidate>", "");
 						line = line.replaceFirst("</Candidate>", "");
 						//relatedQ = line.substring(11, line.indexOf("</"));
-						relatedQ = line;
+						relatedQ = line.trim();
+						if(PatternFactory.containAlphabet(relatedQ)){
+							relatedQ = relatedQ.toLowerCase();							
+						}
 						//
 						smTopicList.get(id-1).addRelatedQ(relatedQ);
 					}				
@@ -812,15 +817,11 @@ public class NTCIRLoader {
 			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
 				for(int k=smTopic.uniqueRelatedQueries.size()-1; k>=0; k--){
 					String str = smTopic.uniqueRelatedQueries.get(k);
-					if(!QueryPreParser.isOddQuery(str, Lang.Chinese)){
+					if(QueryPreParser.isOddQuery(str, Lang.Chinese)){
 						smTopic.uniqueRelatedQueries.remove(k);
 					}					
 				}
-			}
-			if(smTopic.getID().equals("0004")){
-				System.out.println(smTopic.getTopicText());
-				System.out.println(smTopic.uniqueRelatedQueries);
-			}
+			}						
 		}
 		
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
@@ -895,8 +896,8 @@ public class NTCIRLoader {
 		HashMap<String, ArrayList<ArrayList<TaggedTerm>>> stInstance_all_phrase = new HashMap<String, ArrayList<ArrayList<TaggedTerm>>>();
 		for(SMTopic smTopic: smTopicList){
 			if(smTopic.belongToBadCase()){
-				System.out.println(smTopic.toString());
 				smTopic.printBadCase();
+				System.out.println(smTopic.toString());				
 			}else{
 				for(int i=0; i<smTopic.uniqueRelatedQueries.size(); i++){
 					String rq = smTopic.uniqueRelatedQueries.get(i);
@@ -955,7 +956,7 @@ public class NTCIRLoader {
 			System.out.println("---------------!");
 			for(SMTopic smTopic: smTopicList){
 				if (smTopic.belongToBadCase()) {
-					System.out.println("!!!!!!!!!!!-\t"+smTopic);
+					System.out.println("!!!!!!!!!!!-\t"+smTopic.toString());
 				}else{
 					System.out.println(smTopic.getID()+"\t"+smTopic.getTopicText());
 					System.out.println("number of subtopicitem:\t"+smTopic.smSubtopicItemList.size());
@@ -1241,6 +1242,8 @@ public class NTCIRLoader {
 		}
 		return systemRun;
 	}
+	
+	
 	
 	private static PrintStream printer = null; 
 	public static void openPrinter(){

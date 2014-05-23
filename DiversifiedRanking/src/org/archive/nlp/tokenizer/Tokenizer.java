@@ -188,12 +188,16 @@ public class Tokenizer {
 	//
 	public static void main(String []args){
 		//1 query pre-parsing test
-		//http+www.10010.com
-		//android2.3��Ϸ����
-		//ֲ���ս��ʬ+��׿2.3
-		//����ie�����2011�ٷ�����
-		//String rawText = "������Ϸ2";
+		//《饥饿游戏》电影原声	[《, 饥饿, 游戏, 》, 电影, 原, 声]
 		//Tokenizer.replaceSymboleAsBlank(rawText, Lang.Chinese);
+		
+		//2
+		String tString = "《饥饿游戏》电影原声";
+		System.out.println(Tokenizer.adaptiveQuerySegment(Lang.Chinese, tString, null, true, true));
+		
+		//
+		//String oString = "WWW.10010.COM";
+		//System.out.println(QueryPreParser.isOddQuery(oString, Lang.Chinese));
 		
 	}
 }
