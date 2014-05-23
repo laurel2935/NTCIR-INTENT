@@ -13,6 +13,8 @@ import org.archive.a1.ranker.fa.DCKUFLRanker;
 import org.archive.dataset.ntcir.NTCIRLoader;
 import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
 import org.archive.dataset.ntcir.sm.SMTopic;
+import org.archive.nicta.kernel.BM25Kernel_A1;
+import org.archive.nicta.kernel.TFIDF_A1;
 import org.archive.nicta.ranker.ResultRanker;
 import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.ntcir.sm.SMRankedList;
@@ -46,12 +48,16 @@ public class NTCIR11DRRanker {
 		
 		HashMap<String, ArrayList<String>> smResult = loadSMResult(drRunParameter, lang);
 		
-		DCKUFLRanker rRanker = null;
+		DCKUFLRanker dckuflRanker = loadRanker(drRunParameter);
 		
 		for(int t=0; t<drRunParameter.topicList.size(); t++){
 			
 			SMTopic smTopic = drRunParameter.topicList.get(t);
 			ArrayList<String> baseline = drRunParameter.baselineMap.get(smTopic.getID());
+			
+			if(null == baseline){
+				continue;
+			}
 						
 			if(DEBUG){
 				System.out.println("Processing topic "+ smTopic.getID()+"\t"+smTopic.getTopicText());
@@ -80,34 +86,50 @@ public class NTCIR11DRRanker {
 				
 			}else{
 				//1
-				ArrayList<String> subtopicList = smResult.get(smTopic.getID());			
+				ArrayList<String> subtopicList = smResult.get(smTopic.getID());		
+				
+				if(null == subtopicList){
+					System.err.println("Null Subtopic List Case!");
+					continue;
+				}
 				
 				//
 				ArrayList<String> topnDocList = getTopnDocs(baseline);
 				
 				//
-				rRanker.clearInfoOfTopNDocs();				
+				dckuflRanker.clearInfoOfTopNDocs();				
 				if (DEBUG){
 					System.out.println("- Evaluating with " + topnDocList.size() + " docs");
 				}
 				
+				int usedDocNumber = 0;
+				
 				for (String doc_name : topnDocList) {
-					if (!drRunParameter.docMap.containsKey(doc_name))
+					if (!drRunParameter.docMap.containsKey(doc_name) || null==drRunParameter.docMap.get(doc_name))
 						System.err.println("ERROR: '" + doc_name + "' not found for '" + smTopic.getTopicText() + "'");
 					else {
-						rRanker.addATopNDoc(doc_name);						
+						dckuflRanker.addATopNDoc(doc_name);		
+						usedDocNumber++;
 					}
 				}				
 				// Get the results
 				if (DEBUG){
-					System.out.println("- Running alg: " + rRanker.getDescription());
+					System.out.println("- Running alg: " + dckuflRanker.getDescription());
 				}	
 				
 				rankedList = new DRRankedList();
 				
 				ArrayList<StrDouble> resultList = null;
 				
-				resultList = rRanker.getResultList(drRunParameter, smTopic, subtopicList, 20);
+				int cutoff = 0;
+				if(usedDocNumber > 20){
+					cutoff = 20;
+				}else{
+					cutoff = Math.min(usedDocNumber-2, 20);
+				}
+				
+				
+				resultList = dckuflRanker.getResultList(drRunParameter, smTopic, subtopicList, cutoff);
 				
 				int others = 100 - resultList.size();
 				
@@ -150,13 +172,42 @@ public class NTCIR11DRRanker {
 		//*/
 	}
 	
+	private DCKUFLRanker loadRanker(DRRunParameter drRunParameter){
+		double k1, k3, b;
+		k1=1.2d; k3=0.5d; b=0.5d; // achieves the best
+		//k1=0.5d; k3=0.5d; b=0.5d; //better than the group of b=1000d;
+		//k1=1.2d; k3=0.5d; b=1000d;
+		BM25Kernel_A1 bm25_A1_Kernel = new BM25Kernel_A1(drRunParameter.docMap, k1, k3, b);
+		
+		//1
+		double lambda_1 = 0.5;
+		int iterationTimes_1 = 5000;
+		int noChangeIterSpan_1 = 10; 
+		//DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
+		DCKUFLRanker dckuflRanker = new DCKUFLRanker(drRunParameter.docMap, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
+		
+		return dckuflRanker;
+	}
+	
 	private ArrayList<String> getTopnDocs(ArrayList<String> baseline){
 		ArrayList<String> topnDocList = new ArrayList<String>();
 		int size = Math.min(100, baseline.size()); 
 		
 		for(int i=0; i<size; i++){
 			String [] fields = baseline.get(i).split("\\s");
-			topnDocList.add(fields[2]);
+			try {
+				topnDocList.add(fields[2]);
+			} catch (Exception e) {
+				System.out.println(baseline.get(i));
+				System.err.println("fields:\t");
+				for(int k=0; k<fields.length; k++){
+					System.out.print(fields[k]+"|");
+				}
+				System.out.println();
+				e.printStackTrace();
+				// TODO: handle exception
+			}
+			
 		}
 		
 		return topnDocList;
@@ -277,6 +328,7 @@ public class NTCIR11DRRanker {
 		////////////////////
 		//Document Ranking for Ch-Topics
 		////////////////////		
+		/*
 		String drRunTitle = "TUTA1-D-C-1B";
 		String drRunIntroduction = "For the Chinese document ranking subtask, the results of subtopic mining are used as input."
 				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
@@ -284,6 +336,22 @@ public class NTCIR11DRRanker {
 		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_CH, drRunTitle, drRunIntroduction);
 		try {
 			drRanker.run(drRunParameter, Lang.Chinese);
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		*/
+		/////////////////////////
+		//Document Ranking for En-Topics
+		/////////////////////////
+		
+		String drRunTitle = "TUTA1-D-E-1B";
+		String drRunIntroduction = "For the English document ranking subtask, the results of subtopic mining are used as input."
+				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
+		
+		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_EN, drRunTitle, drRunIntroduction);
+		try {
+			drRanker.run(drRunParameter, Lang.English);
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();

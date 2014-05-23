@@ -14,9 +14,9 @@ import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.util.Language.Lang;
 
 public class DRRunParameter {
-	private final static boolean DEBUG = true;
+	private final static boolean DEBUG = false;
 	
-	NTCIR_EVAL_TASK eval;
+	public NTCIR_EVAL_TASK eval;
 	protected String runTitle;
 	protected String runIntroduction;
 	
@@ -110,13 +110,20 @@ public class DRRunParameter {
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, true);
 		
 		//2		
+		/*
 		String drRunTitle = "TUTA1-D-C-1B";
 		String drRunIntroduction = "For the Chinese document ranking subtask, the results of subtopic mining are used as input."
 				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
 		
 		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_CH, drRunTitle, drRunIntroduction);
+		*/
 		
-		//
+		//3
+		String drRunTitle = "TUTA1-D-E-1B";
+		String drRunIntroduction = "For the English document ranking subtask, the results of subtopic mining are used as input."
+				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
+		
+		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_EN, drRunTitle, drRunIntroduction);
 		
 	}
 

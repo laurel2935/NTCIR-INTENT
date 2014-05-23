@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Vector;
 
+import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
 import org.archive.dataset.ntcir.sm.SMTopic;
 import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.dataset.trec.query.TRECSubtopic;
@@ -172,7 +173,13 @@ public class DCKUFLRanker extends ResultRanker{
     	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
     	//(1)final ranking by similarity between query and document
     	ArrayList<StrDouble> objList = new ArrayList<StrDouble>();
-    	Object queryRepr = _kernel.getNoncachedObjectRepresentation(convert(drRunParameter.SegmentedStringMap.get(smTopic.getTopicText())));
+    	Object queryRepr = null;
+    	if(NTCIR_EVAL_TASK.NTCIR11_DR_EN == drRunParameter.eval){
+    		queryRepr = _kernel.getNoncachedObjectRepresentation(smTopic.getTopicText());
+    	}else{
+    		queryRepr = _kernel.getNoncachedObjectRepresentation(convert(drRunParameter.SegmentedStringMap.get(smTopic.getTopicText())));
+    	}
+    	
     	for(String docName: facilityList){
     		objList.add(new StrDouble(docName, _kernel.sim(queryRepr, _kernel.getObjectRepresentation(docName))));
     	}
@@ -236,8 +243,29 @@ public class DCKUFLRanker extends ResultRanker{
 			double cap = topK/subtopicNumber;
 			return Mat.getUniformList(cap, subtopicNumber);
 		}else{
-			double cap = topK/subtopicNumber+1;
-			return Mat.getUniformList(cap, subtopicNumber);
+			int cap = topK/subtopicNumber+1;
+			ArrayList<Integer> intCapList = new ArrayList<Integer>();
+			for(int i=0; i<subtopicNumber; i++){
+				intCapList.add(cap);
+			}
+			
+			int gap = cap*subtopicNumber - topK;
+			
+			int count = 0;
+			for(int j=subtopicNumber-1; j>=0; j--){				
+				intCapList.set(j, intCapList.get(j)-1);
+				count++;
+				if(count == gap){
+					break;
+				}
+			}
+			
+			ArrayList<Double> dCapList = new ArrayList<Double>();
+			for(Integer intCap: intCapList){
+				dCapList.add(intCap.doubleValue());
+			}
+			
+			return dCapList;			
 		}		
 	}
 	private ArrayList<Double> getPopularityList(ArrayList<String> subtopicList){

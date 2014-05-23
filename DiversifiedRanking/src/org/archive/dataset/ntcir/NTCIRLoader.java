@@ -128,10 +128,12 @@ public class NTCIRLoader {
 			String topicID = fields[0];
 			
 			if(baselineMap.containsKey(topicID)){
-				baselineMap.get(topicID).add(fields[2]);
+				//baselineMap.get(topicID).add(fields[2]);
+				baselineMap.get(topicID).add(line);
 			}else{
 				ArrayList<String> baseline = new ArrayList<String>();
-				baseline.add(fields[2]);
+				//baseline.add(fields[2]);
+				baseline.add(line);
 				baselineMap.put(topicID, baseline);
 			}
 		}
@@ -1275,13 +1277,13 @@ public class NTCIRLoader {
 		//NTCIRLoader.loadNTCIR11TopicList(Lang.English);
 		
 		//5
-		/*
+		///*
 		HashMap<String, ArrayList<String>> enNtcir11BaselineMap = NTCIRLoader.loadNTCIR11Baseline_EN();
-		ArrayList<String> baseline = ntcir11BaselineMap.get("0053");
+		ArrayList<String> baseline = enNtcir11BaselineMap.get("0053");
 		for(String doc: baseline){
 			System.out.println(doc);
 		}
-		*/
+		//*/
 		
 		//6 clueweb12-0208wb-10-16191
 		//HashMap<String, String> enNtcir11docMap = NTCIRLoader.loadNTCIR11BaselineDocs_EN();

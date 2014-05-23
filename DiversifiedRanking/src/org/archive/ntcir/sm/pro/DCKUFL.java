@@ -61,28 +61,28 @@ public class DCKUFL {
 	private DoubleMatrix2D _R;
 	//similarity matrix s_ij: the similarity of subtopic i to subtopic j
 	private DoubleMatrix2D _S;
-	//1¡ÁN one-row popularity vector: the popularity of each subtopic
+	//1ï¿½ï¿½N one-row popularity vector: the popularity of each subtopic
 	private DoubleMatrix1D _P;
-	//1¡ÁN one-row capacity vector corresponding to each subtopic
+	//1ï¿½ï¿½N one-row capacity vector corresponding to each subtopic
 	private DoubleMatrix1D _capList;
 	
 	//if document j is selected for subtopic i, the corresponding score:
 	//p_i*r_ij + \sum_{k<>i}{(1 - s_ki) * (p_i*r_ij - p_k*r_kj)}, i.e., W_ij = JforI_ScoreMatrix(i,j)
 	private DoubleMatrix2D _JforI_ScoreMatrix;
 			
-	//N¡ÁM
+	//Nï¿½ï¿½M
 	private DoubleMatrix2D _Eta;
 	private DoubleMatrix2D _oldEta;
 	
-	//1¡ÁM
+	//1ï¿½ï¿½M
 	private DoubleMatrix2D _V;
 	private DoubleMatrix2D _oldV;
 	
-	//N¡ÁM
+	//Nï¿½ï¿½M
 	private DoubleMatrix2D _Alpha;
 	private DoubleMatrix2D _oldAlpha;
 	
-	//(M+1)¡ÁM the row corresponds to the state of z_j, the column is the j-th column
+	//(M+1)ï¿½ï¿½M the row corresponds to the state of z_j, the column is the j-th column
 	private DoubleMatrix2D _A;
 	//private DoubleMatrix2D _oldA;
 	private DoubleMatrix2D _B;
@@ -92,14 +92,14 @@ public class DCKUFL {
 	private DoubleMatrix2D _Gama;
 	private DoubleMatrix2D _oldGama;
 	
-	//N¡Á(M+1)
+	//Nï¿½ï¿½(M+1)
 	private DoubleMatrix2D _H;
 	private DoubleMatrix2D _oldH;
 	
 	
 	//one ConvitsVector2D for each potential exemplar
     protected Map<Integer, ConvitsVector2D> _convitsVectorMap = new HashMap<Integer, ConvitsVector2D>();
-	//2-row integer matrix, which is used for check convergence£º j-th facility, i-th customer
+	//2-row integer matrix, which is used for check convergenceï¿½ï¿½ j-th facility, i-th customer
 	//1st-row: column-id
 	//2nd-row: target-row-id
     private IntegerMatrix2D _JfForIcMatrix = null;    
@@ -144,7 +144,7 @@ public class DCKUFL {
         }
     }
 	
-    //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
+    //pay attention to the positive or negative value of dataPointInteractions &&ï¿½ï¿½fCostList
     public DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK,
     		ArrayList<InteractionData> releMatrix, ArrayList<InteractionData> subSimMatrix,
     		ArrayList<Double> capList, ArrayList<Double> popList){
@@ -654,10 +654,9 @@ public class DCKUFL {
         //
         DoubleMatrix2D EY = this._V.plus(this._Gama);
         this._fY = EY.getRow(0).findG(0);
-        if(true){
+        if(debug){
         	if(this._fY.size() < 20){
-        		new Exception("smaller than 20 error!").printStackTrace();
-        		System.exit(1);
+        		System.err.println("smaller than 20 !");        		
         	}
         	System.out.println("Final ... >0  Facilities[Y]-"+this._fY.size()+":");
         	for(int fID: this._fY.getVector()){
@@ -784,8 +783,8 @@ public class DCKUFL {
 		simMatrix.set(1, 0, 0.2);simMatrix.set(1, 2, 0.4);simMatrix.set(1, 3, 0.2);
 		simMatrix.set(2, 0, 0.3);simMatrix.set(2, 1, 0.4);simMatrix.set(2, 3, 0.3);
 		simMatrix.set(3, 0, 0.1);simMatrix.set(3, 1, 0.2);simMatrix.set(3, 2, 0.3);
-		//nextInt(int n) ½éÓÚ[0,n)µÄÇø¼ä
-		//ÊýÖµ½éÓÚ[0,1.0)Ö®¼ä
+		//nextInt(int n) ï¿½ï¿½ï¿½ï¿½[0,n)ï¿½ï¿½ï¿½ï¿½ï¿½
+		//ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½[0,1.0)Ö®ï¿½ï¿½
 		Random random = new Random();
 		DoubleMatrix2D releMatrix = new DoubleMatrix2D(4, 50, 0.0);
 		for(int i=0; i<4; i++){
