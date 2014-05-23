@@ -36,7 +36,7 @@ public class DRRunParameter {
 		if(NTCIR_EVAL_TASK.NTCIR11_DR_EN == eval){
 			
 			this.topicList = NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
-			this.docMap = NTCIRLoader.loadNTCIR11BaselineDocs_EN();
+			this.docMap = NTCIRLoader.loadNTCIR11BaselineDocs_EN(true);
 			this.baselineMap = NTCIRLoader.loadNTCIR11Baseline_EN();
 			
 		}else if(NTCIR_EVAL_TASK.NTCIR11_DR_CH == eval){

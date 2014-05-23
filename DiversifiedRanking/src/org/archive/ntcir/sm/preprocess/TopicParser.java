@@ -481,7 +481,10 @@ public class TopicParser {
 		
 		//6
 		//TopicParser.fetchWikiPagesForEnTopics();
-		TopicParser.fetchBaikePolyPagesForChTopics();
+		//TopicParser.fetchBaikePolyPagesForChTopics();
+		
+		//7
+		
 	}
 
 }

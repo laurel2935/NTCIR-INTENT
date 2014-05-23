@@ -84,7 +84,8 @@ public class TermIRAnnotator extends IRAnnotator {
 		
 	protected boolean accept(String posTag, Lang lang){
 		if(Lang.English == lang){
-			if(posTag.equals("NN") || posTag.equals("NR")){
+			if(posTag.startsWith("NN") || posTag.startsWith("NR")
+					|| posTag.startsWith("VB")|| posTag.startsWith("JJ")){
 				return true;
 			}else{
 				return false;

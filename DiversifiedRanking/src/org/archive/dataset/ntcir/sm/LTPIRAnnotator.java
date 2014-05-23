@@ -1,14 +1,14 @@
 package org.archive.dataset.ntcir.sm;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Set;
 import java.util.Vector;
+import java.util.Map.Entry;
 
 import org.archive.OutputDirectory;
-import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
-import org.archive.dataset.ntcir.sm.SMTopic.BadCase;
 import org.archive.nlp.chunk.lpt.addon.LTPPosTag;
 import org.archive.nlp.chunk.lpt.addon.LTPRelationTag;
 import org.archive.nlp.chunk.lpt.addon.TNode;
@@ -17,15 +17,61 @@ import org.archive.nlp.chunk.lpt.ltpService.LTML;
 import org.archive.nlp.chunk.lpt.ltpService.Word;
 import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.ntcir.sm.SMRunParameter;
-import org.archive.ntcir.sm.SMRunParameter.ClusteringFunction;
-import org.archive.ntcir.sm.SMRunParameter.SimilarityFunction;
 import org.archive.util.Language.Lang;
+import org.archive.util.io.IOText;
 
-import edu.stanford.nlp.ling.TaggedWord;
 //import sun.launcher.resources.launcher;
 
 public class LTPIRAnnotator {
 	private final static boolean DEBUG = false;
+	
+	public static HashMap<String, LTML> ltmlMap = new HashMap<String, LTML>();
+	
+	
+	private static void loadLtmlMap(){
+		String inputFile = OutputDirectory.ROOT+"ntcir-11/SM/SubtopicString/UniqueSubtopicStrings.txt";
+		String subTDir = OutputDirectory.ROOT+"ntcir-11/SM/SubtopicString/ParsedWithLTP/";
+		try {
+			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(inputFile);
+			for(String line: lineList){
+				String [] array = line.split("\t");
+				String topicID = array[0];
+				String id = array[1];
+				
+				String targetString = array[2];					
+				String targetFile = subTDir+topicID+"-"+id+".xml";
+				File xmlFile = new File(targetFile);
+				if(!xmlFile.exists()){
+					System.err.println("No Xml File!");
+					continue;
+				}
+				LTML ltml = SMRunParameter.loadLTML(targetFile);
+				
+				ltmlMap.put(targetString, ltml);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}	
+		
+		if(DEBUG){
+			for(Entry<String, LTML> entry: ltmlMap.entrySet()){
+				System.out.println(entry.getKey());
+				
+				LTML ltml = entry.getValue();
+				if(null != ltml){
+					System.out.println("sentence:\t"+ltml.getSentenceContent(0));
+					
+					ArrayList<Word> wList = ltml.getWords(0);
+					for(Word w: wList){
+						System.out.print(w.getWS()+"-"+w.getPOS()+"  ");
+					}
+					System.out.println();
+				}
+				
+			}
+		}
+	}
 	
 	public ArrayList<IRAnnotation> irAnnotate(TTree tTree){
 		ArrayList<IRAnnotation> results = new ArrayList<IRAnnotation>();
@@ -313,7 +359,7 @@ public class LTPIRAnnotator {
 		ArrayList<TaggedTerm> termList = null;		
 		for(int i=1; i<taggedTerms.size(); i++){
 			if(null != (termList=getTaggedPhrase(taggedTerms, i))){
-				taggedPhraseList.add(taggedTerms);
+				taggedPhraseList.add(termList);
 			}
 		}
 		
@@ -399,15 +445,17 @@ public class LTPIRAnnotator {
 		}		
 	}
 	
-	public static ArrayList<TaggedTerm> getTaggedTerm(SMTopic smTopic, int subtopicStringID){
-		String subTDir = OutputDirectory.ROOT+"ntcir-11/SM/SubtopicString/ParsedWithLTP/";
+	public static ArrayList<TaggedTerm> getTaggedTerm(SMTopic smTopic, String rq){
+		//String subTDir = OutputDirectory.ROOT+"ntcir-11/SM/SubtopicString/ParsedWithLTP/";
+		if(ltmlMap.size() == 0){
+			loadLtmlMap();
+		}
 		
 		if(smTopic.DirectTermAndNoIRAnnotation){
 			if(DEBUG){
 				System.out.println("DirectTermAndNoIRAnnotation for "+smTopic.toString());				
 			}
-			ArrayList<String> subTWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, smTopic.uniqueRelatedQueries.get(subtopicStringID),
-					smTopic.getTopicText(), true, true);
+			ArrayList<String> subTWords = Tokenizer.adaptiveQuerySegment(Lang.Chinese, rq, smTopic.getTopicText(), true, true);
 			if(null == subTWords){
 				return null;
 			}
@@ -421,22 +469,44 @@ public class LTPIRAnnotator {
 			}			
 			return taggedTerms;
 		}else{
+			/*
 			String subTXMLFile = subTDir+smTopic.getID()+"-"+Integer.toString(subtopicStringID+1)+".xml";
 			File xmlFile = new File(subTXMLFile);
 			if(!xmlFile.exists()){
 				return null;
 			}
 			LTML subTLTML = SMRunParameter.loadLTML(subTXMLFile);
+			*/
+			LTML ltml = ltmlMap.get(rq);
+			if(null == ltml){
+				return null;
+			}
 			ArrayList<TaggedTerm> taggedTerms = new ArrayList<TaggedTerm>();
-			for(Word word: subTLTML.getWords(0)){
+			for(Word word: ltml.getWords(0)){
 	    		taggedTerms.add(new TaggedTerm(word.getWS(), word.getPOS()));
 	    	}
 			return taggedTerms;
 		}		
 	}
 	
+	private static PrintStream printer = null; 
+	public static void openPrinter(){
+		try{
+			printer = new PrintStream(new FileOutputStream(new File(OutputDirectory.ROOT+"log.txt")));
+			System.setOut(printer);			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
+	public static void closePrinter(){
+		printer.flush();
+		printer.close();
+	}
+	
 	public static void main(String []args){
 		//1
+		/*
 		String runTitle = "testTitle";
 		String runIntroduction = "testIntroduction";
 		SMRunParameter runParameter = new SMRunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_CH, runTitle, runIntroduction,
@@ -469,5 +539,11 @@ public class LTPIRAnnotator {
 			// TODO: handle exception
 			e.printStackTrace();
 		}	
+		*/
+		
+		//2
+		LTPIRAnnotator.openPrinter();
+		LTPIRAnnotator.loadLtmlMap();
+		LTPIRAnnotator.closePrinter();
 	}
 }

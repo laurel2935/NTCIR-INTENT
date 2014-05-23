@@ -46,7 +46,9 @@ public class SMSubtopicItem implements Comparable{
 					for(int i=0; i<k; i++){
 						if(!termModifierSet.contains(irAnnotation.moSet.get(i).moStr)){
 							termModifierSet.add(irAnnotation.moSet.get(i).moStr);
-							termModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+							if(irAnnotation.moSet.get(i).moStr.length() > 0){
+								termModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+							}							
 						}
 					}
 				}				
@@ -66,7 +68,9 @@ public class SMSubtopicItem implements Comparable{
 					for(int i=0; i<k; i++){
 						if(!phraseModifierSet.contains(irAnnotation.moSet.get(i).moStr)){
 							phraseModifierSet.add(irAnnotation.moSet.get(i).moStr);
-							phraseModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+							if(irAnnotation.moSet.get(i).moStr.length() > 0){
+								phraseModifierGroup.add(irAnnotation.moSet.get(i).moStr);
+							}							
 						}
 					}
 				}				

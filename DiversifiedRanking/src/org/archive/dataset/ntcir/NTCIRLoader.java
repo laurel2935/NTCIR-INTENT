@@ -44,11 +44,12 @@ import org.archive.util.pattern.PatternFactory;
 import org.archive.util.tuple.StrInt;
 import org.archive.util.tuple.StrStr;
 
+import de.l3s.boilerpipe.extractors.ArticleExtractor;
+
 public class NTCIRLoader {
 	
 	private final static boolean DEBUG = false;
 	
-	private static boolean ICTCLAS2014_INI = false;
 	public static final String CODE_UTF8 = "UTF-8";
 	private static final String CODE_GB2312 = "GB2312";
 	private static final String DR_SPLIT = " ";
@@ -56,8 +57,8 @@ public class NTCIRLoader {
 	
 	//
 	public static enum NTCIR_EVAL_TASK{NTCIR9_SM, NTCIR9_DR, 
-		NTCIR10_SM_EN, NTCIR10_SM_CH, NTCIR10_DR_CH,
-		NTCIR11_SM_EN, NTCIR11_SM_CH, NTCIR11_DR_CH, NTCIR11_DR_EN};
+											NTCIR10_SM_EN, NTCIR10_SM_CH, NTCIR10_DR_CH,
+												NTCIR11_SM_EN, NTCIR11_SM_CH, NTCIR11_DR_CH, NTCIR11_DR_EN};
 	
 	//location
 	//////////////////
@@ -165,7 +166,7 @@ public class NTCIRLoader {
 		return baselineMap;
 	}
 	//docName -> docContent
-	public static HashMap<String, String> loadNTCIR11BaselineDocs_EN(){
+	public static HashMap<String, String> loadNTCIR11BaselineDocs_EN(boolean performExtraction){
 		HashMap<String, String> docMap = new HashMap<String, String>();
 		
 		String docDir = DataSetDiretory.ROOT+"ntcir/ntcir-11/DR/EN/Clueweb12ForNTCIR11/";
@@ -188,14 +189,25 @@ public class NTCIRLoader {
 				
 				String [] fields = null;		
 				String docName = null;
-				StringBuffer buffer = null;
+				StringBuffer buffer = null;				
 				//first doc
 				fields = firstTarget.split("\\s");				
 				docName = fields[2];				
-				buffer = new StringBuffer();				
+				buffer = new StringBuffer();
+				boolean firstPage = true;
 				
-				for(int k=firstIndex+1; k<lineList.size(); k++){
+				for(int k=firstIndex+1; k<lineList.size(); k++){					
 					String line = lineList.get(k);
+					
+					if(firstPage){
+						while(line.indexOf("Content-Type:") < 0){
+							k++;
+							line = lineList.get(k);
+						}
+						k++;
+						line = lineList.get(k);
+						firstPage = false;
+					}
 					
 					if(line.indexOf("Q0")>0 && line.indexOf("clueweb12")>=0 && line.indexOf("indri")>=0){
 						docMap.put(docName, buffer.toString());						
@@ -203,7 +215,13 @@ public class NTCIRLoader {
 						//						
 						fields = line.split("\\s");
 						docName = fields[2];
-						buffer = new StringBuffer();						
+						buffer = new StringBuffer();
+						//--remove the head
+						while(line.indexOf("Content-Type:") < 0){
+							k++;
+							line = lineList.get(k);
+						}						
+						firstPage = false;						
 					}else{
 						buffer.append(line);
 						buffer.append("\n");						
@@ -216,6 +234,26 @@ public class NTCIRLoader {
 		
 		}catch(Exception e){
 			e.printStackTrace();
+		}
+		
+		if(performExtraction){
+			HashMap<String,	String> extractedDocMap = new HashMap<String, String>();
+			
+			for(Entry<String, String> entry: docMap.entrySet()){
+				String docName = entry.getKey();
+				String rawDocText = entry.getValue();
+				String extractedText = null;
+				try {
+					extractedText = ArticleExtractor.INSTANCE.getText(rawDocText);
+				} catch (Exception e) {
+					System.err.println("Extraction Eror!");
+				}
+				if(null != extractedText){
+					extractedDocMap.put(docName, extractedText);
+				}
+			}
+			
+			return extractedDocMap;			
 		}
 		
 		return docMap;
@@ -370,12 +408,7 @@ public class NTCIRLoader {
 		htmlDir = NTCIR10_DOC[0];
 		docTextBufferDir = NTCIR10_DOC[1];
 		segmentBufferDir = NTCIR10_DOC[2];	
-				
-		if(!ICTCLAS2014_INI){
-			ICTCLAS2014.iniConfig();
-			ICTCLAS2014_INI = true;
-		}
-		
+			
 		int bPOSTagged = 0;
 		//
 		HashMap<String,String> ntcir10Docs = new HashMap<String,String>();
@@ -500,9 +533,7 @@ public class NTCIRLoader {
 			// TODO: handle exception
 			e.printStackTrace();
 		}
-		//
-		ICTCLAS2014.exitConfig();
-		//
+		
 		return ntcir10Docs;
 	}
 	
@@ -547,11 +578,6 @@ public class NTCIRLoader {
 	 * special topic: en-0060
 	 * **/
 	public static List<NTCIRTopic> loadNTCIR10TopicList(NTCIR_EVAL_TASK eval){
-		
-		if(!ICTCLAS2014_INI){
-			ICTCLAS2014.iniConfig();
-			ICTCLAS2014_INI = true;
-		}
 		
 		ArrayList<NTCIRTopic> topicList = new ArrayList<NTCIRTopic>();
 		HashMap<String, NTCIRTopic> topicMap = new HashMap<String, NTCIRTopic>();
@@ -797,25 +823,38 @@ public class NTCIRLoader {
 			}
 		}			
 		//
-		/*
-		if(DEBUG){
-			int k =51;
-			System.out.println("size:\t"+smTopicList.size());
+		///*
+		if(DEBUG){			
+			System.out.println("topic set size:\t"+smTopicList.size());
 			for(SMTopic smTopic: smTopicList){
-				System.out.println(smTopic.getID()+"\t"+(k++));
-				System.out.println(smTopic.getTopicText());
-				System.out.println(smTopic.suggestionBaidu);
-				System.out.println(smTopic.suggestionBing.toString());
-				System.out.println(smTopic.suggestionGoogle);
-				System.out.println(smTopic.suggestionSougou);
-				System.out.println(smTopic.suggestionYahoo);
-				System.out.println(smTopic.relatedQList);
+				System.out.println(smTopic.getID()+":"+smTopic.getTopicText());	
+				
+				if(smTopic.suggestionBaidu.size() > 0){
+					System.out.println("From Baidu:\t"+smTopic.suggestionBaidu);
+				}				
+				if(smTopic.suggestionBing.size() > 0){
+					System.out.println("From Bing:\t"+smTopic.suggestionBing.toString());
+				}				
+				if(smTopic.suggestionGoogle.size() > 0){
+					System.out.println("From Google:\t"+smTopic.suggestionGoogle);
+				}				
+				if(smTopic.suggestionSougou.size() > 0){
+					System.out.println("From Sougou:\t"+smTopic.suggestionSougou);
+				}				
+				if(smTopic.suggestionYahoo.size() > 0){
+					System.out.println("From Yahoo:\t"+smTopic.suggestionYahoo);
+				}				
+				if(smTopic.relatedQList.size() > 0){
+					System.out.println("Related Query:\t"+smTopic.relatedQList);
+				}				
 			}
 		}
-		*/		
+		//*/		
 		//
 		for(SMTopic smTopic: smTopicList){
-			smTopic.getUniqueRelatedQueries();
+			smTopic.getUniqueRelatedQueries();	
+			//
+			/*
 			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
 				for(int k=smTopic.uniqueRelatedQueries.size()-1; k>=0; k--){
 					String str = smTopic.uniqueRelatedQueries.get(k);
@@ -823,29 +862,29 @@ public class NTCIRLoader {
 						smTopic.uniqueRelatedQueries.remove(k);
 					}					
 				}
-			}						
+			}
+			*/
 		}
 		
 		if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
 			for(SMTopic smTopic: smTopicList){
 				loadChPolysemyList(smTopic);
 				if(null!=smTopic.polysemyList && DEBUG){
-					System.out.println(smTopic.toString());
+					System.out.println(smTopic.toString()+"-> disambigution page:");
 					for(String polye : smTopic.polysemyList){
 						System.out.println(polye);
 					}					
 					System.out.println();
 				}
 			}
-		}else{
+		}else if(NTCIR_EVAL_TASK.NTCIR11_SM_EN == eval){
 			for(SMTopic smTopic: smTopicList){
 				loadEnDisamList(smTopic);
 				if(null!=smTopic.polysemyList && DEBUG){
-					System.out.println(smTopic.toString());
+					System.out.println(smTopic.toString()+"-> disambigution page:");
 					for(String polye : smTopic.polysemyList){
 						System.out.println(polye);
-					}					
-					System.out.println();
+					}		
 				}
 			}
 		}
@@ -863,6 +902,7 @@ public class NTCIRLoader {
 		//perform intent role annotation for each topic
 		TermIRAnnotator termIRAnnotator = new TermIRAnnotator();
 		PhraseIRAnnotator phraseIRAnnotator = new PhraseIRAnnotator();
+		
 		for(SMTopic smTopic: smTopicList){
 			if(NTCIR_EVAL_TASK.NTCIR11_SM_CH == eval){
 				LTPIRAnnotator.getTaggedTopic(smTopic);				
@@ -870,7 +910,8 @@ public class NTCIRLoader {
 				enShallowParser.getTaggedTopic(smTopic);
 			}
 			
-			if(DEBUG){				
+			if(DEBUG){
+				System.out.println("Tagged Topic:");
 				System.out.println(smTopic.toString());
 			}
 			//
@@ -889,6 +930,8 @@ public class NTCIRLoader {
 			for(SMTopic smTopic: smTopicList){
 				if(smTopic.CompleteSentence){
 					System.out.println("Sentence topic:\t"+smTopic.getTopicText());
+				}else if(smTopic.belongToBadCase()) {
+					System.err.println("Bad Case:"+smTopic.toString());					
 				}
 			}
 		}
@@ -896,10 +939,10 @@ public class NTCIRLoader {
 		//perform shallow parsing for subtopic string 	
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_term = new HashMap<String, ArrayList<TaggedTerm>>();
 		HashMap<String, ArrayList<ArrayList<TaggedTerm>>> stInstance_all_phrase = new HashMap<String, ArrayList<ArrayList<TaggedTerm>>>();
+		
 		for(SMTopic smTopic: smTopicList){
 			if(smTopic.belongToBadCase()){
-				smTopic.printBadCase();
-				System.out.println(smTopic.toString());				
+				System.err.println("Bad Case:"+smTopic.toString());			
 			}else{
 				for(int i=0; i<smTopic.uniqueRelatedQueries.size(); i++){
 					String rq = smTopic.uniqueRelatedQueries.get(i);
@@ -908,18 +951,36 @@ public class NTCIRLoader {
 						stInstance_all_term.put(rq, enShallowParser.getTaggedTerms(rq));
 						stInstance_all_phrase.put(rq, enShallowParser.getTaggedPhraseList(rq));
 					}else{
-						ArrayList<TaggedTerm> taggedTerms = LTPIRAnnotator.getTaggedTerm(smTopic, i);						
+						
+						//if(QueryPreParser.isOddQuery(rq, Lang.Chinese)){
+						//	continue;
+						//}
+						//!!!should not delete odd rq before this operation
+						/**
+						 * //adobe acrobat 9.0 professional简体中文版 下载
+						 * tagged terms for:	internet+explorer浏览器下载
+							[ie/ws, 8/m, 中文版/n, 官方/n, 下载/v]
+							[[ie/ws, 8/m, 中文版官方/NP, 下载/v]]
+							tagged terms for:	360浏览器主页
+						 * **/
+						ArrayList<TaggedTerm> taggedTerms = LTPIRAnnotator.getTaggedTerm(smTopic, rq);						
 						if(null == taggedTerms){
 							continue;
-						}
-						//adobe acrobat 9.0 professional简体中文版 下载
+						}						
 						stInstance_all_term.put(rq, taggedTerms);
+						
 						ArrayList<ArrayList<TaggedTerm>> taggedPhraseList = LTPIRAnnotator.getTaggedPhraseList(taggedTerms);
 						stInstance_all_phrase.put(rq, taggedPhraseList);
+						
 						if(DEBUG){
-							System.out.println("tagged terms for:\t"+rq);
-							System.out.println("\t"+taggedTerms);
-							System.out.println("\t"+taggedPhraseList);
+							System.out.println("Tagged Subtopic String:\t"+rq);
+							System.out.println("\tTagged Term:"+taggedTerms);
+							if(null != taggedPhraseList){
+								int count = 1;
+								for(ArrayList<TaggedTerm> taggedPhrase: taggedPhraseList){
+									System.out.println("\tTagged Phrase:["+(count++)+"]:"+taggedPhrase);
+								}
+							}														
 						}
 					}					
 				}
@@ -955,10 +1016,10 @@ public class NTCIRLoader {
 		}		
 		//
 		if(DEBUG){
-			System.out.println("---------------!");
+			System.out.println("!---------------!");
 			for(SMTopic smTopic: smTopicList){
 				if (smTopic.belongToBadCase()) {
-					System.out.println("!!!!!!!!!!!-\t"+smTopic.toString());
+					System.err.println("Bad Case:"+smTopic.toString());	
 				}else{
 					System.out.println(smTopic.getID()+"\t"+smTopic.getTopicText());
 					System.out.println("number of subtopicitem:\t"+smTopic.smSubtopicItemList.size());
@@ -972,6 +1033,14 @@ public class NTCIRLoader {
 						if(smSubtopicItem.termModifierGroupList.size() > 0){
 							System.out.println("\tTerm-Annotation:");
 							int iraCount = 1;
+							/**
+							 * item - 19	instance number:	1
+								﻿先知出装
+							---------
+								Term-Annotation:
+								Possible Term-IRA-1
+								[﻿, 出装]
+							 * **/
 							for(ArrayList<String> moGroup: smSubtopicItem.termModifierGroupList){
 								System.out.println("\tPossible Term-IRA-"+(iraCount++));
 								System.out.println("\t"+moGroup);
@@ -1260,6 +1329,13 @@ public class NTCIRLoader {
 		printer.flush();
 		printer.close();
 	}
+	
+	public static void test(){
+		
+	}
+	
+	
+	
 	public static void main(String []args){
 		//1
 		//NTCIRLoader.loadNTCIR10Docs();
@@ -1269,25 +1345,43 @@ public class NTCIRLoader {
 		
 		//3
 		//NTCIRLoader.openPrinter();
-		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, false);
+		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, true);
 		//NTCIRLoader.closePrinter();
+		
+		//NTCIRLoader.openPrinter();
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_EN, true);
+		//NTCIRLoader.closePrinter();
 		
 		//4
 		//NTCIRLoader.loadNTCIR11TopicList(Lang.English);
 		
 		//5
-		///*
+		/*
 		HashMap<String, ArrayList<String>> enNtcir11BaselineMap = NTCIRLoader.loadNTCIR11Baseline_EN();
 		ArrayList<String> baseline = enNtcir11BaselineMap.get("0053");
 		for(String doc: baseline){
 			System.out.println(doc);
 		}
-		//*/
+		*/
 		
 		//6 clueweb12-0208wb-10-16191
-		//HashMap<String, String> enNtcir11docMap = NTCIRLoader.loadNTCIR11BaselineDocs_EN();
-		//System.out.println(enNtcir11docMap.get("clueweb12-0208wb-10-16191"));
+		HashMap<String, String> enNtcir11docMap = NTCIRLoader.loadNTCIR11BaselineDocs_EN(true);
+		System.out.println(enNtcir11docMap.size());
+		//06
+		//clueweb12-0206wb-31-32216
+		//clueweb12-0206wb-22-00952
+		//clueweb12-0208wb-10-16191
+		//NTCIRLoader.openPrinter();
+		System.out.println(enNtcir11docMap.get("clueweb12-0206wb-22-00952"));
+		//NTCIRLoader.closePrinter();
+		
+		//try {
+		//	System.out.println(ArticleExtractor.INSTANCE.getText(enNtcir11docMap.get("clueweb12-0208wb-10-16191")));
+		//} catch (Exception e) {
+		//	// TODO: handle exception
+		//}
+		
+		
 		
 		//7
 		/*
@@ -1299,7 +1393,7 @@ public class NTCIRLoader {
 		*/
 		
 		//8
-		HashMap<String, String> chNtcir11docMap = NTCIRLoader.loadNTCIR11Docs_CH();
+		//HashMap<String, String> chNtcir11docMap = NTCIRLoader.loadNTCIR11Docs_CH();
 		//System.out.println(enNtcir11docMap.get("clueweb12-0208wb-10-16191"));
 		
 		

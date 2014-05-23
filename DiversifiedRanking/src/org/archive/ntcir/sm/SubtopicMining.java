@@ -1308,7 +1308,7 @@ public class SubtopicMining {
 		/////////////////
 		//Subtopic Mining for Ch-Topics
 		/////////////////
-		/*
+		///*
 		String runTitle = "TUTA1-S-C-1A";
 		String runIntroduction = "Corresponding to the Chinese subtopic mining subtask, we rely on the categorical knowledge of Baidu-Baike, the online natural language processing service, "
 				+ "to identify the ambiguous topics, clear topics. Based on the Affinity Propagation clustering approach to cluster the subtopic strings.";
@@ -1320,24 +1320,24 @@ public class SubtopicMining {
 			// TODO: handle exception
 			e.printStackTrace();
 		}	
-		*/
+		//*/
 		
 		//////////////////////
 		//Subtopic Mining for En-Topics
 		/////////////////////
-		///*
-		String runTitle = "TUTA1-S-E-1A";
-		String runIntroduction = "Corresponding to the English subtopic mining subtask, we rely on the categorical knowledge of Wikipedia and the Stanford Parser "
+		/*
+		String enSMRunTitle = "TUTA1-S-E-1A";
+		String enSMRunIntroduction = "Corresponding to the English subtopic mining subtask, we rely on the categorical knowledge of Wikipedia and the Stanford Parser "
 				+ "to identify the ambiguous topics, clear topics. Based on the Affinity Propagation clustering approach to cluster the subtopic strings.";
-		SMRunParameter runParameter = new SMRunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, runTitle, runIntroduction,
-				SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
+		
+		SMRunParameter enSMRunParameter = new SMRunParameter(NTCIR_EVAL_TASK.NTCIR11_SM_EN, enSMRunTitle, enSMRunIntroduction,
+												SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
 		try {
-			smMining.run(runParameter);
-		} catch (Exception e) {
-			// TODO: handle exception
+			smMining.run(enSMRunParameter);
+		} catch (Exception e) {			
 			e.printStackTrace();
 		}	
-		//*/
+		*/
 	}
 	
 

@@ -67,8 +67,8 @@ public abstract class Doc {
      * @param prefix
      * @param depth
      */
-	public static void PrintNode(Node n, String prefix, int depth) {
-		
+	public static void PrintNode(Node n, String prefix, int depth) {	
+			
 		try {			
 			System.out.print("\n" + Pad(depth) + "[" + n.getNodeName());
 			NamedNodeMap m = n.getAttributes();

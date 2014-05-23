@@ -14,6 +14,7 @@ import de.l3s.boilerpipe.sax.HTMLHighlighter;
  * @see Oneliner if you only need the plain text.
  */
 public class HTMLHighlightDemo {
+	
 	public static void main(String[] args) throws Exception {
 		URL url = new URL(
 				"http://research.microsoft.com/en-us/um/people/ryenw/hcir2010/challenge.html"
@@ -35,6 +36,8 @@ public class HTMLHighlightDemo {
 		out.println("<meta http-equiv=\"Content-Type\" content=\"text-html; charset=utf-8\" />");
 		out.println(hh.process(url, extractor));
 		out.close();
+		
+		//hh.p
 		
 		System.out.println("Now open file:///tmp/highlighted.html in your web browser");
 	}

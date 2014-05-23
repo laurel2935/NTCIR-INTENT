@@ -50,11 +50,15 @@ public class Checker {
 		}
 		
 		System.out.println(eval.toString());
+		int count = 0;
 		for(String topicID: totalIDList){
 			if(!resultIDSet.contains(topicID)){
 				System.err.println("No Result TopicID:\t"+topicID);
+				count ++;
 			}
-		}		
+		}	
+		System.out.println("Count:\t"+count);
+		System.out.println();
 	}
 	
 	
@@ -63,16 +67,16 @@ public class Checker {
 		String drResultDir = OutputDirectory.ROOT+"DRResult/";
 		
 		//1 sm-ch-check
-		String smResult_ch = "TUTA1-S-C-1A.txt";
-		Checker.checkNoResultTopic(NTCIR_EVAL_TASK.NTCIR11_SM_CH, smResultDir+smResult_ch);
+		//String smResult_ch = "TUTA1-S-C-1A.txt";
+		//Checker.checkNoResultTopic(NTCIR_EVAL_TASK.NTCIR11_SM_CH, smResultDir+smResult_ch);
 		
 		//2 sm-en-check
-		String smResult_en = "TUTA1-S-E-1A.txt";
-		Checker.checkNoResultTopic(NTCIR_EVAL_TASK.NTCIR11_SM_EN, smResultDir+smResult_en);
+		//String smResult_en = "TUTA1-S-E-1A.txt";
+		//Checker.checkNoResultTopic(NTCIR_EVAL_TASK.NTCIR11_SM_EN, smResultDir+smResult_en);
 		
 		//3 dr-ch-check
-		String drResult_ch = "TUTA1-D-C-1B.txt";
-		Checker.checkNoResultTopic(NTCIR_EVAL_TASK.NTCIR11_DR_CH, drResultDir+drResult_ch);
+		//String drResult_ch = "TUTA1-D-C-1B.txt";
+		//Checker.checkNoResultTopic(NTCIR_EVAL_TASK.NTCIR11_DR_CH, drResultDir+drResult_ch);
 		
 		//4 dr-en-check
 		String drResult_en = "TUTA1-D-E-1B.txt";

@@ -24,16 +24,17 @@ public class TaggedTopic {
 	//
 	public String toString(){
 		StringBuffer strBuffer = new StringBuffer();
-		//strBuffer.append(_pennString+"\n");
+		strBuffer.append("Tagged Terms:");
 		for(TaggedTerm taggedTerm: _taggedTerms){
 			strBuffer.append(taggedTerm.toString()+"\t");			
 		}
-		strBuffer.append("\n");
+		strBuffer.append("\n");		
 		if(null != _taggedPhraseList){
+			int i = 1;
 			for(ArrayList<TaggedTerm> taggedPhrase: _taggedPhraseList){
-				strBuffer.append(taggedPhrase.toString()+"\t");			
+				strBuffer.append("Tagged Phrase["+(i++)+"]:"+taggedPhrase.toString()+"\n");			
 			}
-			strBuffer.append("\n");
+			//strBuffer.append("\n");
 		}		
 		return strBuffer.toString();		
 	}
