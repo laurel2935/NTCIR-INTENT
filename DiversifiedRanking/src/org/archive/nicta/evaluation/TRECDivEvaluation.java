@@ -5,27 +5,16 @@
 
 package org.archive.nicta.evaluation;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.text.DecimalFormat;
 import java.util.*;
 
 import org.archive.OutputDirectory;
-import org.archive.a1.kernel.SBKernel;
 import org.archive.a1.ranker.fa.DCKUFLRanker;
-import org.archive.a1.ranker.fa.K_UFLRanker;
 import org.archive.a1.ranker.fa.MDP;
 import org.archive.a1.ranker.fa.MDP.fVersion;
-import org.archive.dataset.DataSetDiretory;
-import org.archive.dataset.trec.TREC68Loader;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
-import org.archive.dataset.trec.doc.CLUEDoc;
-import org.archive.dataset.trec.doc.Doc;
-import org.archive.dataset.trec.query.TREC68Query;
 import org.archive.dataset.trec.query.TRECDivQuery;
-import org.archive.dataset.trec.query.TRECQuery;
 import org.archive.dataset.trec.query.TRECQueryAspects;
 import org.archive.nicta.evaluation.evaluator.Evaluator;
 import org.archive.nicta.evaluation.evaluator.TRECDivEvaluator;
@@ -33,18 +22,12 @@ import org.archive.nicta.evaluation.metricfunction.AllUSLoss;
 import org.archive.nicta.evaluation.metricfunction.AllWSLoss;
 import org.archive.nicta.evaluation.metricfunction.Metric;
 import org.archive.nicta.evaluation.metricfunction.NDEval10Losses;
-import org.archive.nicta.kernel.BM25Kernel;
 import org.archive.nicta.kernel.BM25Kernel_A1;
 import org.archive.nicta.kernel.Kernel;
-import org.archive.nicta.kernel.LDAKernel;
-import org.archive.nicta.kernel.PLSRKernel;
-import org.archive.nicta.kernel.PLSRKernelTFIDF;
 import org.archive.nicta.kernel.TF;
-import org.archive.nicta.kernel.TFIDF;
 import org.archive.nicta.kernel.TFIDF_A1;
 import org.archive.nicta.ranker.ResultRanker;
 import org.archive.nicta.ranker.mmr.MMR;
-import org.archive.util.FileFinder;
 
 ////////////////////////////////////////////////////////////////////
 // Evaluates Different Diversification Algorithms on ClueWeb Content
@@ -56,7 +39,7 @@ public class TRECDivEvaluation {
 	
 	private static void trecDivEvaluation(DivVersion divVersion, RankStrategy rankStrategy){
 		//output
-		String output_prefix = OutputDirectory.ROOT+"results/DivEvaluation/";
+		String output_prefix = OutputDirectory.ROOT+"DivEvaluation/";
 		File outputFile = new File(output_prefix);
 		if(!outputFile.exists()){
 			outputFile.mkdirs();
@@ -90,10 +73,10 @@ public class TRECDivEvaluation {
 		lossFunctions.add(new AllWSLoss());
 		lossFunctions.add(new NDEval10Losses(TRECDivLoader.getTrecDivQREL(divVersion)));
 		//
-		NDEval10Losses ndEval10Losses = new NDEval10Losses(TRECDivLoader.getTrecDivQREL(divVersion));		
-		
-		/************* Best First Strategy ***************/
+		//NDEval10Losses ndEval10Losses = new NDEval10Losses(TRECDivLoader.getTrecDivQREL(divVersion));		
+				
 		if(rankStrategy == RankStrategy.BFS){
+			/************* Best First Strategy ***************/
 			// Build a new result list selectors... all use the greedy MMR approach,
 			// each simply selects a different similarity metric
 			ArrayList<ResultRanker> rankers = new ArrayList<ResultRanker>();		
@@ -261,6 +244,7 @@ public class TRECDivEvaluation {
 				e.printStackTrace();
 			}
 		}else if(rankStrategy == RankStrategy.MDP){
+			
 			/************* note the number of topics for LDA training ****************/
 			//SBKernel _sbKernel = new SBKernel(trecDivDocs, 10);
 			
@@ -285,40 +269,44 @@ public class TRECDivEvaluation {
 				// TODO: handle exception
 				e.printStackTrace();
 			}
+			
 		}else if(rankStrategy == RankStrategy.FL){
+			
 			double k1, k3, b;
-			k1=1.2d; k3=0.5d; b=0.5d; // achieves the best
+			k1=1.2d; k3=0.5d; b=0.5d;   // achieves the best
 			//k1=0.5d; k3=0.5d; b=0.5d; //better than the group of b=1000d;
 			//k1=1.2d; k3=0.5d; b=1000d;
 			BM25Kernel_A1 bm25_A1_Kernel = new BM25Kernel_A1(trecDivDocs, k1, k3, b);
 			
-			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
+			//TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
 			
 			//
-			ArrayList<ResultRanker> rankers = new ArrayList<ResultRanker>();
+			ArrayList<ResultRanker> rankerList = new ArrayList<ResultRanker>();
 			
 			//1
 			double lambda_1 = 0.5;
 			int iterationTimes_1 = 5000;
 			int noChangeIterSpan_1 = 10; 
 			//DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
-			DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, tfidf_A1Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
+			DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
 			
 			//2
+			/*
 			double lambda_2 = 0.5;
 			int iterationTimes_2 = 10000;
 			int noChangeIterSpan_2 = 10; 
 			double SimDivLambda = 0.5;
 			K_UFLRanker kuflRanker = new K_UFLRanker(trecDivDocs, tfidf_A1Kernel, lambda_2, iterationTimes_2, noChangeIterSpan_2, SimDivLambda);
+			*/
 			
-			rankers.add(dckuflRanker);
+			rankerList.add(dckuflRanker);
 			//rankers.add(kuflRanker);
 			
 			// Evaluate results of different query processing algorithms
 			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename);
 			try {
 				trecDivEvaluator.doEval(TRECDivLoader.getDivEvalQueries(divVersion),
-						trecDivDocs, trecDivQueryAspects, lossFunctions, rankers, cutoffK);
+						trecDivDocs, trecDivQueryAspects, lossFunctions, rankerList, cutoffK);
 			} catch (Exception e) {
 				// TODO: handle exception
 				e.printStackTrace();
@@ -329,6 +317,7 @@ public class TRECDivEvaluation {
 	
 	//
 	public static void main(String []args){
+		
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
 		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.FL);

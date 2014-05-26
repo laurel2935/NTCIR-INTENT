@@ -58,15 +58,19 @@ public class DCKUFLRanker extends ResultRanker{
 	public ArrayList<String> getResultList(String query, int size) {
 		return null;
 	}
+	
+	////////////////////////
+	//TrecDive style
+	////////////////////////
+	
 	//relevance between subtopics and documents
-	private ArrayList<InteractionData> getReleMatrix(TRECDivQuery trecDivQuery){
-		//
+	private ArrayList<InteractionData> getReleMatrix(TRECDivQuery trecDivQuery){		
 		initTonNDocsForInnerKernels();
 		
 		ArrayList<InteractionData> releMatrix = new ArrayList<InteractionData>();		
 		//subtopic <-> docs
 		Vector<TRECSubtopic> trecSubtopicList = trecDivQuery.getSubtopicList();
-		String [] topNDocNames = _docs_topn.toArray(new String[0]);
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);		
 		for(TRECSubtopic trecSubtopic: trecSubtopicList){	
 			Object subtopicRepr = _kernel.getNoncachedObjectRepresentation(trecSubtopic.getContent());
 			for(String docName: topNDocNames){
@@ -75,25 +79,25 @@ public class DCKUFLRanker extends ResultRanker{
 				releMatrix.add(new InteractionData(trecSubtopic._sNumber, docName, _kernel.sim(subtopicRepr, docRepr)));
 			}
 		}
-		//
+		
 		return releMatrix;		
 	}
 	//similarity among subtopics
 	private ArrayList<InteractionData> getSubtopicSimMatrix(TRECDivQuery trecDivQuery){
 		ArrayList<InteractionData> simMatrix = new ArrayList<InteractionData>();
-		Vector<TRECSubtopic> trecSubtopicList = trecDivQuery.getSubtopicList();
-		//
+		
+		Vector<TRECSubtopic> trecSubtopicList = trecDivQuery.getSubtopicList();		
 		for(int i=0; i<trecSubtopicList.size()-1; i++){
 			TRECSubtopic iSubtopic = trecSubtopicList.get(i);
 			Object iRepr = _kernel.getNoncachedObjectRepresentation(iSubtopic.getContent());
 			for(int j=i+1; j<trecSubtopicList.size(); j++){
 				TRECSubtopic jSubtopic = trecSubtopicList.get(j);
 				Object jRepr = _kernel.getNoncachedObjectRepresentation(jSubtopic.getContent());
-				//
+				
 				simMatrix.add(new InteractionData(iSubtopic._sNumber, jSubtopic._sNumber, _kernel.sim(iRepr, jRepr)));
 			}
 		}
-		//
+		
 		return simMatrix;	
 	}
 	//equal size of capacity of each subtopic
@@ -114,7 +118,7 @@ public class DCKUFLRanker extends ResultRanker{
 	}
 	//
 	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
-		//
+		
 		ArrayList<InteractionData> releMatrix = getReleMatrix(trecDivQuery);
 		ArrayList<InteractionData> subSimMatrix = getSubtopicSimMatrix(trecDivQuery);
 		ArrayList<Double> capList = getCapacityList(trecDivQuery, size);
@@ -125,12 +129,14 @@ public class DCKUFLRanker extends ResultRanker{
     	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
     	dckufl.run();
     	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
+    	
     	//(1)final ranking by similarity between query and document
     	ArrayList<StrDouble> objList = new ArrayList<StrDouble>();
     	Object queryRepr = _kernel.getNoncachedObjectRepresentation(trecDivQuery.getQueryContent());
     	for(String docName: facilityList){
     		objList.add(new StrDouble(docName, _kernel.sim(queryRepr, _kernel.getObjectRepresentation(docName))));
     	}
+    	
     	//(2)??? similarity between subtopic vector and document
     	
     	Collections.sort(objList, new PairComparatorBySecond_Desc<String, Double>());
@@ -153,12 +159,14 @@ public class DCKUFLRanker extends ResultRanker{
 	//
 	public String getDescription() {
 		// TODO Auto-generated method stub
-		return "DCKUFL - sbkernel: " + _kernel.getKernelDescription();
+		return "DCKUFL - kernel: " + _kernel.getKernelDescription();
 	}
 	
 	
-	//
-	//--
+	//////////////////////////
+	//NTCIR style
+	//////////////////////////
+	
 	public ArrayList<StrDouble> getResultList(DRRunParameter drRunParameter, SMTopic smTopic, ArrayList<String> subtopicList, int cutoff){
 		//
 		ArrayList<InteractionData> releMatrix = getReleMatrix(subtopicList);

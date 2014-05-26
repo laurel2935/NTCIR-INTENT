@@ -23,7 +23,7 @@ import org.archive.util.tuple.StrDouble;
 public abstract class ResultRanker {
 
 	public static boolean SHOW_DEBUG = false;
-	
+	//for differentiating different kinds of rankers, i.e., 0 for best first strategy rankers
 	public int _indexOfGetResultMethod = 0;
 	
 	//doc_name & doc_content, commonly the total doc for all queries

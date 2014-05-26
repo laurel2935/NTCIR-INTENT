@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
+import org.archive.OutputDirectory;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
 import org.archive.dataset.trec.query.TRECDivQuery;
@@ -31,19 +32,20 @@ import org.archive.nicta.ranker.ResultRanker;
 import org.archive.util.DevNullPrintStream;
 import org.archive.util.VectorUtils;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
+import org.archive.util.tuple.StrDouble;
 
 public class TRECDivEvaluator extends Evaluator{
 	
 	private Map<String,TRECDivQuery> _allTRECDivQueries = null; 
 	
-	public TRECDivEvaluator(Map<String,TRECDivQuery> allTRECDivQueries,
-			String outputPrefix, String outputFilename){
+	public TRECDivEvaluator(Map<String,TRECDivQuery> allTRECDivQueries, String outputPrefix, String outputFilename){
 		super(outputPrefix, outputFilename);
 		this._allTRECDivQueries = allTRECDivQueries;
 	}
 
 	public void openPrintStreams(){
 		try {
+			
 			this.ps_per_SLoss  = new PrintStream(new FileOutputStream(_outputPrefix + _outputFilename + ".txt"));
 			this.ps_avg_SLoss = new PrintStream(new FileOutputStream(_outputPrefix + _outputFilename + ".avg.txt"));
 			this.ps_per_Ndeval = new PrintStream(new FileOutputStream(_outputPrefix + _outputFilename + "_ndeval.txt"));
@@ -82,14 +84,9 @@ public class TRECDivEvaluator extends Evaluator{
 	// TODO: Verify consistency of rankers when used multiple times with clearDocs
 	// TODO: Need to do code profiling, can improve code with caching (e.g., similarity metrics, LDA)	
 	
-	public void doEval(
-			List<String> evalQueries, 
-			HashMap<String,String> allDocs, 			 
-			Map<String,TRECQueryAspects> stdTRECQueryAspects,
-			List<Metric> lossFunctions,
-			List<ResultRanker> resultRankers,
-			int cutoffK) throws Exception {
-		//
+	public void doEval(List<String> evalQueries, HashMap<String,String> allDocs, Map<String,TRECQueryAspects> stdTRECQueryAspects,
+			List<Metric> lossFunctions, List<ResultRanker> resultRankers, int cutoffK) throws Exception {
+		
 		this.openPrintStreams();		
 		// Loop:
 		// - go through each test (alg) t (a variant of MMR)
@@ -122,6 +119,7 @@ public class TRECDivEvaluator extends Evaluator{
 				
 				// Get query relevant info
 				++query_serial;
+				
 				TRECDivQuery trecDivQuery = _allTRECDivQueries.get(qNumber);
 				TRECQueryAspects trecQueryAspects = stdTRECQueryAspects.get(qNumber);
 				
@@ -130,14 +128,13 @@ public class TRECDivEvaluator extends Evaluator{
 					//System.out.println("- Query details: " + trecDivQuery);
 					//System.out.println("- Query aspects: " + qa);
 				}
-
-				// Add docs for query to test
-				rRanker.clearInfoOfTopNDocs();
-				//Set<String> relevant_docs = qa.getRelevantDocs();
+				
+				rRanker.clearInfoOfTopNDocs();				
 				Set<String> topnDocs = trecQueryAspects.getTopNDocs();
 
-				if (DEBUG)
+				if (DEBUG){
 					System.out.println("- Evaluating with " + topnDocs.size() + " docs");
+				}					
 				
 				for (String doc_name : topnDocs) {
 					if (!allDocs.containsKey(doc_name))
@@ -150,8 +147,9 @@ public class TRECDivEvaluator extends Evaluator{
 				}
 				
 				// Get the results
-				if (DEBUG)
+				if (DEBUG){
 					System.out.println("- Running alg: " + rRanker.getDescription());
+				}					
 				
 				ArrayList<String> resultList = null;
 				if(0 == rRanker._indexOfGetResultMethod){
@@ -160,22 +158,20 @@ public class TRECDivEvaluator extends Evaluator{
 					resultList = rRanker.getResultList(trecDivQuery, cutoffK);
 				}
 				
-				if (DEBUG)
+				if (DEBUG){
 					System.out.println("- Result list: " + resultList);
+				}					
 				
 				// Evaluate all loss functions on the results
 				for (Metric loss : lossFunctions) {
 					String loss_name = loss.getName();
+					
 					System.out.println("Evaluating: " + loss_name);
 					
 					Object o = null;
 					try {
-						o = loss.eval(trecQueryAspects, resultList);
-						if(null == o){
-							System.out.println("!!!!!!!!!!!!!!!!!!!!!");
-						}
-					} catch (Exception e) {
-						// TODO: handle exception
+						o = loss.eval(trecQueryAspects, resultList);						
+					} catch (Exception e) {						
 						e.printStackTrace();
 					}
 					
@@ -189,7 +185,7 @@ public class TRECDivEvaluator extends Evaluator{
 					// Display results to screen for now
 					System.out.println("==================================================");
 					System.out.println("Query: " + trecDivQuery._number + " -> " + trecDivQuery.getQueryContent());
-					System.out.println("MMR Alg: " + rRanker.getDescription());
+					System.out.println("Result Ranker Alg: " + rRanker.getDescription());
 					System.out.println("Loss Function: " + loss.getName());
 					System.out.println("Evaluation: " + loss_result_str);
 					
@@ -236,14 +232,15 @@ public class TRECDivEvaluator extends Evaluator{
 	 * which is the basis for testing different diversity strategies
 	 * **/
 	public static void baselineSubtopicRecall(DivVersion divVersion){
+		
 		HashMap<String,String> trecDivDocs = TRECDivLoader.loadTrecDivDocs();
 		List<String> evalQueries = TRECDivLoader.getDivEvalQueries(divVersion);
 		Map<String,TRECDivQuery> allTrecDivQueries = TRECDivLoader.loadTrecDivQueries(divVersion);
 		Map<String,TRECQueryAspects> allTrecDivQueryAspects = TRECDivLoader.loadTrecDivQueryAspects(divVersion);
-		//
+		
 		try {
 			//output
-			String prefix = "results/DivEvaluation/";
+			String prefix = OutputDirectory.ROOT+"DivEvaluation/";
 			String filename = null;
 			if(DivVersion.Div2009 == divVersion){
 				filename = "Div2009Baseline";			
@@ -257,10 +254,8 @@ public class TRECDivEvaluator extends Evaluator{
 				System.exit(1);				
 			}
 			//
-			PrintStream ps_per_SRecall  = new PrintStream(
-					new FileOutputStream(prefix + filename + "_per.txt"));
-			PrintStream ps_avg_SRecall  = new PrintStream(
-					new FileOutputStream(prefix + filename + "_avg.txt"));
+			PrintStream ps_per_SRecall  = new PrintStream(new FileOutputStream(prefix + filename + "_per.txt"));
+			PrintStream ps_avg_SRecall  = new PrintStream(new FileOutputStream(prefix + filename + "_avg.txt"));
 			// Maintain average US and WSL vectors
 			int cutoffK = 100;			
 			double[] avg_vs_rank = new double[cutoffK];
@@ -285,15 +280,13 @@ public class TRECDivEvaluator extends Evaluator{
 				bm25Kernel.clearInfoOfTopNDocs();				
 				bm25Kernel.initTonNDocs(topnDocs);
 				//
-				ArrayList<org.archive.util.tuple.Pair<String, Double>> listForRanking = 
-					new ArrayList<org.archive.util.tuple.Pair<String,Double>>();
+				ArrayList<StrDouble> listForRanking = new ArrayList<StrDouble>();
 				//
 				String queryText = trecDivQuery.getQueryContent();
 				Object queryRepr = bm25Kernel.getNoncachedObjectRepresentation(queryText);
 				for(String doc_name: topnDocs){
 					Object docRepr = bm25Kernel.getObjectRepresentation(doc_name);
-					listForRanking.add(new org.archive.util.tuple.Pair<String, Double>(doc_name,
-							bm25Kernel.sim(queryRepr, docRepr)));
+					listForRanking.add(new StrDouble(doc_name, bm25Kernel.sim(queryRepr, docRepr)));
 				}
 				//
 				Collections.sort(listForRanking, new PairComparatorBySecond_Desc<String, Double>());
@@ -308,8 +301,7 @@ public class TRECDivEvaluator extends Evaluator{
 				export(ps_per_SRecall, "q-"+serialFormat.format(query_serial), "BM25", "SubtopicRecall\n",
 						(double[])srObject, (String [])srFunction.getMetricArray());
 			
-				avg_vs_rank = VectorUtils.Sum(avg_vs_rank, (double[])srObject);
-				//
+				avg_vs_rank = VectorUtils.Sum(avg_vs_rank, (double[])srObject);				
 			}
 			//
 			avg_vs_rank = VectorUtils.ScalarMultiply(avg_vs_rank, 1d/evalQueries.size());
@@ -342,7 +334,7 @@ public class TRECDivEvaluator extends Evaluator{
 		//
 		try {
 			//output
-			String prefix = "results/DivEvaluation/";
+			String prefix = OutputDirectory.ROOT+"DivEvaluation/";
 			String filename = null;
 			if(DivVersion.Div2009 == divVersion){
 				filename = "Div2009_SimMetric";			
@@ -356,11 +348,9 @@ public class TRECDivEvaluator extends Evaluator{
 				System.exit(1);				
 			}
 			//averaged nDCG per query
-			PrintStream ps_per_MSnDCG  = new PrintStream(
-					new FileOutputStream(prefix + filename + "_per.txt"));
+			PrintStream ps_per_MSnDCG  = new PrintStream(new FileOutputStream(prefix + filename + "_per.txt"));
 			//averaged nDCG of the query set
-			PrintStream ps_avg_MSnDCG  = new PrintStream(
-					new FileOutputStream(prefix + filename + "_avg.txt"));
+			PrintStream ps_avg_MSnDCG  = new PrintStream(new FileOutputStream(prefix + filename + "_avg.txt"));
 			// Maintain average US and WSL vectors
 			int cutoffK = 100;
 			MSnDCG msnDCGFunction = new MSnDCG();
