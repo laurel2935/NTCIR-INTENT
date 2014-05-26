@@ -93,10 +93,22 @@ public class MDP extends ResultRanker {
 			_docRepr.put(doc, repr);			
 		}
 	}
-	//
+	
+	//using the default version: fVersion._dfa
 	public ArrayList<String> getResultList(String query, int size) {
-		return null;
+		// Get representation for query
+		Object query_repr = _sbKernel.getNoncachedObjectRepresentation(query);
+		//
+		ArrayList<StrDouble> rankedS = hillClimbingSearch_dfa_perBest(query_repr, _docs_topn, size, fVersion._dfa);		
+		//
+		ArrayList<String> result_list = new ArrayList<String>();
+		for(int i=0; i<rankedS.size(); i++){
+			result_list.add(rankedS.get(i).getFirst());
+		}
+		//
+		return result_list;	
 	}
+	
 	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
 		return null;
 	}

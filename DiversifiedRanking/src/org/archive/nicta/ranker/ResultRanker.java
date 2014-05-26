@@ -8,6 +8,7 @@
 
 package org.archive.nicta.ranker;
 
+import java.text.DecimalFormat;
 import java.util.*;
 
 import org.archive.dataset.ntcir.sm.SMTopic;
@@ -21,6 +22,9 @@ import org.archive.util.tuple.StrDouble;
  * thus, subclasses must implements these methods.
  * */
 public abstract class ResultRanker {
+	//output
+	public static DecimalFormat fourResultFormat = new DecimalFormat("0.0000");
+	public static DecimalFormat twoResultFormat = new DecimalFormat("0.00");
 
 	public static boolean SHOW_DEBUG = false;
 	//for differentiating different kinds of rankers, i.e., 0 for best first strategy rankers

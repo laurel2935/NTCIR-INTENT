@@ -8,7 +8,7 @@ public class TRECDivQuery extends TRECQuery implements Comparable<TRECQuery> {
 	//
 	public static final boolean INCLUDE_QUERY_DESCRIPTION = true;
 	//ambiguous or faceted
-	private String _type;
+	public String _type;
 	//
 	private Vector<TRECSubtopic> subtopicList = new Vector<TRECSubtopic>();
 	

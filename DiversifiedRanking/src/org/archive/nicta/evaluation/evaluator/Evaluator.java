@@ -31,7 +31,9 @@ public abstract class Evaluator {
 	
 	public static final boolean DEBUG = true;
 	//output
-	public static DecimalFormat resultFormat = new DecimalFormat("0.0000");
+	public static DecimalFormat fourResultFormat = new DecimalFormat("0.0000");
+	public static DecimalFormat twoResultFormat = new DecimalFormat("0.00");
+	
 	public static DecimalFormat serialFormat = new DecimalFormat("00");
 	//
 	public String _outputPrefix;
@@ -69,9 +71,9 @@ public abstract class Evaluator {
 		ps.print(query_serial + "\t" + rankerString + "\t" + lossFString);
 		for (int i = 0; i < v.length; i++)
 			if(metricArray[i].endsWith("\n")){
-				ps.print("\t" + metricArray[i].replaceFirst("\n", ":") +resultFormat.format(v[i])+"\n");
+				ps.print("\t" + metricArray[i].replaceFirst("\n", ":") +fourResultFormat.format(v[i])+"\t");
 			}else {
-				ps.print("\t" + metricArray[i] + ":" +resultFormat.format(v[i]));
+				ps.print("\t" + metricArray[i] + ":" +fourResultFormat.format(v[i]));
 			}			
 		ps.println();		
 	}	

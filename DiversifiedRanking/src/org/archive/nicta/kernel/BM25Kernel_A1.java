@@ -125,12 +125,53 @@ public class BM25Kernel_A1 extends Kernel {
 		
 		return VectorUtils.DotProduct(query, doc);
 	}
-
+	
+	/**
+	 * 
+	 * **/
+	///*
 	public double sim(Object o1, Object o2, Object ow) {
 		System.out.println("ERROR: Cannot do BM25 query-reweighted similarity");
 		System.exit(1);
 		return -1d;
 	}
+	//*/
+	public double sim_(Object o1, Object o2, Object ow) {
+		Map<Object,Double> map1 = (Map<Object, Double>)o1;
+		Map<Object,Double> map2 = (Map<Object, Double>)o2;
+		
+		Map<Object, Double> query;
+		Map<Object, Double> doc;
+		
+		if(map1.size() < map2.size()){
+			query = VectorUtils.Copy(map1);
+			doc = VectorUtils.Copy(map2);
+		}else{
+			query = VectorUtils.Copy(map2);
+			doc = VectorUtils.Copy(map1);
+		}
+		
+		// Modify query according to BM25 kernel
+		for (Object key : query.keySet()) {
+			double freq = query.get(key);
+			freq = ((_k3 + 1) * freq) / (_k3 + freq);
+			Double idf  = _hmKey2IDF.get(key);
+			if (idf == null)
+				idf = _dDefaultIDF;
+			query.put(key, freq * idf);
+		}
+		
+		// Modify doc according to BM25 kernel
+		double doc_length_ratio = VectorUtils.L1Norm(doc) / _dAvgDocLength;
+		for (Object key : doc.keySet()) {
+			double freq = doc.get(key);
+			freq = ((_k1 + 1) * freq) / (_k1 * (1d - _b + _b*doc_length_ratio) + freq);
+			doc.put(key, freq);
+		}
+		
+		return VectorUtils.DotProduct(query, doc);
+	}
+	
 
 	@Override
 	public String getObjectStringDescription(Object obj) {

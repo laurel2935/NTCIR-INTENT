@@ -199,7 +199,7 @@ public class MMR extends ResultRanker {
 	}
 	
 	public String getString(){
-		return "MMR="+_sim.getString()+"+"+_div.getString();
+		return "MMR="+"["+twoResultFormat.format(_dLambda)+"]"+_sim.getString()+"+"+_div.getString();
 	}
 	
 	//--

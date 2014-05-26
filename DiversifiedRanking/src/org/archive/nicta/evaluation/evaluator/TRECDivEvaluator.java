@@ -192,18 +192,18 @@ public class TRECDivEvaluator extends Evaluator{
 					// Maintain averages and export
 					if (loss instanceof AllUSLoss) {
 						usl_vs_rank = VectorUtils.Sum(usl_vs_rank, (double[])o);
-						export(ps_per_SLoss, "q-"+serialFormat.format(query_serial), rankerString, "USL", (double[])o, (String [])loss.getMetricArray());
+						export(ps_per_SLoss, qNumber, rankerString, "USL", (double[])o, (String [])loss.getMetricArray());
 					}
 					if (loss instanceof AllWSLoss) {
 						wsl_vs_rank = VectorUtils.Sum(wsl_vs_rank, (double[])o);
-						export(ps_per_SLoss, "q-"+serialFormat.format(query_serial), rankerString, "WSL", (double[])o, (String [])loss.getMetricArray());
+						export(ps_per_SLoss, qNumber, rankerString, "WSL", (double[])o, (String [])loss.getMetricArray());
 					}
 					if (loss instanceof NDEval10Losses) {
 						if (ndeval == null) {
 							ndeval = new double[((double[])o).length];
 						}	
 						ndeval = VectorUtils.Sum(ndeval, (double[])o);
-						export(ps_per_Ndeval, "q-"+serialFormat.format(query_serial), rankerString, "NDEval10\n", (double[])o, (String [])loss.getMetricArray());
+						export(ps_per_Ndeval, qNumber, rankerString, "NDEval10", (double[])o, (String [])loss.getMetricArray());
 					}
 					ps_per_SLoss.flush();
 					ps_per_Ndeval.flush();
@@ -298,8 +298,7 @@ public class TRECDivEvaluator extends Evaluator{
 				//
 				Object srObject = srFunction.eval(trecQueryAspects, rankedList, cutoffK);
 				
-				export(ps_per_SRecall, "q-"+serialFormat.format(query_serial), "BM25", "SubtopicRecall\n",
-						(double[])srObject, (String [])srFunction.getMetricArray());
+				export(ps_per_SRecall, number, "BM25", "SubtopicRecall", (double[])srObject, (String [])srFunction.getMetricArray());
 			
 				avg_vs_rank = VectorUtils.Sum(avg_vs_rank, (double[])srObject);				
 			}
@@ -479,9 +478,10 @@ public class TRECDivEvaluator extends Evaluator{
 		simMetricAnalysis(DivVersion.Div20092010, kernelList);
 	}
 	//
+	//
 	public static void main(String []args){
 		//1 Baseline subtopic recall
-		TRECDivEvaluator.baselineSubtopicRecall(DivVersion.Div2010);
+		TRECDivEvaluator.baselineSubtopicRecall(DivVersion.Div2009);
 		
 		//2 simMetric analysis
 		//TRECDivEvaluator.simMetricAnalysis();		
