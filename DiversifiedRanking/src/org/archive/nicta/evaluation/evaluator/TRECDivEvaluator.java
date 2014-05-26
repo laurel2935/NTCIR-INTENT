@@ -243,11 +243,11 @@ public class TRECDivEvaluator extends Evaluator{
 			String prefix = OutputDirectory.ROOT+"DivEvaluation/";
 			String filename = null;
 			if(DivVersion.Div2009 == divVersion){
-				filename = "Div2009Baseline";			
+				filename = "Div2009BaselineSubtopicRecall";			
 			}else if(DivVersion.Div2010 == divVersion){
-				filename = "Div2010Baseline";
+				filename = "Div2010BaselineSubtopicRecall";
 			}else if(DivVersion.Div20092010 == divVersion) {
-				filename = "Div20092010Baseline";
+				filename = "Div20092010BaselineSubtopicRecall";
 			}else{
 				System.out.println("ERROR: unexpected DivVersion!");
 				new Exception().printStackTrace();
@@ -480,14 +480,10 @@ public class TRECDivEvaluator extends Evaluator{
 	}
 	//
 	public static void main(String []args){
-		//baseline subtopic recall
-		//TRECDivEvaluator.baselineSubtopicRecall(DivVersion.Div2010);
+		//1 Baseline subtopic recall
+		TRECDivEvaluator.baselineSubtopicRecall(DivVersion.Div2010);
 		
-		//simMetric analysis
-		TRECDivEvaluator.simMetricAnalysis();
-		/*
-		double k = (1d/Math.log10(3))/(1/Math.log10(2)+1/Math.log10(3));
-		System.out.println(k);
-		*/
+		//2 simMetric analysis
+		//TRECDivEvaluator.simMetricAnalysis();		
 	}
 }

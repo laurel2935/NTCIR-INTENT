@@ -79,12 +79,14 @@ public class TRECDivEvaluation {
 			/************* Best First Strategy ***************/
 			// Build a new result list selectors... all use the greedy MMR approach,
 			// each simply selects a different similarity metric
-			ArrayList<ResultRanker> rankers = new ArrayList<ResultRanker>();		
+			ArrayList<ResultRanker> rankerList = new ArrayList<ResultRanker>();		
 			// Instantiate all the kernels that we will use with the algorithms below
+			
 			//////////////////////
 			//TF-Kernel
 			//////////////////////
-			///*
+			
+			/*
 			//part-1
 			Kernel TF_kernel    = new TF(trecDivDocs, 
 					true //query-relevant diversity
@@ -93,28 +95,36 @@ public class TRECDivEvaluation {
 					false //query-relevant diversity
 					);
 			//part-2
-			rankers.add( new MMR( trecDivDocs, 
+			rankerList.add( new MMR( trecDivDocs, 
 					0.5d //lambda: 0d is all weight on query sim
 					, TF_kernel // sim 
 					, TF_kernel // div 
 					));
-			rankers.add( new MMR( trecDivDocs, 
+			rankerList.add( new MMR( trecDivDocs, 
 					0.5d //lambda: 0d is all weight on query sim
 					, TFn_kernel // sim
 					, TFn_kernel // div
 					));
-			//*/
+			*/
+			
 			////////////////////////////
 			//BM25_kernel
 			////////////////////////////
-			/*
-			//part-1 0 for any disables effect
-			Kernel BM25_kernel  = new BM25Kernel(trecD0910Docs 				
-					, 0.5d // k1 - doc TF
-					, 0.5d // k3 - query TF
-					, 0.5d // b - doc length penalty
-					);
-			*/
+			
+			///*
+			//part-1
+			double k1, k3, b;
+			k1=1.2d; k3=0.5d; b=0.5d;   // achieves the best
+			//k1=0.5d; k3=0.5d; b=0.5d; //better than the group of b=1000d;
+			//k1=1.2d; k3=0.5d; b=1000d;
+			BM25Kernel_A1 bm25_A1_Kernel = new BM25Kernel_A1(trecDivDocs, k1, k3, b);		
+			//part-2
+			rankerList.add( new MMR(trecDivDocs, 
+					0.5d //lambda: 0d is all weight on query sim
+					, bm25_A1_Kernel // sim
+					, bm25_A1_Kernel // div
+					));
+			//*/
 			////////////////////////////
 			//TFIDF_kernel
 			////////////////////////////
@@ -238,21 +248,26 @@ public class TRECDivEvaluation {
 			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename);
 			try {
 				trecDivEvaluator.doEval(TRECDivLoader.getDivEvalQueries(divVersion),
-						trecDivDocs, trecDivQueryAspects, lossFunctions, rankers, cutoffK);
+						trecDivDocs, trecDivQueryAspects, lossFunctions, rankerList, cutoffK);
 			} catch (Exception e) {
 				// TODO: handle exception
 				e.printStackTrace();
 			}
+			
 		}else if(rankStrategy == RankStrategy.MDP){
 			
 			/************* note the number of topics for LDA training ****************/
+			
 			//SBKernel _sbKernel = new SBKernel(trecDivDocs, 10);
 			
 			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
 			//
 			int itrThreshold = 10000;
+			
 			MDP mdp = new MDP(trecDivDocs, 0.5d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
+			
 			Vector<fVersion> mdpRuns = new Vector<MDP.fVersion>();
+			
 			mdpRuns.add(fVersion._dfa);
 			//mdpRuns.add(fVersion._dfa_scaled);
 			//mdpRuns.add(fVersion._md);
@@ -262,9 +277,12 @@ public class TRECDivEvaluation {
 			//mdpRuns.add(fVersion._pdfa_scaled_exp);
 			//mdpRuns.add(fVersion._pdfa_scaled_exp_head);					
 			//
+			
 			try {
+				
 				mdp.doEval(TRECDivLoader.getDivEvalQueries(divVersion), trecDivDocs, trecDivQueryAspects,
 					lossFunctions, cutoffK, output_prefix, output_filename, mdpRuns.toArray(new fVersion[0]));
+				
 			} catch (Exception e) {
 				// TODO: handle exception
 				e.printStackTrace();

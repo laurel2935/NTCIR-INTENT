@@ -40,7 +40,6 @@ import org.archive.util.tuple.StrDouble;
 public class MDP extends ResultRanker {
 	private Map<String,TREC68Query> _allTREC68Queries = null; 
 	private Map<String,TRECDivQuery> _allTRECDivQueries = null;
-	//
 	
 	public double _dLambda;
 	//
@@ -55,6 +54,7 @@ public class MDP extends ResultRanker {
 	// Constructor
 	public MDP(HashMap<String, String> docs, double lambda, int itrThreshold, Kernel sbKernel,
 			Map<String,TREC68Query> allTREC68Queries, Map<String,TRECDivQuery> allTRECDivQueries) { 
+		
 		super(docs);		
 		this._dLambda = lambda;
 		this._itrThreshold = itrThreshold;

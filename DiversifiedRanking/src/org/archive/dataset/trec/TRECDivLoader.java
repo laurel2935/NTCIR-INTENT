@@ -122,8 +122,7 @@ public class TRECDivLoader {
 					// Make a new query and rest aspects / max
 					max_aspect = -1;
 					cur_aspects.clear();
-					cur_qa = new TRECQueryAspects((query_id <= 50 ? "wt09-":"wt10-") + query_id,
-							query_id, file_root+"/"+query_id);
+					cur_qa = new TRECQueryAspects((query_id <= 50 ? "wt09-":"wt10-") + query_id, query_id, file_root+"/"+query_id);
 					aspects.put(cur_qa._number, cur_qa);
 					ids.remove(query_id);
 				}
@@ -239,11 +238,10 @@ public class TRECDivLoader {
 				//
 				double frac_avail = avail_and_rel_docs.size() / (double) reldocs.size();
 				
-				if (avail_and_rel_docs.size() < 5) {
+				if (avail_and_rel_docs.size() < 1) {
 					count ++;
 					System.out.print(q._number);
-					System.out.println("\t" + _df.format(frac_avail) + "\t"
-						+ avail_and_rel_docs.size() + "\t" + reldocs.size());
+					System.out.println("\t" + _df.format(frac_avail) + "\t"  + avail_and_rel_docs.size() + "\t" + reldocs.size());
 				}
 			}
 			//
@@ -447,8 +445,8 @@ public class TRECDivLoader {
 					String description = topicElement.getChildText("description");
 					String type = topicElement.getAttributeValue("type");
 					//
-					TRECDivQuery trecD0910Query = new TRECDivQuery(
-							(Integer.parseInt(number)<=50? "wt09-":"wt10-")+number, title, description, type);
+					TRECDivQuery trecD0910Query = new TRECDivQuery((Integer.parseInt(number)<=50? "wt09-":"wt10-")+number,
+							title, description, type);
 					//System.out.println(number+"\t"+type+"\t"+title+"\t"+description);	
 					//subtopics
 					List subtopicList = topicElement.getChildren("subtopic");
@@ -475,11 +473,14 @@ public class TRECDivLoader {
 	//
 	public static void main(String[] args) throws Exception {
 		
-		Map<String,TRECDivQuery> trecD0910Queries = TRECDivLoader.loadTrecDivQueries(DivVersion.Div20092010);
+		//Map<String,TRECDivQuery> trecD0910Queries = TRECDivLoader.loadTrecDivQueries(DivVersion.Div20092010);
 		
+		// No aspects available
+		// aspects.put("wt10-95", new QueryAspects("wt10-95", file_root));
+		// aspects.put("wt10-100", new QueryAspects("wt10-100", file_root));
 		Map<String,TRECQueryAspects> trecD0910QueryAspects = TRECDivLoader.loadTrecDivQueryAspects(DivVersion.Div20092010);
 		
-		Map<String,String> trecD0910Docs = TRECDivLoader.loadTrecDivDocs();		
+		//Map<String,String> trecD0910Docs = TRECDivLoader.loadTrecDivDocs();		
 		
 	}
 }
