@@ -14,6 +14,7 @@ import java.util.Vector;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
 import org.archive.dataset.trec.query.TRECQueryAspects;
+import org.archive.ml.clustering.ap.APClustering;
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix1D;
@@ -21,7 +22,6 @@ import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 import org.archive.ml.ufl.UFL.UFLMode;
 import org.archive.nicta.kernel.TFIDF_A1;
-import org.archive.ntcir.sm.clustering.ap.APClustering;
 
 public class K_UFL {
 	

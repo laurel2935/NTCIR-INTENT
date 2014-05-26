@@ -13,13 +13,13 @@ import java.util.Vector;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
 import org.archive.dataset.trec.query.TRECQueryAspects;
+import org.archive.ml.clustering.ap.APClustering;
 import org.archive.ml.clustering.ap.abs.ConvitsVector;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.clustering.ap.matrix.DoubleMatrix2D;
 import org.archive.ml.clustering.ap.matrix.IntegerMatrix1D;
 import org.archive.ml.ufl.K_UFL.UFLMode;
 import org.archive.nicta.kernel.TFIDF_A1;
-import org.archive.ntcir.sm.clustering.ap.APClustering;
 import org.archive.util.tuple.DoubleInt;
 import org.archive.util.tuple.PairComparatorByFirst_Desc;
 
@@ -82,15 +82,15 @@ public class CFL {
 	//one-row object
 	//private DoubleMatrix2D _Y;
 	
-	//N¡ÁM
+	//Nï¿½ï¿½M
 	private DoubleMatrix2D _Eta;
 	private DoubleMatrix2D _oldEta;
 	
-	//(N+1)¡ÁM
+	//(N+1)ï¿½ï¿½M
 	private DoubleMatrix2D _V;
 	private DoubleMatrix2D _oldV;
 	
-	//N¡ÁM
+	//Nï¿½ï¿½M
 	private DoubleMatrix2D _Alpha;
 	private DoubleMatrix2D _oldAlpha;
 	
@@ -102,7 +102,7 @@ public class CFL {
     //the number of exemplar
     private int clustersNumber = 0;
 	
-    //pay attention to the positive or negative value of dataPointInteractions &&¡¡fCostList
+    //pay attention to the positive or negative value of dataPointInteractions &&ï¿½ï¿½fCostList
     CFL(double lambda, int iterationTimes, Integer noChangeIterSpan, double preferenceCost, UFLMode uflMode, 
     		ArrayList<InteractionData> costMatrix){
     	//1
@@ -158,7 +158,7 @@ public class CFL {
         //
         this._Eta = new DoubleMatrix2D(this._N, this._M, 0);
         this._Alpha = new DoubleMatrix2D(this._N, this._M, 0);
-        //£¿
+        //ï¿½ï¿½
         this._V = new DoubleMatrix2D(this._N+1, this._M, 0);        
         
         if(debug){
