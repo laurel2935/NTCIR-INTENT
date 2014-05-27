@@ -128,7 +128,7 @@ public class BM25Kernel_A1 extends Kernel {
 	
 	/**
 	 * 
-	 * **/
+	 * **/	
 	///*
 	public double sim(Object o1, Object o2, Object ow) {
 		System.out.println("ERROR: Cannot do BM25 query-reweighted similarity");

@@ -117,4 +117,12 @@ public class TFIDF_A1 extends Kernel {
 	public String getString(){
 		return "TFIDF_A1";
 	}
+	
+	//
+	/**
+	 * @return the distance between two points, i.e., 1 minus cosine similarity;
+	 * */
+	public double distance(Object s1, Object s2){
+		return 1-sim(s1, s2);		
+	}
 }

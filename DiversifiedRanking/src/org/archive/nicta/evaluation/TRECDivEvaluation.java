@@ -82,6 +82,7 @@ public class TRECDivEvaluation {
 			/*****************
 			 * Best First Strategy
 			 * ***************/
+			//common
 			ArrayList<ResultRanker> rankerList = new ArrayList<ResultRanker>();	
 			// Build a new result list selectors... all use the greedy MMR approach,
 			// each simply selects a different similarity metric				
@@ -116,40 +117,44 @@ public class TRECDivEvaluation {
 			//BM25_kernel
 			////////////////////////////
 			
-			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
-			
 			/*
-			//part-1
+			//for doc-doc similarity			
+			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
+			//for query-doc similarity
 			double k1, k3, b;
 			k1=1.2d; k3=0.5d; b=0.5d;   // achieves the best
 			//k1=0.5d; k3=0.5d; b=0.5d; //better than the group of b=1000d;
 			//k1=1.2d; k3=0.5d; b=1000d;
 			BM25Kernel_A1 bm25_A1_Kernel = new BM25Kernel_A1(trecDivDocs, k1, k3, b);	
-			*/
 			
-			//single Lambda evaluation
-			/*
-			rankerList.add(new MMR(trecDivDocs, 
-					0.5d //lambda: 0d is all weight on query sim
-					, bm25_A1_Kernel // sim
-					, tfidf_A1Kernel // div
-					));
-			/*/
+			String nameFix = null;
+			boolean singleLambda = false;
 			
-			//per Lambda evaluation
-			//for similarity between documents, as bm25_A1_Kernel does not support
-			/*			
-			for(int i=1; i<=11; i++){
-				rankerList.add(new MMR(trecDivDocs, (i-1)/(10*1.0)
+			if(singleLambda){
+				//single Lambda evaluation
+				nameFix = "_SingleLambda";
+				rankerList.add(new MMR(trecDivDocs, 
+						0.5d //lambda: 0d is all weight on query sim
 						, bm25_A1_Kernel // sim
 						, tfidf_A1Kernel // div
-						));
+						));				
+			}else{
+				//per Lambda evaluation
+				//for similarity between documents, as bm25_A1_Kernel does not support				
+				nameFix = "_PerLambda";
+				for(int i=1; i<=11; i++){
+					rankerList.add(new MMR(trecDivDocs, (i-1)/(10*1.0)
+							, bm25_A1_Kernel // sim
+							, tfidf_A1Kernel // div
+							));
+				}				
 			}
-			*/			
+			*/
 			
 			////////////////////////////
 			//TFIDF_kernel
 			////////////////////////////
+			
 			/*
 			//part-1
 			Kernel TFIDF_kernel = new TFIDF(trecD0910Docs,
@@ -170,9 +175,11 @@ public class TRECDivEvaluation {
 					, TFIDFn_kernel //div
 					));
 			*/
+			
 			//////////////////////////
 			//LDA-Kernel
 			//////////////////////////	
+			
 			/*
 			//part-1
 			Kernel PLSR_TFIDF_kernel = new PLSRKernelTFIDF(trecDivDocs);
@@ -265,35 +272,40 @@ public class TRECDivEvaluation {
 			*/
 			
 			//////CIKM2014
+			///*
+			
 			Kernel LDA15_kernel   = new LDAKernel(trecDivDocs
 					, 15 // NUM TOPICS - suggest 15
 					, false // spherical
-					, false // query-relevant diversity
+					, true // query-relevant diversity for reference paper
 					);
-			//////single lambda evaluation
-			rankerList.add( new MMR( trecDivDocs, 
-					0.5d //lambda: 0d is all weight on query sim
-					, LDA15_kernel //sim
-					, LDA15_kernel //div
-					));	
 			
-			//////per Lambda evaluation
-			//for similarity between documents, as bm25_A1_Kernel does not support
-			/*			
-			for(int i=1; i<=11; i++){
-				rankerList.add(new MMR(trecDivDocs, (i-1)/(10*1.0)
-						, LDA15_kernel // sim
-						, LDA15_kernel // div
-						));
+			String nameFix = null;
+			boolean singleLambda = false;
+			
+			if(singleLambda){		
+				nameFix = "_SingleLambda";
+				//////single lambda evaluation
+				rankerList.add( new MMR( trecDivDocs, 
+						0.5d //lambda: 0d is all weight on query sim
+						, LDA15_kernel //sim
+						, LDA15_kernel //div
+						));	
+			}else{
+				nameFix = "_PerLambda";
+				//////per Lambda evaluation										
+				for(int i=1; i<=11; i++){
+					rankerList.add(new MMR(trecDivDocs, (i-1)/(10*1.0)
+							, LDA15_kernel // sim
+							, LDA15_kernel // div
+							));
+				}				
 			}
-			*/	
 			
-			
-			
-			// Add all MMR test variants (vary lambda and kernels)
+			//common: Add all MMR test variants (vary lambda and kernels)
 			
 			// Evaluate results of different query processing algorithms
-			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename);
+			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename+nameFix);
 			try {
 				trecDivEvaluator.doEval(TRECDivLoader.getDivEvalQueries(divVersion),
 						trecDivDocs, trecDivQueryAspects, lossFunctions, rankerList, cutoffK);
@@ -302,14 +314,20 @@ public class TRECDivEvaluation {
 				e.printStackTrace();
 			}
 			
-		}else if(rankStrategy == RankStrategy.MDP){		
-			////1 per version evaluation
+		}else if(rankStrategy == RankStrategy.MDP){	
+			/////////////////////////
+			//MDP run - style-1
+			////////////////////////
+			
+			////single lambda evaluation
 			/*
 			////note the number of topics for LDA training
 			//SBKernel _sbKernel = new SBKernel(trecDivDocs, 10);			
 			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
 			//
 			int itrThreshold = 10000;
+			
+			String nameFix = "_SingleLambda";
 			
 			MDP mdp = new MDP(trecDivDocs, 0.5d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
 			
@@ -324,59 +342,52 @@ public class TRECDivEvaluation {
 			//mdpRuns.add(fVersion._pdfa_scaled_exp_head);	
 			try {				
 				mdp.doEval(TRECDivLoader.getDivEvalQueries(divVersion), trecDivDocs, trecDivQueryAspects,
-					lossFunctions, cutoffK, output_prefix, output_filename, mdpRuns.toArray(new fVersion[0]));				
+					lossFunctions, cutoffK, output_prefix, output_filename+nameFix, mdpRuns.toArray(new fVersion[0]));				
 			} catch (Exception e) {
 				// TODO: handle exception
 				e.printStackTrace();
 			}
-			*/
+			*/			
+						
+			/////////////////////////
+			//MDP run - style-2
+			////////////////////////
 			
-			////2 per lambda evaluation, with the default version: fVersion._dfa
-			//<1> way-1
-			/*
-			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);			
-			int itrThreshold = 10000;			
-			MDP mdp = new MDP(trecDivDocs, 0.5d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
-			Vector<fVersion> mdpRuns = new Vector<MDP.fVersion>();	
-			mdpRuns.add(fVersion._dfa);
-			try {				
-				mdp.doEval(TRECDivLoader.getDivEvalQueries(divVersion), trecDivDocs, trecDivQueryAspects,
-					lossFunctions, cutoffK, output_prefix, output_filename, mdpRuns.toArray(new fVersion[0]));				
-			} catch (Exception e) {
-				// TODO: handle exception
-				e.printStackTrace();
-			}
-			*/
-			
-			//<2> way-2
+			///*
 			int itrThreshold = 10000;
 			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
 			
 			ArrayList<ResultRanker> rankerList = new ArrayList<ResultRanker>();
 			
-			//////per lambada evaluation
-			/*
-			MDP mdp = new MDP(trecDivDocs, 0.5d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
-			rankerList.add(mdp);
-			*/
+			boolean singleLambda = false;
+			String nameFix = null;
 			
-			//////per Lambda evaluation
-			//for similarity between documents, as bm25_A1_Kernel does not support
-			///*			
-			for(int i=1; i<=11; i++){
-				//(i-1)/(10*1.0)
-				rankerList.add(new MDP(trecDivDocs, (i-1)/(10*1.0), itrThreshold, tfidf_A1Kernel, null, trecDivQueries));
+			if(singleLambda){		
+				//////single lambada evaluation
+				nameFix = "_SingleLambda";
+				MDP mdp = new MDP(trecDivDocs, 0.5d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
+				rankerList.add(mdp);
+				
+			}else{
+				//////per Lambda evaluation
+				//for similarity between documents, as bm25_A1_Kernel does not support
+				nameFix = "_PerLambda";
+				
+				for(int i=1; i<=11; i++){
+					//(i-1)/(10*1.0)
+					rankerList.add(new MDP(trecDivDocs, (i-1)/(10*1.0), itrThreshold, tfidf_A1Kernel, null, trecDivQueries));
+				}
 			}
-			//*/
 			
-			// Evaluate results of different query processing algorithms
-			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename);
+			// Evaluate results of different query processing algorithms			
+			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename+nameFix);
 			try {
 				trecDivEvaluator.doEval(TRECDivLoader.getDivEvalQueries(divVersion), trecDivDocs, trecDivQueryAspects, lossFunctions, rankerList, cutoffK);
 			} catch (Exception e) {
 				// TODO: handle exception
 				e.printStackTrace();
 			}
+			//*/
 			
 		}else if(rankStrategy == RankStrategy.FL){
 			
@@ -428,7 +439,7 @@ public class TRECDivEvaluation {
 		
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
-		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.BFS);
+		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.MDP);
 		
 		
 	}

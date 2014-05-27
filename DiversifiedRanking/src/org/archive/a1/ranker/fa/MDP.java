@@ -96,6 +96,8 @@ public class MDP extends ResultRanker {
 	
 	//using the default version: fVersion._dfa
 	public ArrayList<String> getResultList(String query, int size) {
+		// Intialize document set
+		initTonNDocsForInnerKernels();
 		// Get representation for query
 		Object query_repr = _sbKernel.getNoncachedObjectRepresentation(query);
 		//
@@ -414,16 +416,19 @@ public class MDP extends ResultRanker {
 		while(theDItr.hasNext()){
 			String doc_name = theDItr.next();
 			if(!S.contains(doc_name)){
-				D_Minus_S.add(doc_name);				
+				D_Minus_S.add(doc_name);
+				
 				StrDouble theMinPair = minDisPairGivenS(doc_name, S);
-				//follower - corresponding star
-				followerToStarMap.put(doc_name, new StrDouble(theMinPair.getFirst(), theMinPair.getSecond()));	
+				
+				//follower - corresponding star  // (1-_dLambda) is necessary
+				followerToStarMap.put(doc_name, new StrDouble(theMinPair.getFirst(), theMinPair.getSecond()*(1-_dLambda)));	
+				
 				//star - corresponding followers
 				if(starToFollowersMap.containsKey(theMinPair.getFirst())){
-					starToFollowersMap.get(theMinPair.getFirst()).add(new StrDouble(doc_name, theMinPair.getSecond()));
+					starToFollowersMap.get(theMinPair.getFirst()).add(new StrDouble(doc_name, theMinPair.getSecond()*(1-_dLambda)));
 				}else{
 					HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();					
-					follwerSet.add(new StrDouble(doc_name, theMinPair.getSecond()));
+					follwerSet.add(new StrDouble(doc_name, theMinPair.getSecond()*(1-_dLambda)));
 					starToFollowersMap.put(theMinPair.getFirst(), follwerSet);
 				}				
 			}else{
@@ -464,22 +469,43 @@ public class MDP extends ResultRanker {
 					String toBeStar = D_Minus_S.get(j);
 					
 					double delta = 0.0;
-					boolean matched = false;
+					//boolean matched = false;
 					
+					//k-center cost for exchanging the star
 					Iterator<StrDouble> fItr = theFollwers.iterator();
 					while(fItr.hasNext()){
 						StrDouble follower = fItr.next();
 						if(follower.getFirst() == toBeStar){
 							//for this case, star - follower will be reversed, thus no delta
-							matched = true;
+							//matched = true;
+							continue;
 						}else{
-							delta += (distance(toBeStar, follower.getFirst()) - follower.getSecond());							
+							delta += (distance(toBeStar, follower.getFirst())*(1-_dLambda) - follower.getSecond());							
 						}
 					}
 					//star will be another's follower
-					if(!matched){
-						delta += (minDisPairGivenS(star, S).getSecond() - followerToStarMap.get(toBeStar).getSecond());
+					/*
+					if(matched){
+						delta += (minDisPairGivenS(star, S).getSecond()*(1-_dLambda) - followerToStarMap.get(toBeStar).getSecond());
+					}else{
+						ArrayList<String> newS = new ArrayList<String>();
+						newS.addAll(S);
+						newS.remove(star);
+						newS.add(toBeStar);
+						double minD = minDisPairGivenS(star, newS).getSecond()*(1-_dLambda);
+						delta += (minD - followerToStarMap.get(toBeStar).getSecond());
 					}
+					*/
+					
+					ArrayList<String> newS = new ArrayList<String>();
+					newS.addAll(S);
+					newS.remove(star);
+					newS.add(toBeStar);
+					double minD = minDisPairGivenS(star, newS).getSecond()*(1-_dLambda);
+					delta += (minD - followerToStarMap.get(toBeStar).getSecond());					
+					
+					//relevance part
+					delta += ( (0-_dLambda)*calRelevance(toBeStar, query_repr_key) - (0-_dLambda)*calRelevance(star, query_repr_key) );
 					
 					if(delta < minDelta){
 						minDelta = delta;
@@ -512,13 +538,13 @@ public class MDP extends ResultRanker {
 						if(!S.contains(doc_name)){											
 							StrDouble minPair = minDisPairGivenS(doc_name, S);
 							//follower - corresponding star
-							followerToStarMap.put(doc_name, new StrDouble(minPair.getFirst(), minPair.getSecond()));	
+							followerToStarMap.put(doc_name, new StrDouble(minPair.getFirst(), minPair.getSecond()*(1-_dLambda)));	
 							//star - corresponding followers
 							if(starToFollowersMap.containsKey(minPair.getFirst())){
-								starToFollowersMap.get(minPair.getFirst()).add(new StrDouble(doc_name, minPair.getSecond()));
+								starToFollowersMap.get(minPair.getFirst()).add(new StrDouble(doc_name, minPair.getSecond()*(1-_dLambda)));
 							}else{
 								HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();					
-								follwerSet.add(new StrDouble(doc_name, minPair.getSecond()));
+								follwerSet.add(new StrDouble(doc_name, minPair.getSecond()*(1-_dLambda)));
 								starToFollowersMap.put(minPair.getFirst(), follwerSet);
 							}				
 						}else{
@@ -650,6 +676,21 @@ public class MDP extends ResultRanker {
 			return dis_score;
 		}
 	}
+	
+	private double qdSimilarity_(Object query_repr, String doc_name){		
+		String query_repr_key = query_repr.toString();
+		
+		Double sim_score = null;		
+		Pair sim_key = new Pair(doc_name, query_repr_key);;
+		
+		if (null == (sim_score = _simCache.get(sim_key))) {
+			Object doc_repr = _docRepr.get(doc_name);
+			sim_score = _sbKernel.sim(query_repr, doc_repr);
+			_simCache.put(sim_key, sim_score);
+		}
+		
+		return sim_score;			
+	}
 	private StrDouble minDisPairGivenS(String doc_name_i, ArrayList<String> S){
 		
 		Object doc_repr_i = _docRepr.get(doc_name_i);
@@ -698,7 +739,7 @@ public class MDP extends ResultRanker {
 			if (null == (dis_score = _disCache.get(dis_key))) {
 				doc_repr_j = _docRepr.get(doc_name_j);
 				dis_score = _sbKernel.distance(doc_repr_i, doc_repr_j);
-				_simCache.put(dis_key, dis_score);
+				_disCache.put(dis_key, dis_score);
 			}
 			//
 			if (dis_score < minDistance) {
@@ -710,7 +751,8 @@ public class MDP extends ResultRanker {
 		if(mindoc_name.equals(doc_name_k)){
 			return minDistance;
 		}else{
-			return calDistance(doc_name_i, doc_name_k);
+			//return calDistance(doc_name_i, doc_name_k);
+			return 0;
 		}		
 	}
 	//
@@ -722,7 +764,7 @@ public class MDP extends ResultRanker {
 			Object doc_repr_i = _docRepr.get(doc_name_i);
 			Object doc_repr_j = _docRepr.get(doc_name_j);
 			dis_score = _sbKernel.distance(doc_repr_i, doc_repr_j);
-			_simCache.put(dis_key, dis_score);
+			_disCache.put(dis_key, dis_score);
 		}
 		//
 		return dis_score;
@@ -750,7 +792,7 @@ public class MDP extends ResultRanker {
 				if (null == (dis_score=_disCache.get(dis_key))) {
 					doc_repr_j = _docRepr.get(doc_name_j);
 					dis_score = _sbKernel.distance(doc_repr_i, doc_repr_j);
-					_simCache.put(dis_key, dis_score);
+					_disCache.put(dis_key, dis_score);
 				}
 				sumDistance += dis_score;
 			}
@@ -822,7 +864,7 @@ public class MDP extends ResultRanker {
 	}
 	//
 	public String getString(){
-		return "MDP";
+		return "MDP="+"["+twoResultFormat.format(_dLambda)+"]"+_sbKernel.getString();		
 	}
 	public String getString(fVersion _fVersion){
 		return "MDP"+_fVersion.toString();

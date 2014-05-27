@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.archive.OutputDirectory;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
 import org.archive.dataset.trec.query.TRECDivQuery;
@@ -15,9 +16,11 @@ import org.archive.util.tuple.IntStrInt;
 import org.archive.util.tuple.StrDouble;
 
 public class ResultAnalyzer {
+	private final static boolean DEBUG = true;
 	
-	
-	public void getTopicDistributionOfLambda(DivVersion divVersion, HashMap<String, StrDouble> topicLambdaMap){
+	public static void getTopicDistributionOfLambda(DivVersion divVersion, String resultFile){
+		
+		HashMap<String, StrDouble> topicLambdaMap = getMaxLambdaSetting(resultFile);
 		
 		HashMap<String, HashSet<String>> lambdaTopicMap = new HashMap<String, HashSet<String>>();
 		
@@ -58,8 +61,10 @@ public class ResultAnalyzer {
 		
 		Collections.sort(list);
 		
+		System.out.println();
+		System.out.println(divVersion.toString());
 		for(IntStrInt element: list){
-			System.out.println(element.second+"\t"+"faceted: "+element.first+"\t"+"ambiguous: "+element.third);
+			System.out.println(element.second+"\t"+"faceted: "+element.first+"\t"+"ambiguous: "+element.third+"\tTotal:"+(element.first+element.third));
 		}
 	}
 	private static String getLambdaStr(String lambdaStr){
@@ -74,13 +79,26 @@ public class ResultAnalyzer {
 		
 		ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(resultFile);
 		for(String line: lineList){
-			String [] fields = line.split("\t");
+			line = line.replaceAll("[\\s]+", "\t");
+			String [] fields = line.split("\\s");
+			
+			/*
+			System.out.println(fields.length);
+			for(int k=0; k<fields.length; k++){
+				System.out.println(fields[k]);
+			}
+			System.out.println();
+			*/
 			
 			String topicID = fields[0];
 			String lambdaStr = fields[1];
 			String alphaNDCG20Str = fields[14];
 			
-			Double currV = getDouble(alphaNDCG20Str);
+			//System.out.println(topicID);
+			//System.out.println(lambdaStr);
+			//System.out.println(alphaNDCG20Str);
+			
+			Double currV = getDouble(alphaNDCG20Str.trim());
 			
 			if(topicLambdaMap.containsKey(topicID)){				
 				if(currV > topicLambdaMap.get(topicID).second){
@@ -88,13 +106,54 @@ public class ResultAnalyzer {
 				}
 			}else{
 				topicLambdaMap.put(topicID, new StrDouble(lambdaStr, currV));
+			}			
+		}
+		
+		if(DEBUG){
+			for(Entry<String, StrDouble> entry: topicLambdaMap.entrySet()){
+				String topicID = entry.getKey();
+				StrDouble strD = entry.getValue();
+
+				System.out.println(topicID+":\t"+strD.first+"\t"+strD.second);
 			}
 		}
 		
 		return topicLambdaMap;
 	}
 	private static Double getDouble(String alphaNDCG20Str){
-		return Double.parseDouble(alphaNDCG20Str.substring(alphaNDCG20Str.indexOf(":")));		
+		String targetStr = alphaNDCG20Str.substring(alphaNDCG20Str.indexOf(":")+1).trim();
+		//System.out.println(targetStr);
+		return Double.valueOf(targetStr);			
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	//
+	public static void main(String []args){
+		//1
+		String perLambdaResultdir = OutputDirectory.ROOT+"DivEvaluation/PerLambdaEvaluation/";
+		
+		//DivVersion.Div2009 BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt
+		//String Div2009File = "BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt";				
+		//ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2009, perLambdaResultdir+Div2009File);
+		
+		//DivVersion.Div2010 BM25Kernel_A1+TFIDF_A1-Div2010BFS_PerLambda_ndeval.txt
+		//String Div2010File = "BM25Kernel_A1+TFIDF_A1-Div2010BFS_PerLambda_ndeval.txt";				
+		//ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2010, perLambdaResultdir+Div2010File);
+		
+		//String Div2009File_mdp = "MDP-TFIDF_A1-Div2009MDP_PerLambda_ndeval.txt";				
+		//ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2009, perLambdaResultdir+Div2009File_mdp);
+		
+		String Div2010File_mdp = "MDP-TFIDF_A1-Div2010MDP_PerLambda_ndeval.txt";				
+		ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2010, perLambdaResultdir+Div2010File_mdp);
+		
 	}
 
 }

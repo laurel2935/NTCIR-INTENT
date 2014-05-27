@@ -45,6 +45,8 @@ public abstract class Kernel {
 	public Double setSim(Object s1, Set<Object> s2, Object q) { return null; } 
 	//
 	public double distance(Object s1, Object s2){
+		System.err.println("distance should be Overrided!");
+		System.exit(1);
 		return -1;
 	}
 	/**
