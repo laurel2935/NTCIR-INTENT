@@ -101,7 +101,7 @@ public class DCKUFLRanker extends ResultRanker{
 		return simMatrix;	
 	}
 	//equal size of capacity of each subtopic
-	private ArrayList<Double> getCapacityList(TRECDivQuery trecDivQuery, int topK){
+	private ArrayList<Double> getCapacityList_old(TRECDivQuery trecDivQuery, int topK){
 		int subtopicNumber = trecDivQuery.getSubtopicList().size();
 		if(topK%subtopicNumber == 0){
 			double cap = topK/subtopicNumber;
@@ -109,6 +109,38 @@ public class DCKUFLRanker extends ResultRanker{
 		}else{
 			double cap = topK/subtopicNumber+1;
 			return Mat.getUniformList(cap, subtopicNumber);
+		}		
+	}
+	//
+	private ArrayList<Double> getCapacityList_new(TRECDivQuery trecDivQuery, int topK){
+		int subtopicNumber = trecDivQuery.getSubtopicList().size();
+		if(topK%subtopicNumber == 0){
+			double cap = topK/subtopicNumber;
+			return Mat.getUniformList(cap, subtopicNumber);
+		}else{
+			int cap = topK/subtopicNumber+1;
+			ArrayList<Integer> intCapList = new ArrayList<Integer>();
+			for(int i=0; i<subtopicNumber; i++){
+				intCapList.add(cap);
+			}
+			
+			int gap = cap*subtopicNumber - topK;
+			
+			int count = 0;
+			for(int j=subtopicNumber-1; j>=0; j--){				
+				intCapList.set(j, intCapList.get(j)-1);
+				count++;
+				if(count == gap){
+					break;
+				}
+			}
+			
+			ArrayList<Double> dCapList = new ArrayList<Double>();
+			for(Integer intCap: intCapList){
+				dCapList.add(intCap.doubleValue());
+			}
+			
+			return dCapList;			
 		}		
 	}
 	//
@@ -121,7 +153,7 @@ public class DCKUFLRanker extends ResultRanker{
 		
 		ArrayList<InteractionData> releMatrix = getReleMatrix(trecDivQuery);
 		ArrayList<InteractionData> subSimMatrix = getSubtopicSimMatrix(trecDivQuery);
-		ArrayList<Double> capList = getCapacityList(trecDivQuery, size);
+		ArrayList<Double> capList = getCapacityList_new(trecDivQuery, size);
 		ArrayList<Double> popList = getPopularityList(trecDivQuery);
 		    	
     	int preK = (int)Mat.sum(capList); 

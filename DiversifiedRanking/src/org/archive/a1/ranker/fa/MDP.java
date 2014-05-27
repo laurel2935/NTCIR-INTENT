@@ -38,6 +38,9 @@ import org.archive.util.tuple.StrDouble;
  * **/
 
 public class MDP extends ResultRanker {
+	
+	private static final double MAX_VALUE = 1000000;
+	
 	private Map<String,TREC68Query> _allTREC68Queries = null; 
 	private Map<String,TRECDivQuery> _allTRECDivQueries = null;
 	
@@ -277,10 +280,10 @@ public class MDP extends ResultRanker {
 		Pair sim_key = null;
 		//
 		for(String doc_name: D){
-			sim_key = new Pair(doc_name, query_repr_key);
+			sim_key = new Pair(query_repr_key, doc_name );
 			if (null == (sim_score = _simCache.get(sim_key))) {
 				doc_repr = _docRepr.get(doc_name);
-				sim_score = _sbKernel.sim(doc_repr, query_repr);
+				sim_score = _sbKernel.sim(query_repr, doc_repr);
 				_simCache.put(sim_key, sim_score);
 			}
 			//
@@ -376,6 +379,7 @@ public class MDP extends ResultRanker {
 	 * replace with the best possible one
 	 * **/
 	private ArrayList<StrDouble> hillClimbingSearch_dfa_perBest(Object query_repr, Set<String> D, int k, fVersion _fVersion){
+		
 		ArrayList<String> S = new ArrayList<String>();		
 		ArrayList<String> D_Minus_S = new ArrayList<String>();
 		
@@ -386,12 +390,13 @@ public class MDP extends ResultRanker {
 				
 		ArrayList<StrDouble> topnDoc_rlist = new ArrayList<StrDouble>();		
 		String query_repr_key = query_repr.toString();
+		
 		Double sim_score = null;
 		Object doc_repr = null;
 		Pair sim_key = null;
 		
 		for(String doc_name: D){
-			sim_key = new Pair(doc_name, query_repr_key);
+			sim_key = new Pair(query_repr_key, doc_name);
 			
 			if (null == (sim_score = _simCache.get(sim_key))) {
 				doc_repr = _docRepr.get(doc_name);
@@ -401,21 +406,27 @@ public class MDP extends ResultRanker {
 			
 			topnDoc_rlist.add(new StrDouble(doc_name, sim_score));
 		}		
+		
 		Collections.sort(topnDoc_rlist, new PairComparatorBySecond_Desc<String, Double>());		
 		
 		//initialize with top-k relevant doc
 		for(int i=0; i<k; i++){
 			S.add(topnDoc_rlist.get(i).getFirst());
 		}
+		
 		if(DEBUG){
 			System.out.println("S size:\t"+S.size());
 			System.out.println("D size:\t"+D.size());
 		}
+		
 		//first star follower mapping		
 		Iterator<String> theDItr = D.iterator();		
 		while(theDItr.hasNext()){
+			
 			String doc_name = theDItr.next();
+			
 			if(!S.contains(doc_name)){
+				
 				D_Minus_S.add(doc_name);
 				
 				StrDouble theMinPair = minDisPairGivenS(doc_name, S);
@@ -425,11 +436,14 @@ public class MDP extends ResultRanker {
 				
 				//star - corresponding followers
 				if(starToFollowersMap.containsKey(theMinPair.getFirst())){
+					
 					starToFollowersMap.get(theMinPair.getFirst()).add(new StrDouble(doc_name, theMinPair.getSecond()*(1-_dLambda)));
+					
 				}else{
+					
 					HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();					
 					follwerSet.add(new StrDouble(doc_name, theMinPair.getSecond()*(1-_dLambda)));
-					starToFollowersMap.put(theMinPair.getFirst(), follwerSet);
+					starToFollowersMap.put(theMinPair.getFirst(), follwerSet);					
 				}				
 			}else{
 				HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();
@@ -454,11 +468,13 @@ public class MDP extends ResultRanker {
 			for(int i=0; i<oldS.size(); i++){
 				
 				String star = oldS.get(i);
+				
 				if(DEBUG){
 					System.out.println("old S:\t"+oldS);
 					System.out.println("S:\t"+S);
 					System.out.println("Keys:\t"+starToFollowersMap.keySet());
-				}				
+				}		
+				
 				HashSet<StrDouble> theFollwers = starToFollowersMap.get(star);
 				
 				double minDelta = 0d;
@@ -466,41 +482,29 @@ public class MDP extends ResultRanker {
 				
 				//finding the toBeStar that results in the minimum delta
 				for(int j=0; j<D_Minus_S.size(); j++){
+					
 					String toBeStar = D_Minus_S.get(j);
-					
-					double delta = 0.0;
-					//boolean matched = false;
-					
-					//k-center cost for exchanging the star
-					Iterator<StrDouble> fItr = theFollwers.iterator();
-					while(fItr.hasNext()){
-						StrDouble follower = fItr.next();
-						if(follower.getFirst() == toBeStar){
-							//for this case, star - follower will be reversed, thus no delta
-							//matched = true;
-							continue;
-						}else{
-							delta += (distance(toBeStar, follower.getFirst())*(1-_dLambda) - follower.getSecond());							
-						}
-					}
-					//star will be another's follower
-					/*
-					if(matched){
-						delta += (minDisPairGivenS(star, S).getSecond()*(1-_dLambda) - followerToStarMap.get(toBeStar).getSecond());
-					}else{
-						ArrayList<String> newS = new ArrayList<String>();
-						newS.addAll(S);
-						newS.remove(star);
-						newS.add(toBeStar);
-						double minD = minDisPairGivenS(star, newS).getSecond()*(1-_dLambda);
-						delta += (minD - followerToStarMap.get(toBeStar).getSecond());
-					}
-					*/
-					
+					//tempt new S
 					ArrayList<String> newS = new ArrayList<String>();
 					newS.addAll(S);
 					newS.remove(star);
 					newS.add(toBeStar);
+					
+					double delta = 0.0;
+					
+					//cost for exchanging, the smaller delta, the better
+					Iterator<StrDouble> fItr = theFollwers.iterator();
+					while(fItr.hasNext()){
+						StrDouble follower = fItr.next();
+						if(follower.getFirst() == toBeStar){							
+							continue;
+						}else{
+							//change the star of original followers
+							StrDouble minPair = minDisPairGivenS(follower.getFirst(), newS);
+							delta += (minPair.second*(1-_dLambda) - follower.getSecond());							
+						}
+					}
+					//get the star for the original star
 					double minD = minDisPairGivenS(star, newS).getSecond()*(1-_dLambda);
 					delta += (minD - followerToStarMap.get(toBeStar).getSecond());					
 					
@@ -515,6 +519,7 @@ public class MDP extends ResultRanker {
 				
 				if(minDelta < 0){
 					change = true;
+					
 					if(DEBUG){
 						System.out.println("Exchange:");
 						System.out.println("Original star:\t"+star);
@@ -530,11 +535,12 @@ public class MDP extends ResultRanker {
 					//update followerToStarMap & starToFollowersMap
 					followerToStarMap.clear();
 					starToFollowersMap.clear();
-					
-					
-					Iterator<String> dItr = D.iterator();		
+										
+					Iterator<String> dItr = D.iterator();					
 					while(dItr.hasNext()){
+						
 						String doc_name = dItr.next();
+						
 						if(!S.contains(doc_name)){											
 							StrDouble minPair = minDisPairGivenS(doc_name, S);
 							//follower - corresponding star
@@ -559,12 +565,14 @@ public class MDP extends ResultRanker {
 			
 			if(!change){
 				break;
-			}								
+			}	
+			
 		}while(times < _itrThreshold);	
 		
 		//sorting in order of contribution
 		Set<String> finalS = new HashSet<String>();
 		finalS.addAll(S);
+		
 		Set<String> finalD_minus_S = new HashSet<String>();
 		finalD_minus_S.addAll(D_Minus_S);
 		
@@ -600,11 +608,13 @@ public class MDP extends ResultRanker {
 		Object doc_repr = null;
 		Pair sim_key = null;
 		//
-		sim_key = new Pair(doc_name, query_repr_key);
+		sim_key = new Pair(query_repr_key, doc_name);
 		if (null == (sim_score = _simCache.get(sim_key))) {
+			
 			doc_repr = _docRepr.get(doc_name);
-			sim_score = _sbKernel.sim(doc_repr, query_repr);
+			sim_score = _sbKernel.sim(query_repr, doc_repr);
 			_simCache.put(sim_key, sim_score);
+			
 		}
 		//
 		return sim_score;		
@@ -641,7 +651,7 @@ public class MDP extends ResultRanker {
 	private double minDisGivenS(String doc_name_i, Set<String> S){
 		Object doc_repr_i = _docRepr.get(doc_name_i);
 		//
-		double minDistance = Double.MAX_VALUE;
+		double minDistance = MAX_VALUE;
 		Double dis_score;
 		Object doc_repr_j = null;
 		Pair dis_key = null;
@@ -666,6 +676,7 @@ public class MDP extends ResultRanker {
 	private double distance(String doc_a, String doc_b){
 		Double dis_score = null;
 		Pair dis_key = new Pair(doc_a, doc_b);
+		
 		if (null == (dis_score = _disCache.get(dis_key))) {
 			Object doc_aRepr = _docRepr.get(doc_a);
 			Object doc_bRepr = _docRepr.get(doc_b);
@@ -681,7 +692,7 @@ public class MDP extends ResultRanker {
 		String query_repr_key = query_repr.toString();
 		
 		Double sim_score = null;		
-		Pair sim_key = new Pair(doc_name, query_repr_key);;
+		Pair sim_key = new Pair(query_repr_key, doc_name);
 		
 		if (null == (sim_score = _simCache.get(sim_key))) {
 			Object doc_repr = _docRepr.get(doc_name);
@@ -691,29 +702,38 @@ public class MDP extends ResultRanker {
 		
 		return sim_score;			
 	}
+	/**
+	 * find the element is S that has the minimum distance with respect to doc_name_i
+	 * **/
 	private StrDouble minDisPairGivenS(String doc_name_i, ArrayList<String> S){
 		
 		Object doc_repr_i = _docRepr.get(doc_name_i);
 		//
-		double minDistance = Double.MAX_VALUE;
+		double minDistance = MAX_VALUE;
 		String minDoc_name = null;
+		
 		Double dis_score;
 		Object doc_repr_j = null;
 		Pair dis_key = null;
+		
 		for(String doc_name_j: S){
+			
 			dis_key = new Pair(doc_name_i, doc_name_j);
+			
 			if (null == (dis_score = _disCache.get(dis_key))) {
+				
 				doc_repr_j = _docRepr.get(doc_name_j);
 				dis_score = _sbKernel.distance(doc_repr_i, doc_repr_j);
 				_disCache.put(dis_key, dis_score);
+				
 			}
-			//
+			
 			if (dis_score < minDistance) {
 				minDistance = dis_score;
 				minDoc_name = doc_name_j;
 			}
 		}
-		//
+		
 		return new StrDouble(minDoc_name, minDistance);
 	}
 	//
@@ -730,12 +750,16 @@ public class MDP extends ResultRanker {
 		Object doc_repr_i = _docRepr.get(doc_name_i);
 		//
 		String mindoc_name = null;
-		double minDistance = 1;
+		double minDistance = MAX_VALUE;
+		
 		Double dis_score;
 		Object doc_repr_j = null;
 		Pair dis_key = null;
+		
 		for(String doc_name_j: S){
+			
 			dis_key = new Pair(doc_name_i, doc_name_j);
+			
 			if (null == (dis_score = _disCache.get(dis_key))) {
 				doc_repr_j = _docRepr.get(doc_name_j);
 				dis_score = _sbKernel.distance(doc_repr_i, doc_repr_j);

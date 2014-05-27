@@ -359,13 +359,13 @@ public class TRECDivEvaluation {
 			
 			ArrayList<ResultRanker> rankerList = new ArrayList<ResultRanker>();
 			
-			boolean singleLambda = false;
+			boolean singleLambda = true;
 			String nameFix = null;
 			
 			if(singleLambda){		
 				//////single lambada evaluation
 				nameFix = "_SingleLambda";
-				MDP mdp = new MDP(trecDivDocs, 0.5d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
+				MDP mdp = new MDP(trecDivDocs, 0.7d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
 				rankerList.add(mdp);
 				
 			}else{

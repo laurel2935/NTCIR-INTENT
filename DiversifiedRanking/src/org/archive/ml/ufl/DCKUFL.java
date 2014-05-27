@@ -633,7 +633,7 @@ public class DCKUFL {
 			for(int i=0; i<this._N; i++){
 				if(AlphaEtaR.get(i, j) >= 0){
 					if(already){
-						new Exception("Multiple use error!").printStackTrace();
+						System.err.println("Multiple use error!");						
 					}
 					colList.add(j);
 					rowList.add(i);
@@ -646,11 +646,13 @@ public class DCKUFL {
 		for(int k=0; k<colList.size(); k++){
 			this._JfForIcMatrix.set(0, k, colList.get(k));
 			this._JfForIcMatrix.set(1, k, rowList.get(k));
-		}						
+		}		
+		
         if(true){
         	System.out.println("Final ... max Selected Exemplars[X]-"+this._JfForIcMatrix.getM()+":");
         	printSDMatrix();
         }
+        
         //
         DoubleMatrix2D EY = this._V.plus(this._Gama);
         this._fY = EY.getRow(0).findG(0);
