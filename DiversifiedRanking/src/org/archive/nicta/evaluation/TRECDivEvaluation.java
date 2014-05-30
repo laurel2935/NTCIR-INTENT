@@ -117,7 +117,7 @@ public class TRECDivEvaluation {
 			//BM25_kernel
 			////////////////////////////
 			
-			/*
+			///*
 			//for doc-doc similarity			
 			TFIDF_A1 tfidf_A1Kernel = new TFIDF_A1(trecDivDocs, false);
 			//for query-doc similarity
@@ -128,13 +128,24 @@ public class TRECDivEvaluation {
 			BM25Kernel_A1 bm25_A1_Kernel = new BM25Kernel_A1(trecDivDocs, k1, k3, b);	
 			
 			String nameFix = null;
-			boolean singleLambda = false;
+			boolean singleLambda = true;
+			double weightedAvgLambda = Double.NaN;
 			
 			if(singleLambda){
 				//single Lambda evaluation
 				nameFix = "_SingleLambda";
+				
+				if(divVersion == DivVersion.Div2009){
+					weightedAvgLambda =  0.542d;
+				}else if(divVersion == DivVersion.Div2010){
+					weightedAvgLambda =  0.3917d;
+				}else {
+					System.err.println("Unsupported DivVersion!");
+					System.exit(1);
+				}
+				
 				rankerList.add(new MMR(trecDivDocs, 
-						0.5d //lambda: 0d is all weight on query sim
+						weightedAvgLambda //lambda: 0d is all weight on query sim
 						, bm25_A1_Kernel // sim
 						, tfidf_A1Kernel // div
 						));				
@@ -149,7 +160,7 @@ public class TRECDivEvaluation {
 							));
 				}				
 			}
-			*/
+			//*/
 			
 			////////////////////////////
 			//TFIDF_kernel
@@ -273,7 +284,7 @@ public class TRECDivEvaluation {
 			
 			//////CIKM2014
 			///*
-			
+			/*
 			Kernel LDA15_kernel   = new LDAKernel(trecDivDocs
 					, 15 // NUM TOPICS - suggest 15
 					, false // spherical
@@ -301,7 +312,7 @@ public class TRECDivEvaluation {
 							));
 				}				
 			}
-			
+			*/
 			//common: Add all MMR test variants (vary lambda and kernels)
 			
 			// Evaluate results of different query processing algorithms
@@ -452,7 +463,7 @@ public class TRECDivEvaluation {
 		
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
-		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2010, RankStrategy.MDP);
+		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.FL);
 		
 		
 	}

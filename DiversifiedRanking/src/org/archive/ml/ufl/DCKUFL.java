@@ -669,34 +669,47 @@ public class DCKUFL {
 		Collections.sort(xList, new TripleComparatorByThird_Desc<Integer, Integer, Double>());
 		
         if(true){
+        	System.out.println();
         	System.out.println("Final ... Max Selected Exemplars[X]-"+this._JfForIcMatrix.getM()+":");
         	printSDMatrix();        	
-        	System.out.println();
-        	System.out.println();
+        	System.out.println();        	
         	//
         	System.out.println("Final ... Sorted Max Selected Exemplars[X]-"+eList.size()+":");
+        	System.out.print("Col ID:\t\t");
         	for(IntIntDouble element: eList){
-        		System.out.print("Column ID:\t"+element.first+"\t");
+        		System.out.print(element.first+"\t");
         	}
         	System.out.println();
+        	System.out.print("Row ID:\t\t");
         	for(IntIntDouble element: eList){
-        		System.out.println("Row ID:\t"+element.second+"\t");
+        		System.out.print(element.second+"\t");
         	}
+        	System.out.println();
         	System.out.println();
         	//
         	System.out.println("Entire X variables:");
+        	System.out.print("Col ID:\t\t");
         	for(IntIntDouble element: xList){
-        		System.out.print("Column ID:\t"+element.first+"\t");
+        		System.out.print(element.first+"\t");
         	}
         	System.out.println();
+        	System.out.print("Row ID:\t\t");
         	for(IntIntDouble element: xList){
-        		System.out.println("Row ID:\t"+element.second+"\t");
+        		System.out.print(element.second+"\t");
         	}
+        	System.out.println();
         	System.out.println();
         }
         
         /////////// Way-2: Y vector
         DoubleMatrix2D EY = this._V.plus(this._Gama);
+        
+        //entire [Y] list
+        ArrayList<DoubleInt> yList = new ArrayList<DoubleInt>();
+        for(int j=0; j<this._M; j++){
+        	yList.add(new DoubleInt(EY.get(0, j), j));
+        }
+        Collections.sort(yList, new PairComparatorByFirst_Desc<Double, Integer>());
         
         //no sorting
         //this._fY = EY.getRow(0).findG(0);
@@ -709,12 +722,21 @@ public class DCKUFL {
         	}
         	
         	System.out.println("Final ... >0  Facilities[Y]-"+this._fY.size()+":");
-        	
+        	System.out.print("Col ID:\t\t");
         	for(int fID: this._fY.getVector()){
         		System.out.print(fID+"\t");
         		//System.out.print(fID+"("+getFacilityName(fID)+")"+"\t");
         	}
         	System.out.println();
+        	System.out.println();
+        	
+        	System.out.println("Entire Y variables:");
+        	System.out.print("Row ID:\t\t");
+        	for(DoubleInt y: yList){
+        		System.out.print(y.second+"\t");
+        	}
+        	System.out.println();
+        	System.out.println();        	
         }
         
         ////////////u_i      
@@ -735,7 +757,7 @@ public class DCKUFL {
         	uiList.add(new IntInt(i, ui));        	
         }
         
-        if(true){        	
+        if(true){               	
         	System.out.println("Final Capacity Setting[u_i]:"); 
         	for(IntInt intInt: uiList){
         		System.out.println(intInt.toString());
@@ -746,12 +768,14 @@ public class DCKUFL {
     //
     public void printSDMatrix() {
     	int exeNum = this._JfForIcMatrix.getM();
+    	System.out.print("Col ID:\t\t");
         for(int k=0; k<exeNum; k++){
-        	System.out.print("Column ID:\t"+this._JfForIcMatrix.get(0, k)+"\t");
+        	System.out.print(this._JfForIcMatrix.get(0, k)+"\t");
         }
         System.out.println();
+        System.out.print("Row ID:\t\t");
         for(int k=0; k<exeNum; k++){
-        	System.out.print("Row ID:\t"+this._JfForIcMatrix.get(1, k)+" ");
+        	System.out.print(this._JfForIcMatrix.get(1, k)+"\t");
         }
         System.out.println();
     }
