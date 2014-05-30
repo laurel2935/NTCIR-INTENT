@@ -361,11 +361,24 @@ public class TRECDivEvaluation {
 			
 			boolean singleLambda = true;
 			String nameFix = null;
+			double weightedAvgLambda = Double.NaN;
 			
 			if(singleLambda){		
 				//////single lambada evaluation
 				nameFix = "_SingleLambda";
-				MDP mdp = new MDP(trecDivDocs, 0.7d, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
+				//
+				//double wt2009WeightedAvgLambda = 0.48d;
+				//double wt2010WeightedAvgLambda = 0.5646d;
+				if(divVersion == DivVersion.Div2009){
+					weightedAvgLambda =  0.48d;
+				}else if(divVersion == DivVersion.Div2010){
+					weightedAvgLambda =  0.5646d;
+				}else {
+					System.err.println("Unsupported DivVersion!");
+					System.exit(1);
+				}
+				
+				MDP mdp = new MDP(trecDivDocs, weightedAvgLambda, itrThreshold, tfidf_A1Kernel, null, trecDivQueries);
 				rankerList.add(mdp);
 				
 			}else{
@@ -439,7 +452,7 @@ public class TRECDivEvaluation {
 		
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
-		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.MDP);
+		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2010, RankStrategy.MDP);
 		
 		
 	}

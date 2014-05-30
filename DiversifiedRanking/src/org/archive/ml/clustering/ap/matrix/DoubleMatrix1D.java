@@ -32,6 +32,12 @@
 
 package org.archive.ml.clustering.ap.matrix;
 
+import java.util.ArrayList;
+import java.util.Collections;
+
+import org.archive.util.tuple.DoubleInt;
+import org.archive.util.tuple.PairComparatorByFirst_Desc;
+
 public class DoubleMatrix1D extends Matrix1D<Double> implements DoubleMatrix1DInterface {
 
     public DoubleMatrix1D(final Double[] vector) {
@@ -75,6 +81,39 @@ public class DoubleMatrix1D extends Matrix1D<Double> implements DoubleMatrix1DIn
                 count++;
             }
         }
+        return res;
+    }
+    /**
+     * @return A Matrix1D that records the sequential indexes (sorted in decreasing order of Double value) the corresponding value of which is larger than the given {x}
+     * */
+    public IntegerMatrix1D findG_Sorted(final double x) {
+        int count = 0;
+        ArrayList<DoubleInt> eList = new ArrayList<DoubleInt>();
+        
+        for (int i = 0; i < this.size(); i++) {
+            if (this.getValue(i).doubleValue() > x) {
+            	eList.add(new DoubleInt(this.getValue(i).doubleValue(), i));
+                count++;
+            }
+        }
+        
+        Collections.sort(eList, new PairComparatorByFirst_Desc<Double, Integer>());
+        
+        IntegerMatrix1D res = new IntegerMatrix1D(count);
+        
+        for(int i=0; i<count; i++){
+        	res.set(i, eList.get(i).second);
+        }        
+        //--
+        /*
+        count = 0;
+        for (int i = 0; i < this.size(); i++) {
+            if (this.getValue(i).doubleValue() > x) {
+                res.set(count, Integer.valueOf(i));
+                count++;
+            }
+        }
+        */
         return res;
     }
     

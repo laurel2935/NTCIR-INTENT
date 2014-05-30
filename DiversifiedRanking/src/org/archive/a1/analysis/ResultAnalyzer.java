@@ -11,6 +11,8 @@ import org.archive.OutputDirectory;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
 import org.archive.dataset.trec.query.TRECDivQuery;
+import org.archive.nicta.evaluation.evaluator.Evaluator;
+import org.archive.nicta.evaluation.metricfunction.NDEval10Losses;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.IntStrInt;
 import org.archive.util.tuple.StrDouble;
@@ -72,9 +74,9 @@ public class ResultAnalyzer {
 	}
 	
 	
-	
+	////topic-id -> [lambdaString & alphaNDCG@20]
 	public static HashMap<String, StrDouble> getMaxLambdaSetting(String resultFile){
-		//topic-id -> [lambdaString & alphaNDCG@20]
+		
 		HashMap<String, StrDouble> topicLambdaMap = new HashMap<String, StrDouble>();
 		
 		ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(resultFile);
@@ -128,8 +130,87 @@ public class ResultAnalyzer {
 	
 	
 	
-	
-	
+	////ideal result with an adaptive lambda
+	public static void getIdealResultsOfLambda(String resultFile){
+		
+		HashMap<String, StrDouble> topicLambdaMap = new HashMap<String, StrDouble>();
+		
+		ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(resultFile);
+		for(String line: lineList){
+			line = line.replaceAll("[\\s]+", "\t");
+			String [] fields = line.split("\\s");
+			
+			/*
+			System.out.println(fields.length);
+			for(int k=0; k<fields.length; k++){
+				System.out.println(fields[k]);
+			}
+			System.out.println();
+			*/
+			
+			String topicID = fields[0];			
+			String alphaNDCG20Str = fields[14];
+			
+			//System.out.println(topicID);
+			//System.out.println(lambdaStr);
+			//System.out.println(alphaNDCG20Str);
+			
+			Double currV = getDouble(alphaNDCG20Str.trim());
+			
+			if(topicLambdaMap.containsKey(topicID)){				
+				if(currV > topicLambdaMap.get(topicID).second){
+					topicLambdaMap.put(topicID, new StrDouble(line, currV));
+				}
+			}else{
+				topicLambdaMap.put(topicID, new StrDouble(line, currV));
+			}			
+		}
+		
+		if(DEBUG){
+			for(Entry<String, StrDouble> entry: topicLambdaMap.entrySet()){
+				String topicID = entry.getKey();
+				StrDouble strD = entry.getValue();
+
+				System.out.println(topicID+"->"+strD.first+"\t"+strD.second);
+			}
+			System.out.println();
+		}
+		
+		ArrayList<String> idealPerResultList = new ArrayList<String>();
+		
+		for(Entry<String, StrDouble> entry: topicLambdaMap.entrySet()){
+			//String topicID = entry.getKey();
+			StrDouble strD = entry.getValue();
+			idealPerResultList.add(strD.first);			
+		}
+		
+		double [] sumArray = new double [21];
+		for(int i=0; i<sumArray.length; i++){
+			sumArray[i] = 0.0d;
+		}
+		
+		for(String resultLine: idealPerResultList){
+			String [] fields = resultLine.split("\t");
+			for(int i=3; i<fields.length; i++){
+				sumArray[i-3] += getDouble(fields[i]);
+			}
+		}
+		
+		for(int i=0; i<sumArray.length; i++){
+			sumArray[i] = sumArray[i]/idealPerResultList.size();
+		}
+		
+		StringBuffer buffer = new StringBuffer();
+		for(int i=0; i<sumArray.length; i++){
+			buffer.append(NDEval10Losses.metricVector.get(i)+":");
+			buffer.append(Evaluator.fourResultFormat.format(sumArray[i])+"\t");
+		}
+		
+		String resultString = buffer.toString();
+		resultString = resultString.replaceAll("\n", "");
+		
+		System.out.println(resultString);		
+	}
 	
 	
 	
@@ -137,7 +218,7 @@ public class ResultAnalyzer {
 	
 	//
 	public static void main(String []args){
-		//1
+		//1 
 		String perLambdaResultdir = OutputDirectory.ROOT+"DivEvaluation/PerLambdaEvaluation/";
 		
 		//DivVersion.Div2009 BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt
@@ -153,6 +234,11 @@ public class ResultAnalyzer {
 		
 		String Div2010File_mdp = "MDP-TFIDF_A1-Div2010MDP_PerLambda_ndeval.txt";				
 		ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2010, perLambdaResultdir+Div2010File_mdp);
+		
+		//2 ideal results
+		//DivVersion.Div2009 BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt
+		//String Div2009File = "BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt";				
+		//ResultAnalyzer.getIdealResultsOfLambda(perLambdaResultdir+Div2009File);
 		
 	}
 

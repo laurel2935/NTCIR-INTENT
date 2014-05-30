@@ -1,5 +1,6 @@
 eclipse.preferences.version=1
 encoding//src/org/archive/dataset/ntcir/NTCIRLoader.java=UTF-8
+encoding//src/org/archive/ml/ufl/DCKUFL.java=UTF-8
 encoding//src/org/archive/nlp/chunk/lpt/ltpService/LTPOption.java=UTF-8
 encoding//src/org/archive/nlp/chunk/lpt/ltpService/examples/Example1.java=UTF-8
 encoding//src/org/archive/nlp/qpunctuation/QPunctuationParser.java=UTF-8

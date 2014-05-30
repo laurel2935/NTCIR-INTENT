@@ -178,6 +178,12 @@ public class DCKUFLRanker extends ResultRanker{
     		resultList.add(objList.get(i).getFirst());
     	}
     	
+    	System.out.println("Similarity Order:");
+    	for(StrDouble obj: objList){
+    		System.out.print(dckufl.getFacilityID(obj.first)+"\t");
+    	}
+    	System.out.println();
+    	
     	return resultList;		
 	}
 	//

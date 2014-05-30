@@ -13,8 +13,9 @@ import org.archive.dataset.trec.query.TRECQueryAspects;
 
 
 public class NDEval10Losses extends Metric {
-	private static Vector<String> metricVector = new Vector<String>();
+	public static Vector<String> metricVector = new Vector<String>();
 	static{
+		//21
 		//ERR-IA@5,ERR-IA@10,ERR-IA@20,nERR-IA@5,nERR-IA@10,nERR-IA@20
 		//alpha-DCG@5,alpha-DCG@10,alpha-DCG@20,alpha-nDCG@5,alpha-nDCG@10,alpha-nDCG@20,
 		//NRBP,nNRBP,MAP-IA

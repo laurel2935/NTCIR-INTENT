@@ -2,12 +2,15 @@ package org.archive.nicta.evaluation.evaluator;
 
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.Vector;
 
 import org.archive.OutputDirectory;
@@ -36,11 +39,19 @@ import org.archive.util.tuple.StrDouble;
 
 public class TRECDivEvaluator extends Evaluator{
 	
+	private SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss:SS");  
+	
 	private Map<String,TRECDivQuery> _allTRECDivQueries = null; 
 	
 	public TRECDivEvaluator(Map<String,TRECDivQuery> allTRECDivQueries, String outputPrefix, String outputFilename){
 		super(outputPrefix, outputFilename);
 		this._allTRECDivQueries = allTRECDivQueries;
+		
+		//for computing the times
+		this.timeFormat = new SimpleDateFormat("HH:mm:ss:SS");  
+        TimeZone timeZone = this.timeFormat.getTimeZone();  
+        timeZone.setRawOffset(0);  
+        this.timeFormat.setTimeZone(timeZone); 
 	}
 
 	public void openPrintStreams(){
@@ -113,6 +124,9 @@ public class TRECDivEvaluator extends Evaluator{
 			//HashMap<String, HashSet<String>> top_docs = new HashMap<String, HashSet<String>>();
 			
 			int query_serial = 0;
+			
+			Long startTime = System.currentTimeMillis();
+			
 			for (String qNumber : evalQueries) {
 				///////////////////////////////////////////////////////////////////////
 				// For a test and a query
@@ -210,6 +224,14 @@ public class TRECDivEvaluator extends Evaluator{
 				}				
 				///////////////////////////////////////////////////////////////////////
 			}
+			
+			Long endTime = System.currentTimeMillis();  
+			System.out.println();
+			System.out.println("Time Info ------------------------");
+			System.out.println("Time Eclapsed:\t" + timeFormat.format(new Date(endTime - startTime)));
+			System.out.println("Topic Size:\t"+evalQueries.size());
+			System.out.println("Averaged Time Eclapsed:\t" + timeFormat.format(new Date((endTime-startTime)/evalQueries.size())));
+			
 			rRanker.clearInfoOfTopNDocs();
 			
 			usl_vs_rank = VectorUtils.ScalarMultiply(usl_vs_rank, 1d/evalQueries.size());

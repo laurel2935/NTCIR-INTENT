@@ -432,17 +432,17 @@ public class MDP extends ResultRanker {
 				StrDouble theMinPair = minDisPairGivenS(doc_name, S);
 				
 				//follower - corresponding star  // (1-_dLambda) is necessary
-				followerToStarMap.put(doc_name, new StrDouble(theMinPair.getFirst(), theMinPair.getSecond()*(1-_dLambda)));	
+				followerToStarMap.put(doc_name, new StrDouble(theMinPair.getFirst(), (1-_dLambda)*theMinPair.getSecond()));	
 				
 				//star - corresponding followers
 				if(starToFollowersMap.containsKey(theMinPair.getFirst())){
 					
-					starToFollowersMap.get(theMinPair.getFirst()).add(new StrDouble(doc_name, theMinPair.getSecond()*(1-_dLambda)));
+					starToFollowersMap.get(theMinPair.getFirst()).add(new StrDouble(doc_name, (1-_dLambda)*theMinPair.getSecond()));
 					
 				}else{
 					
 					HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();					
-					follwerSet.add(new StrDouble(doc_name, theMinPair.getSecond()*(1-_dLambda)));
+					follwerSet.add(new StrDouble(doc_name, (1-_dLambda)*theMinPair.getSecond()));
 					starToFollowersMap.put(theMinPair.getFirst(), follwerSet);					
 				}				
 			}else{
@@ -501,11 +501,11 @@ public class MDP extends ResultRanker {
 						}else{
 							//change the star of original followers
 							StrDouble minPair = minDisPairGivenS(follower.getFirst(), newS);
-							delta += (minPair.second*(1-_dLambda) - follower.getSecond());							
+							delta += ((1-_dLambda)*minPair.second - follower.getSecond());							
 						}
 					}
 					//get the star for the original star
-					double minD = minDisPairGivenS(star, newS).getSecond()*(1-_dLambda);
+					double minD = (1-_dLambda)*minDisPairGivenS(star, newS).getSecond();
 					delta += (minD - followerToStarMap.get(toBeStar).getSecond());					
 					
 					//relevance part
@@ -544,13 +544,13 @@ public class MDP extends ResultRanker {
 						if(!S.contains(doc_name)){											
 							StrDouble minPair = minDisPairGivenS(doc_name, S);
 							//follower - corresponding star
-							followerToStarMap.put(doc_name, new StrDouble(minPair.getFirst(), minPair.getSecond()*(1-_dLambda)));	
+							followerToStarMap.put(doc_name, new StrDouble(minPair.getFirst(), (1-_dLambda)*minPair.getSecond()));	
 							//star - corresponding followers
 							if(starToFollowersMap.containsKey(minPair.getFirst())){
-								starToFollowersMap.get(minPair.getFirst()).add(new StrDouble(doc_name, minPair.getSecond()*(1-_dLambda)));
+								starToFollowersMap.get(minPair.getFirst()).add(new StrDouble(doc_name,(1-_dLambda)*minPair.getSecond()));
 							}else{
 								HashSet<StrDouble> follwerSet = new HashSet<StrDouble>();					
-								follwerSet.add(new StrDouble(doc_name, minPair.getSecond()*(1-_dLambda)));
+								follwerSet.add(new StrDouble(doc_name, (1-_dLambda)*minPair.getSecond()));
 								starToFollowersMap.put(minPair.getFirst(), follwerSet);
 							}				
 						}else{

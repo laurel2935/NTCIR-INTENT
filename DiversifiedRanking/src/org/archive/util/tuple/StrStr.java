@@ -2,8 +2,8 @@ package org.archive.util.tuple;
 
 public class StrStr extends Pair<String, String>{
 	
-	public StrStr(String first, String second){
-		super(first, second);
+	public StrStr(String strFirst, String strSecond){
+		super(strFirst, strSecond);
 	}
 
 }

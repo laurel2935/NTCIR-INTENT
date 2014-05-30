@@ -1,13 +1,13 @@
 package org.archive.util.tuple;
 
-public class Triple <FIRST, SECOND, Third> implements TripleInterface<FIRST, SECOND, Third> {
+public class Triple <FIRST, SECOND, THIRD> implements TripleInterface<FIRST, SECOND, THIRD> {
 	//
 	public FIRST first;
 	public SECOND second;
-	public Third third;
+	public THIRD third;
 	
 	//
-	public Triple(FIRST fir, SECOND sec, Third thi){
+	public Triple(FIRST fir, SECOND sec, THIRD thi){
 		this.first = fir;
 		this.second = sec;
 		this.third = thi;
@@ -25,10 +25,10 @@ public class Triple <FIRST, SECOND, Third> implements TripleInterface<FIRST, SEC
 	public final void setSecond(SECOND second){
 		this.second = second;
 	}
-	public final Third getThird(){
+	public final THIRD getThird(){
 		return this.third;
 	}
-	public final void setThird(Third third){
+	public final void setThird(THIRD third){
 		this.third = third;
 	}
 	
@@ -43,7 +43,7 @@ public class Triple <FIRST, SECOND, Third> implements TripleInterface<FIRST, SEC
 		if (!(obj instanceof Triple)) {
 			return false;
 		}
-		Triple <FIRST, SECOND, Third> cmpTriple = (Triple <FIRST, SECOND, Third>)obj;
+		Triple <FIRST, SECOND, THIRD> cmpTriple = (Triple <FIRST, SECOND, THIRD>)obj;
 		//
 		return null==this.first? null==cmpTriple.first : this.first.equals(cmpTriple.first) 
 				&& (null==this.second? null==cmpTriple.second : this.second.equals(cmpTriple.second)
