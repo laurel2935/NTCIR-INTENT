@@ -40,9 +40,13 @@ public class TRECDivLoader {
 	private final static String QUERY_FILE_2010_xml = DataSetDiretory.ROOT+"trec/TREC20092010/wt2010-topics.xml";
 	
 	//private final static String ASPECT_FILE 		   = "dataset/trec/TREC20092010/qrels.diversity.all";
+	//private final static String aROOT = "/cygdrive/H/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/";
 	private final static String TREC_DivQRELS_20092010 = DataSetDiretory.ROOT+"trec/TREC20092010/qrels.diversity.0910";
 	private final static String TREC_DivQRELS_09       = DataSetDiretory.ROOT+"trec/TREC20092010/09.diversity-qrels.final";
-	private final static String TREC_DivQRELS_10       = DataSetDiretory.ROOT+"trec/TREC20092010/10.diversity-qrels.final";
+	private final static String TREC_DivQRELS_10       = DataSetDiretory.ROOT+"trec/TREC20092010/10.diversity-qrels.final";	
+	//private final static String TREC_DivQRELS_20092010 = aROOT+"trec/TREC20092010/qrels.diversity.0910";
+	//private final static String TREC_DivQRELS_09       = aROOT+"trec/TREC20092010/09.diversity-qrels.final";
+	//private final static String TREC_DivQRELS_10       = aROOT+"trec/TREC20092010/10.diversity-qrels.final";
 	
 	// /////////////////////////////////////////////////////////////////////////////
 	// Helper Functions

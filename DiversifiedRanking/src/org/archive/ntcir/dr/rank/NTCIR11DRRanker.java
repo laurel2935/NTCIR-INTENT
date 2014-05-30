@@ -10,9 +10,11 @@ import java.util.Set;
 
 import org.archive.OutputDirectory;
 import org.archive.a1.ranker.fa.DCKUFLRanker;
+import org.archive.a1.ranker.fa.DCKUFLRanker.Strategy;
 import org.archive.dataset.ntcir.NTCIRLoader;
 import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
 import org.archive.dataset.ntcir.sm.SMTopic;
+import org.archive.ml.ufl.DCKUFL.ExemplarType;
 import org.archive.nicta.kernel.BM25Kernel_A1;
 import org.archive.nicta.kernel.TFIDF_A1;
 import org.archive.nicta.ranker.ResultRanker;
@@ -173,6 +175,10 @@ public class NTCIR11DRRanker {
 	}
 	
 	private DCKUFLRanker loadRanker(DRRunParameter drRunParameter){
+		//NTCIR results have not consider this parameter 
+		ExemplarType  exemplarType = ExemplarType.Y;
+		Strategy flStrategy = Strategy.QDSim;
+		
 		double k1, k3, b;
 		k1=1.2d; k3=0.5d; b=0.5d; // achieves the best
 		//k1=0.5d; k3=0.5d; b=0.5d; //better than the group of b=1000d;
@@ -184,7 +190,7 @@ public class NTCIR11DRRanker {
 		int iterationTimes_1 = 5000;
 		int noChangeIterSpan_1 = 10; 
 		//DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
-		DCKUFLRanker dckuflRanker = new DCKUFLRanker(drRunParameter.docMap, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
+		DCKUFLRanker dckuflRanker = new DCKUFLRanker(drRunParameter.docMap, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1, exemplarType, flStrategy);
 		
 		return dckuflRanker;
 	}

@@ -27,6 +27,8 @@ import org.archive.util.tuple.TripleComparatorByThird_Desc;
 public class DCKUFL {
 	
 	private static final boolean debug = false;
+	
+	public static enum ExemplarType {X, Y}
 		
 	//// Basic Parameters with default values ////	
 	private double _lambda = 0.5;
@@ -105,7 +107,12 @@ public class DCKUFL {
 	//1st-row: column-id
 	//2nd-row: target-row-id
     private IntegerMatrix2D _JfForIcMatrix = null;    
-    private IntegerMatrix1D _fY = null;	
+    private IntegerMatrix1D _fY = null;	    
+    
+    //entire [X] list
+  	ArrayList<IntIntDouble> _allX = new ArrayList<IntIntDouble>();  	
+    //entire [Y] list
+    ArrayList<DoubleInt> _allY = new ArrayList<DoubleInt>();
         
     DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, int n, int m,
     		DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList){
@@ -582,10 +589,14 @@ public class DCKUFL {
 	}
 	
 	protected void computeIteratingBeliefs() {
+		
 		DoubleMatrix2D AlphaEtaR = this._Alpha.plus(this._Eta).plus(this._R);
 		
 		ArrayList<Integer> colList = new ArrayList<Integer>();
         ArrayList<Integer> rowList = new ArrayList<Integer>();
+        
+        /*
+        //old
 		for(int j=0; j<this._M; j++){
 			//boolean already = false;
 			for(int i=0; i<this._N; i++){
@@ -599,7 +610,24 @@ public class DCKUFL {
 				}
 			}
 		}		
-		
+		*/
+        for(int j=0; j<this._M; j++){        	
+			int maxI = -1;
+			double maxV =-100000;
+			
+			for(int i=0; i<this._N; i++){
+				if(AlphaEtaR.get(i, j) > maxV){
+					maxI = i;
+					maxV = AlphaEtaR.get(i, j);
+				}
+			}
+			//for selecting exemplars
+			if(maxV >= 0){
+				colList.add(j);
+				rowList.add(maxI);
+			}
+		}
+        
 		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
 		for(int k=0; k<colList.size(); k++){
 			this._JfForIcMatrix.set(0, k, colList.get(k));
@@ -633,7 +661,8 @@ public class DCKUFL {
 		
 		ArrayList<Integer> colList = new ArrayList<Integer>();
         ArrayList<Integer> rowList = new ArrayList<Integer>();
-        
+        /*
+        //old
 		for(int j=0; j<this._M; j++){
 			boolean already = false;
 			for(int i=0; i<this._N; i++){
@@ -649,26 +678,42 @@ public class DCKUFL {
 					eList.add(new IntIntDouble(j, i, AlphaEtaR.get(i, j)));
 				}
 			}
-		}		
+		}	
+		*/
+        for(int j=0; j<this._M; j++){
+        	
+			int maxI = -1;
+			double maxV =-100000;
+			
+			for(int i=0; i<this._N; i++){
+				if(AlphaEtaR.get(i, j) > maxV){
+					maxI = i;
+					maxV = AlphaEtaR.get(i, j);
+				}
+			}
+			//for selecting exemplars
+			if(maxV >= 0){
+				colList.add(j);
+				rowList.add(maxI);								
+				//column, row, double
+				eList.add(new IntIntDouble(j, maxI, maxV));
+			}	
+			
+			//entire [X] list
+			_allX.add(new IntIntDouble(j, maxI, maxV));
+		}
 		
 		Collections.sort(eList, new TripleComparatorByThird_Desc<Integer, Integer, Double>());
+		
+		Collections.sort(_allX, new TripleComparatorByThird_Desc<Integer, Integer, Double>());
 		
 		this._JfForIcMatrix = new IntegerMatrix2D(2, colList.size(), 0);
 		for(int k=0; k<colList.size(); k++){
 			this._JfForIcMatrix.set(0, k, colList.get(k));
 			this._JfForIcMatrix.set(1, k, rowList.get(k));
-		}		
+		}	
 		
-		//entire [X] list
-		ArrayList<IntIntDouble> xList = new ArrayList<IntIntDouble>();
-		for(int j=0; j<this._M; j++){			
-			for(int i=0; i<this._N; i++){
-				xList.add(new IntIntDouble(j, i, AlphaEtaR.get(i, j)));
-			}
-		}
-		Collections.sort(xList, new TripleComparatorByThird_Desc<Integer, Integer, Double>());
-		
-        if(true){
+        if(debug){
         	System.out.println();
         	System.out.println("Final ... Max Selected Exemplars[X]-"+this._JfForIcMatrix.getM()+":");
         	printSDMatrix();        	
@@ -689,12 +734,12 @@ public class DCKUFL {
         	//
         	System.out.println("Entire X variables:");
         	System.out.print("Col ID:\t\t");
-        	for(IntIntDouble element: xList){
+        	for(IntIntDouble element: _allX){
         		System.out.print(element.first+"\t");
         	}
         	System.out.println();
         	System.out.print("Row ID:\t\t");
-        	for(IntIntDouble element: xList){
+        	for(IntIntDouble element: _allX){
         		System.out.print(element.second+"\t");
         	}
         	System.out.println();
@@ -704,19 +749,18 @@ public class DCKUFL {
         /////////// Way-2: Y vector
         DoubleMatrix2D EY = this._V.plus(this._Gama);
         
-        //entire [Y] list
-        ArrayList<DoubleInt> yList = new ArrayList<DoubleInt>();
+        //entire [Y] list        
         for(int j=0; j<this._M; j++){
-        	yList.add(new DoubleInt(EY.get(0, j), j));
+        	_allY.add(new DoubleInt(EY.get(0, j), j));
         }
-        Collections.sort(yList, new PairComparatorByFirst_Desc<Double, Integer>());
+        Collections.sort(_allY, new PairComparatorByFirst_Desc<Double, Integer>());
         
         //no sorting
         //this._fY = EY.getRow(0).findG(0);
         //sorted
         this._fY = EY.getRow(0).findG_Sorted(0);
         
-        if(true){
+        if(debug){
         	if(this._fY.size() < 20){
         		System.err.println("[Y]-selected count:\tsmaller than 20 !");        		
         	}
@@ -732,7 +776,7 @@ public class DCKUFL {
         	
         	System.out.println("Entire Y variables:");
         	System.out.print("Row ID:\t\t");
-        	for(DoubleInt y: yList){
+        	for(DoubleInt y: _allY){
         		System.out.print(y.second+"\t");
         	}
         	System.out.println();
@@ -757,7 +801,7 @@ public class DCKUFL {
         	uiList.add(new IntInt(i, ui));        	
         }
         
-        if(true){               	
+        if(debug){               	
         	System.out.println("Final Capacity Setting[u_i]:"); 
         	for(IntInt intInt: uiList){
         		System.out.println(intInt.toString());
@@ -839,6 +883,29 @@ public class DCKUFL {
     	}
     	return facilityList;
     }
+    
+    /****/
+    public ArrayList<String> getSelectedFacilities(ExemplarType exemplarType, int cutoff){
+    	//check
+    	if(this._fY.size() < cutoff){
+    		System.err.println("[Y]-selected count:\tsmaller than "+cutoff+" : "+(cutoff-this._fY.size()));        		
+    	}
+    	
+    	ArrayList<String> reList = new ArrayList<String>();
+    	
+    	if(exemplarType == ExemplarType.Y){
+    		for(int i=0; i<cutoff; i++){
+    			reList.add(getFacilityName(_allY.get(i).second));
+    		}    		   		
+        	return reList;
+    	}else{
+    		for(int i=0; i<cutoff; i++){
+    			reList.add(getFacilityName(_allX.get(i).first));
+    		}    		   		
+        	return reList;
+    	}
+    }
+    
 	//
 	public double getLambda(){
 		return this._lambda;

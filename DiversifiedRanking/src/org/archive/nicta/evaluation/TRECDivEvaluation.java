@@ -6,16 +6,20 @@
 package org.archive.nicta.evaluation;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
 import java.util.*;
 
 import org.archive.OutputDirectory;
 import org.archive.a1.ranker.fa.DCKUFLRanker;
+import org.archive.a1.ranker.fa.DCKUFLRanker.Strategy;
 import org.archive.a1.ranker.fa.MDP;
 import org.archive.a1.ranker.fa.MDP.fVersion;
 import org.archive.dataset.trec.TRECDivLoader;
 import org.archive.dataset.trec.TRECDivLoader.DivVersion;
 import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.dataset.trec.query.TRECQueryAspects;
+import org.archive.ml.ufl.DCKUFL.ExemplarType;
 import org.archive.nicta.evaluation.evaluator.Evaluator;
 import org.archive.nicta.evaluation.evaluator.TRECDivEvaluator;
 import org.archive.nicta.evaluation.metricfunction.AllUSLoss;
@@ -415,6 +419,13 @@ public class TRECDivEvaluation {
 			
 		}else if(rankStrategy == RankStrategy.FL){
 			
+			//combination			
+			ExemplarType exemplarType = ExemplarType.X;
+			Strategy flStrategy = Strategy.QDSim;
+			
+			String nameFix = "_"+exemplarType.toString();
+			nameFix += ("_"+flStrategy.toString());
+						
 			double k1, k3, b;
 			k1=1.2d; k3=0.5d; b=0.5d;   // achieves the best
 			//k1=0.5d; k3=0.5d; b=0.5d; //better than the group of b=1000d;
@@ -431,7 +442,7 @@ public class TRECDivEvaluation {
 			int iterationTimes_1 = 5000;
 			int noChangeIterSpan_1 = 10; 
 			//DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
-			DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1);
+			DCKUFLRanker dckuflRanker = new DCKUFLRanker(trecDivDocs, bm25_A1_Kernel, lambda_1, iterationTimes_1, noChangeIterSpan_1, exemplarType, flStrategy);
 			
 			//2
 			/*
@@ -446,7 +457,7 @@ public class TRECDivEvaluation {
 			//rankers.add(kuflRanker);
 			
 			// Evaluate results of different query processing algorithms
-			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename);
+			Evaluator trecDivEvaluator = new TRECDivEvaluator(trecDivQueries, output_prefix, output_filename+nameFix);
 			try {
 				trecDivEvaluator.doEval(TRECDivLoader.getDivEvalQueries(divVersion),
 						trecDivDocs, trecDivQueryAspects, lossFunctions, rankerList, cutoffK);
@@ -457,13 +468,30 @@ public class TRECDivEvaluation {
 		}		
 	}
 	//
+	private static PrintStream printer = null; 
+	public static void openPrinter(){
+		try{
+			printer = new PrintStream(new FileOutputStream(new File(OutputDirectory.ROOT+"DivEvaluation/"+"log.txt")));
+			System.setOut(printer);			
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	public static void closePrinter(){
+		printer.flush();
+		printer.close();
+	}
 	
 	//
 	public static void main(String []args){
 		
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
+		TRECDivEvaluation.openPrinter();
+		
 		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2009, RankStrategy.FL);
+		
+		TRECDivEvaluation.closePrinter();
 		
 		
 	}

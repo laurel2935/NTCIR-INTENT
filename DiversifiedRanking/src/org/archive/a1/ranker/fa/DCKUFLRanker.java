@@ -11,6 +11,7 @@ import org.archive.dataset.trec.query.TRECDivQuery;
 import org.archive.dataset.trec.query.TRECSubtopic;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.ufl.DCKUFL;
+import org.archive.ml.ufl.DCKUFL.ExemplarType;
 import org.archive.ml.ufl.Mat;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
@@ -20,6 +21,13 @@ import org.archive.util.tuple.StrDouble;
 
 public class DCKUFLRanker extends ResultRanker{
 	
+	private static final boolean debug = false;
+	
+	public static enum Strategy{Belief, QDSim}
+	
+	ExemplarType _exemplarType;
+	Strategy _flStrategy;
+	
 	private double _lambda = 0.5;
 	private int _iterationTimes = 5000;
 	private int _noChangeIterSpan = 10; 
@@ -28,7 +36,7 @@ public class DCKUFLRanker extends ResultRanker{
 	public Kernel _kernel;
 		
 	// Constructor
-	public DCKUFLRanker(HashMap<String, String> docs, Kernel kernel, double lambda, int iterationTimes, int noChangeIterSpan) { 
+	public DCKUFLRanker(HashMap<String, String> docs, Kernel kernel, double lambda, int iterationTimes, int noChangeIterSpan, ExemplarType exemplarType, Strategy flStrategy) { 
 		super(docs);				
 		this._kernel = kernel;	
 		this._lambda = lambda;
@@ -36,6 +44,9 @@ public class DCKUFLRanker extends ResultRanker{
 		this._noChangeIterSpan = noChangeIterSpan;
 		//
 		this._indexOfGetResultMethod = 1;
+		
+		this._exemplarType = exemplarType;
+		this._flStrategy = flStrategy;
 	}
 	
 	//be called when a new query comes
@@ -160,29 +171,42 @@ public class DCKUFLRanker extends ResultRanker{
     	
     	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
     	dckufl.run();
-    	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
     	
-    	//(1)final ranking by similarity between query and document
-    	ArrayList<StrDouble> objList = new ArrayList<StrDouble>();
-    	Object queryRepr = _kernel.getNoncachedObjectRepresentation(trecDivQuery.getQueryContent());
-    	for(String docName: facilityList){
-    		objList.add(new StrDouble(docName, _kernel.sim(queryRepr, _kernel.getObjectRepresentation(docName))));
+    	//ArrayList<String> facilityList = dckufl.getSelectedFacilities();
+    	ArrayList<String> facilityList = dckufl.getSelectedFacilities(this._exemplarType, size);
+    	
+    	ArrayList<String> resultList = null;
+    	
+    	if(Strategy.Belief == this._flStrategy){
+    		
+    		resultList = facilityList;
+    		
+    	}else{
+    		
+    		//(1)final ranking by similarity between query and document
+        	ArrayList<StrDouble> objList = new ArrayList<StrDouble>();
+        	Object queryRepr = _kernel.getNoncachedObjectRepresentation(trecDivQuery.getQueryContent());
+        	for(String docName: facilityList){
+        		objList.add(new StrDouble(docName, _kernel.sim(queryRepr, _kernel.getObjectRepresentation(docName))));
+        	}
+        	
+        	//(2)??? similarity between subtopic vector and document
+        	
+        	Collections.sort(objList, new PairComparatorBySecond_Desc<String, Double>());
+        	        	
+        	resultList = new ArrayList<String>();
+        	for(int i=0; i<size; i++){
+        		resultList.add(objList.get(i).getFirst());
+        	}
+        	
+        	if(debug){
+        		System.out.println("Similarity Order:");
+            	for(StrDouble obj: objList){
+            		System.out.print(dckufl.getFacilityID(obj.first)+"\t");
+            	}
+            	System.out.println();
+        	}        	
     	}
-    	
-    	//(2)??? similarity between subtopic vector and document
-    	
-    	Collections.sort(objList, new PairComparatorBySecond_Desc<String, Double>());
-    	
-    	ArrayList<String> resultList = new ArrayList<String>();
-    	for(int i=0; i<size; i++){
-    		resultList.add(objList.get(i).getFirst());
-    	}
-    	
-    	System.out.println("Similarity Order:");
-    	for(StrDouble obj: objList){
-    		System.out.print(dckufl.getFacilityID(obj.first)+"\t");
-    	}
-    	System.out.println();
     	
     	return resultList;		
 	}
