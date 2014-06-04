@@ -22,6 +22,7 @@ import org.archive.util.tuple.DoubleInt;
 import org.archive.util.tuple.IntInt;
 import org.archive.util.tuple.IntIntDouble;
 import org.archive.util.tuple.PairComparatorByFirst_Desc;
+import org.archive.util.tuple.StrDouble;
 import org.archive.util.tuple.TripleComparatorByThird_Desc;
 
 public class DCKUFL {
@@ -69,6 +70,9 @@ public class DCKUFL {
 	private DoubleMatrix1D _P;
 	//1*N one-row capacity vector corresponding to each subtopic
 	private DoubleMatrix1D _capList;
+	//1*M one-row utility vector corresponding to each document
+	//the potential usefulness of selecting a document instead of cost
+	private DoubleMatrix1D _L;
 	
 	//if document j is selected for subtopic i, the corresponding score:
 	//p_i*r_ij + \sum_{k<>i}{(1 - s_ki) * (p_i*r_ij - p_k*r_kj)}, i.e., W_ij = JforI_ScoreMatrix(i,j)
@@ -115,7 +119,7 @@ public class DCKUFL {
     ArrayList<DoubleInt> _allY = new ArrayList<DoubleInt>();
         
     DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, int n, int m,
-    		DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList){
+    		DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList, DoubleMatrix1D utilityList){
     	//
     	this._lambda = lambda;
     	this._iterationTimes = iterationTimes;
@@ -128,6 +132,7 @@ public class DCKUFL {
     	this._capList = capList;
     	this._P = p;
     	this._S = simMatrix;
+    	this._L = utilityList;
     	//
     	_JforI_ScoreMatrix = new DoubleMatrix2D(_N, _M, 0);
     	this.getJforI_ScoreMatrix();
@@ -156,7 +161,7 @@ public class DCKUFL {
     //pay attention to the positive or negative value of dataPointInteractions &&��fCostList
     public DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK,
     		ArrayList<InteractionData> releMatrix, ArrayList<InteractionData> subSimMatrix,
-    		ArrayList<Double> capList, ArrayList<Double> popList){
+    		ArrayList<Double> capList, ArrayList<Double> popList, ArrayList<StrDouble> utilityList){
     	//basic parameters
     	this._lambda = lambda;
     	this._iterationTimes = iterationTimes;
@@ -190,6 +195,12 @@ public class DCKUFL {
         //
         this._capList = new DoubleMatrix1D(capList.toArray(new Double[0]));
         this._P = new DoubleMatrix1D(popList.toArray(new Double[0]));
+        
+        Double [] utilityArray = new Double[utilityList.size()];
+        for(StrDouble e: utilityList){
+        	utilityArray[getFacilityID(e.first)] = e.getSecond();
+        }
+        this._L = new DoubleMatrix1D(utilityArray);
         
         //
     	_JforI_ScoreMatrix = new DoubleMatrix2D(_N, _M, 0);
@@ -440,6 +451,8 @@ public class DCKUFL {
 	private void computeAlpha(){
 		for(int j=0; j<this._M; j++){
 			double gama_j = this._Gama.get(0, j);
+			gama_j += this._L.get(j);
+			
 			DoubleMatrix2D EtaR = this._Eta.plus(this._R);
 			//
 			for(int i=0; i<this._N; i++){
@@ -487,8 +500,7 @@ public class DCKUFL {
 	    		if(0 == zj){
 	    			this._A.set(zj, j, this._A.get(zj, j-1));
 	    		}else{
-	    			this._A.set(zj, j, Math.max(this._A.get(zj, j-1),
-		    				this._A.get(zj-1, j-1)+this._V.get(0, j-1)));
+	    			this._A.set(zj, j, Math.max(this._A.get(zj, j-1),  this._A.get(zj-1, j-1)+this._V.get(0, j-1)+this._L.get(j-1)));
 	    		}	    		
 	    	}	    	
 	    }
@@ -508,7 +520,7 @@ public class DCKUFL {
 	    			this._B.set(zj_minus_1, j-1, this._B.get(zj_minus_1, j));
 	    		}else{
 	    			this._B.set(zj_minus_1, j-1, Math.max(this._B.get(zj_minus_1, j),
-		    				this._B.get(zj_minus_1+1, j)+this._V.get(0, j-1)));
+		    				this._B.get(zj_minus_1+1, j)+this._V.get(0, j-1)+this._L.get(j-1)));
 	    		}	    		
 	    	}	    	
 	    }	
@@ -927,6 +939,9 @@ public class DCKUFL {
 		Double [] capArray = {6.0, 4.0, 5.0, 5.0}; 
 		DoubleMatrix1D capList = new DoubleMatrix1D(capArray);
 		
+		Double [] utilityArray = new Double[50];
+		DoubleMatrix1D uList = new DoubleMatrix1D(utilityArray);
+		
 		Double [] pArray = {0.4, 0.3, 0.2, 0.1};
 		DoubleMatrix1D p = new DoubleMatrix1D(pArray);
 		
@@ -952,7 +967,7 @@ public class DCKUFL {
     	//double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, int n, int m,
     	//DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList
     	DCKUFL dckufl = new DCKUFL(lambda, iterationTimes, noChangeIterSpan, preK, 4, 50,
-    			releMatrix, simMatrix, p, capList);
+    			releMatrix, simMatrix, p, capList, uList);
     	//    	
     	dckufl.run();    	
     }

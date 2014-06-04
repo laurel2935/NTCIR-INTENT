@@ -16,6 +16,7 @@ import org.archive.ml.ufl.Mat;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
 import org.archive.ntcir.dr.rank.DRRunParameter;
+import org.archive.util.Pair;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.StrDouble;
 
@@ -34,11 +35,15 @@ public class DCKUFLRanker extends ResultRanker{
 	
 	//kernel, under which each query, subtopic, document is represented
 	public Kernel _kernel;
+	
+	//buffer similarity values by _sbKernel for two items
+	public HashMap<Pair,Double>   _simCache;
 		
 	// Constructor
 	public DCKUFLRanker(HashMap<String, String> docs, Kernel kernel, double lambda, int iterationTimes, int noChangeIterSpan, ExemplarType exemplarType, Strategy flStrategy) { 
 		super(docs);				
 		this._kernel = kernel;	
+		this._simCache = new HashMap<Pair,Double>();
 		this._lambda = lambda;
 		this._iterationTimes = iterationTimes;
 		this._noChangeIterSpan = noChangeIterSpan;
@@ -160,16 +165,42 @@ public class DCKUFLRanker extends ResultRanker{
 		return Mat.getUniformList(1.0d/subtopicNumber, subtopicNumber);		
 	}
 	//
+	private ArrayList<StrDouble> getUtilityList(TRECDivQuery trecDivQuery){		
+		ArrayList<StrDouble> utiList = new ArrayList<StrDouble>();
+		Object queryRepr = _kernel.getNoncachedObjectRepresentation(trecDivQuery.getQueryContent());
+		String [] topNDocNames = _docs_topn.toArray(new String[0]);	
+			
+		String query_repr_key = queryRepr.toString();		
+		Double sim_score = null;
+		Object doc_repr = null;
+		Pair sim_key = null;
+		
+		for(String doc_name: topNDocNames){
+			sim_key = new Pair(query_repr_key, doc_name);
+			
+			if (null == (sim_score = _simCache.get(sim_key))) {
+				doc_repr = _kernel.getObjectRepresentation(doc_name);
+				sim_score = _kernel.sim(queryRepr, doc_repr);
+				_simCache.put(sim_key, sim_score);
+			}
+			
+			utiList.add(new StrDouble(doc_name, sim_score));
+		}	
+		
+		return utiList;
+	}
+	//
 	public ArrayList<String> getResultList(TRECDivQuery trecDivQuery, int size) {
 		
 		ArrayList<InteractionData> releMatrix = getReleMatrix(trecDivQuery);
 		ArrayList<InteractionData> subSimMatrix = getSubtopicSimMatrix(trecDivQuery);
 		ArrayList<Double> capList = getCapacityList_new(trecDivQuery, size);
 		ArrayList<Double> popList = getPopularityList(trecDivQuery);
+		ArrayList<StrDouble> utilityList = getUtilityList(trecDivQuery);
 		    	
     	int preK = (int)Mat.sum(capList); 
     	
-    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
+    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList, utilityList);
     	dckufl.run();
     	
     	//ArrayList<String> facilityList = dckufl.getSelectedFacilities();
@@ -186,8 +217,18 @@ public class DCKUFLRanker extends ResultRanker{
     		//(1)final ranking by similarity between query and document
         	ArrayList<StrDouble> objList = new ArrayList<StrDouble>();
         	Object queryRepr = _kernel.getNoncachedObjectRepresentation(trecDivQuery.getQueryContent());
+        	String query_repr_key = queryRepr.toString();
+        	
         	for(String docName: facilityList){
-        		objList.add(new StrDouble(docName, _kernel.sim(queryRepr, _kernel.getObjectRepresentation(docName))));
+        		Pair sim_key = new Pair(query_repr_key, docName);
+        		Double sim_score = null;
+    			if (null == (sim_score = _simCache.get(sim_key))) {
+    				Object doc_repr = _kernel.getObjectRepresentation(docName);
+    				sim_score = _kernel.sim(queryRepr, doc_repr);
+    				_simCache.put(sim_key, sim_score);
+    			}
+        		//--
+        		objList.add(new StrDouble(docName, sim_score));
         	}
         	
         	//(2)??? similarity between subtopic vector and document
@@ -238,7 +279,7 @@ public class DCKUFLRanker extends ResultRanker{
 		    	
     	int preK = (int)Mat.sum(capList); 
     	
-    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
+    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList, null);
     	dckufl.run();
     	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
     	//(1)final ranking by similarity between query and document
