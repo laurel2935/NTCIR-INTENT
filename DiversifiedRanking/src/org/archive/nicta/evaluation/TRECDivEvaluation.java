@@ -191,9 +191,17 @@ public class TRECDivEvaluation {
 				nameFix = "_BM25Kernel_A1+TFIDF_A1_SingleLambda";
 				
 				if(divVersion == DivVersion.Div2009){
-					weightedAvgLambda =  0.542d;
+					//using description
+					//weightedAvgLambda =  0.542d;
+					
+					//no description derived from WT-2010
+					weightedAvgLambda = 0.1813d;
 				}else if(divVersion == DivVersion.Div2010){
-					weightedAvgLambda =  0.3917d;
+					//using description
+					//weightedAvgLambda =  0.3917d;
+					
+					//no description derived from WT-2009
+					weightedAvgLambda = 0.272d;
 				}else {
 					System.err.println("Unsupported DivVersion!");
 					System.exit(1);
@@ -428,9 +436,18 @@ public class TRECDivEvaluation {
 				//double wt2009WeightedAvgLambda = 0.48d;
 				//double wt2010WeightedAvgLambda = 0.5646d;
 				if(divVersion == DivVersion.Div2009){
-					weightedAvgLambda =  0.48d;
+					//using description
+					//weightedAvgLambda =  0.48d;
+					
+					//no description derived from wt-2010
+					weightedAvgLambda = 0.55d;
+					
 				}else if(divVersion == DivVersion.Div2010){
-					weightedAvgLambda =  0.5646d;
+					//using description
+					//weightedAvgLambda =  0.5646d;
+					
+					//no description derived from WT-2009
+					weightedAvgLambda = 0.43d;
 				}else {
 					System.err.println("Unsupported DivVersion!");
 					System.exit(1);
@@ -464,7 +481,7 @@ public class TRECDivEvaluation {
 			
 			//combination			
 			ExemplarType exemplarType = ExemplarType.Y;
-			Strategy flStrategy = Strategy.QDSim;
+			Strategy flStrategy = Strategy.Belief;
 			
 			String nameFix = "_"+exemplarType.toString();
 			nameFix += ("_"+flStrategy.toString());
@@ -529,9 +546,10 @@ public class TRECDivEvaluation {
 		
 		//DivVersion divVersion
 		//RankStrategy rankStrategy
-		//TRECDivEvaluation.openPrinter();
 		
-		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2010, RankStrategy.MDP);
+		//TRECDivEvaluation.openPrinter();		
+		
+		TRECDivEvaluation.trecDivEvaluation(DivVersion.Div2010, RankStrategy.FL);
 		
 		//TRECDivEvaluation.closePrinter();
 		

@@ -117,6 +117,9 @@ public class DCKUFL {
   	ArrayList<IntIntDouble> _allX = new ArrayList<IntIntDouble>();  	
     //entire [Y] list
     ArrayList<DoubleInt> _allY = new ArrayList<DoubleInt>();
+    
+    //
+    String _topicID;
         
     DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK, int n, int m,
     		DoubleMatrix2D releMatrix, DoubleMatrix2D simMatrix, DoubleMatrix1D p, DoubleMatrix1D capList, DoubleMatrix1D utilityList){
@@ -159,7 +162,7 @@ public class DCKUFL {
     }
 	
     //pay attention to the positive or negative value of dataPointInteractions &&��fCostList
-    public DCKUFL(double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK,
+    public DCKUFL(String topicID, double lambda, int iterationTimes, Integer noChangeIterSpan, Integer preK,
     		ArrayList<InteractionData> releMatrix, ArrayList<InteractionData> subSimMatrix,
     		ArrayList<Double> capList, ArrayList<Double> popList, ArrayList<StrDouble> utilityList){
     	//basic parameters
@@ -198,7 +201,8 @@ public class DCKUFL {
         
         Double [] utilityArray = new Double[utilityList.size()];
         for(StrDouble e: utilityList){
-        	utilityArray[getFacilityID(e.first)] = e.getSecond();
+        	//utilityArray[getFacilityID(e.first)] = e.getSecond();
+        	utilityArray[getFacilityID(e.first)] = 0.0d;
         }
         this._L = new DoubleMatrix1D(utilityArray);
         
@@ -211,6 +215,9 @@ public class DCKUFL {
         this._V = new DoubleMatrix2D(1, this._M, 0);
         this._Gama = new DoubleMatrix2D(1, this._M, 0);
         this._H = new DoubleMatrix2D(this._N,this._M+1, 0);
+        
+        //
+        this._topicID = topicID;
         
         if(debug){
         	System.out.println("Rele matrix:");
@@ -900,7 +907,7 @@ public class DCKUFL {
     public ArrayList<String> getSelectedFacilities(ExemplarType exemplarType, int cutoff){
     	//check
     	if(this._fY.size() < cutoff){
-    		System.err.println("[Y]-selected count:\tsmaller than "+cutoff+" : "+(cutoff-this._fY.size()));        		
+    		System.err.println(_topicID+" : [Y]-selected count:"+this._fY.size()+"\tsmaller than\t"+cutoff);        		
     	}
     	
     	ArrayList<String> reList = new ArrayList<String>();

@@ -273,14 +273,15 @@ public class TRECQueryAspects implements Comparable<TRECQueryAspects> {
 	public double getUniformSubtopicRecall(List<String> doc_names, int k) {
 		boolean[] b_aspects = new boolean[_numAspects];
 		int doc_count = 0;
-		for (String doc_name : doc_names) {
-			if (doc_count++ >= k)
-				break;
+		for (String doc_name : doc_names) {			
 			boolean[] d_aspects = _aspects.get(doc_name);
 			if (d_aspects != null) {
 				for (int i = 0; i < _numAspects; i++)
 					b_aspects[i] = b_aspects[i] || d_aspects[i];
 			}
+			
+			if (doc_count++ >= k)
+				break;
 		}
 		int count_aspects = 0;
 		for (int i = 0; i < _numAspects; i++)
@@ -450,4 +451,33 @@ public class TRECQueryAspects implements Comparable<TRECQueryAspects> {
 	public int compareTo(TRECQueryAspects o) {
 		return _number.compareTo(o._number);
 	}	
+	
+	/////////////////////
+	//ratio of documents that provide relevant information, with a cutoff k
+	/////////////////////
+	public double getUtilityRatio(List<String> doc_names, int k){
+		boolean[] b_aspects = new boolean[_numAspects];
+		int doc_count = 0;
+		int releCount = 0;
+		
+		for (String doc_name : doc_names) {			
+			boolean[] d_aspects = _aspects.get(doc_name);
+			if (d_aspects != null) {
+				for (int i = 0; i < _numAspects; i++){
+					b_aspects[i] = b_aspects[i] || d_aspects[i];
+					
+					if (b_aspects[i]){
+						releCount ++;
+						break;
+					}
+				}				
+			}
+			
+			if (doc_count++ >= k){
+				break;
+			}				
+		}			
+		
+		return releCount / (double)k;
+	}
 }

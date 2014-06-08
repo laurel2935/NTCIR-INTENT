@@ -200,7 +200,7 @@ public class DCKUFLRanker extends ResultRanker{
 		    	
     	int preK = (int)Mat.sum(capList); 
     	
-    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList, utilityList);
+    	DCKUFL dckufl = new DCKUFL(trecDivQuery._number, _lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList, utilityList);
     	dckufl.run();
     	
     	//ArrayList<String> facilityList = dckufl.getSelectedFacilities();
@@ -279,7 +279,7 @@ public class DCKUFLRanker extends ResultRanker{
 		    	
     	int preK = (int)Mat.sum(capList); 
     	
-    	DCKUFL dckufl = new DCKUFL(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList, null);
+    	DCKUFL dckufl = new DCKUFL(null, _lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList, null);
     	dckufl.run();
     	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
     	//(1)final ranking by similarity between query and document

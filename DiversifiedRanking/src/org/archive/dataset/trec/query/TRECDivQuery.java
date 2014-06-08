@@ -6,7 +6,7 @@ public class TRECDivQuery extends TRECQuery implements Comparable<TRECQuery> {
 	//Usage cases
 	public static final boolean INCLUDE_QUERY_TITLE       = true;
 	//
-	public static final boolean INCLUDE_QUERY_DESCRIPTION = true;
+	public static final boolean INCLUDE_QUERY_DESCRIPTION = false;
 	//ambiguous or faceted
 	public String _type;
 	//

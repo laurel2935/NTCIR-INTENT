@@ -1,10 +1,13 @@
 package org.archive.a1.analysis;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.Map.Entry;
 
 import org.archive.OutputDirectory;
@@ -214,32 +217,71 @@ public class ResultAnalyzer {
 	
 	
 	
-	
+	//time
+	public static void logTime(){
+		SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss:SS");  
+        TimeZone timeZone = timeFormat.getTimeZone();  
+        timeZone.setRawOffset(0);  
+        timeFormat.setTimeZone(timeZone); 
+        
+        String test = "00:01:32:760";
+        try {
+        	 Date date = timeFormat.parse(test);
+        	 System.out.println(date.getTime());
+        	 
+		} catch (Exception e) {
+			// TODO: handle exception
+		}
+       
+	}
 	
 	//
 	public static void main(String []args){
 		//1 
 		String perLambdaResultdir = OutputDirectory.ROOT+"DivEvaluation/PerLambdaEvaluation/";
 		
-		//DivVersion.Div2009 BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt
-		//String Div2009File = "BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt";				
+		/**DivVersion.Div2009 BM25Kernel_A1+TFIDF_A1**/
+		//(1)
+		//Using description
+		//String Div2009File = "BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt";			
+		//No description
+		//String Div2009File = "Div2009BFS_BM25Kernel_A1+TFIDF_A1_PerLambda_ndeval.txt";
+		
 		//ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2009, perLambdaResultdir+Div2009File);
 		
-		//DivVersion.Div2010 BM25Kernel_A1+TFIDF_A1-Div2010BFS_PerLambda_ndeval.txt
+		//(2)
+		/**DivVersion.Div2010 BM25Kernel_A1+TFIDF_A1**/
+		//Using description
 		//String Div2010File = "BM25Kernel_A1+TFIDF_A1-Div2010BFS_PerLambda_ndeval.txt";				
+		//No description
+		//String Div2010File = "Div2010BFS_BM25Kernel_A1+TFIDF_A1_PerLambda_ndeval.txt";
+		
 		//ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2010, perLambdaResultdir+Div2010File);
 		
-		//String Div2009File_mdp = "MDP-TFIDF_A1-Div2009MDP_PerLambda_ndeval.txt";				
+		/**DivVersion.Div2009 MDP-TFIDF_A1**/
+		//(1)
+		//Using description
+		//String Div2009File_mdp = "MDP-TFIDF_A1-Div2009MDP_PerLambda_ndeval.txt";	
+		//No description
+		//String Div2009File_mdp = "Div2009MDP_MDP_PerLambda_ndeval.txt";	
 		//ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2009, perLambdaResultdir+Div2009File_mdp);
 		
-		String Div2010File_mdp = "MDP-TFIDF_A1-Div2010MDP_PerLambda_ndeval.txt";				
-		ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2010, perLambdaResultdir+Div2010File_mdp);
+		//(2)
+		/**DivVersion.Div2010 MDP-TFIDF_A1**/
+		//Using description
+		//String Div2010File_mdp = "MDP-TFIDF_A1-Div2010MDP_PerLambda_ndeval.txt";		
+		//No description
+		//String Div2010File_mdp = "Div2010MDP_MDP_PerLambda_ndeval.txt";
+		//ResultAnalyzer.getTopicDistributionOfLambda(DivVersion.Div2010, perLambdaResultdir+Div2010File_mdp);
 		
 		//2 ideal results
 		//DivVersion.Div2009 BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt
 		//String Div2009File = "BM25Kernel_A1+TFIDF_A1-Div2009BFS_PerLambda_ndeval.txt";				
 		//ResultAnalyzer.getIdealResultsOfLambda(perLambdaResultdir+Div2009File);
 		
+		//2
+		
+		//ResultAnalyzer.logTime();
 	}
 
 }

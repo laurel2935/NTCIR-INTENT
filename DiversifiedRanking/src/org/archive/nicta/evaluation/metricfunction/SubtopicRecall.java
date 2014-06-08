@@ -41,4 +41,26 @@ public class SubtopicRecall extends Metric {
 		}
 		return metricArray;
 	}
+	
+	public Object getMetricArray_Ratio(){
+		String [] metricArray = new String[cutoff];
+		for(int i=0; i<cutoff; i++){
+			metricArray[i] = "URatio@"+Integer.toString(i+1);
+		}
+		return metricArray;
+	}
+	
+	public Object utilityEval(TRECQueryAspects qa, List<String> docs, int predefinedCutoff) {
+		
+		if(0 > cutoff){
+			cutoff = predefinedCutoff;
+		}
+		
+		double scores[] = new double[predefinedCutoff];
+		for (int r = 1; r <= docs.size(); r++){
+			scores[r-1] = qa.getUtilityRatio(docs, r); 
+		}			
+		
+		return scores;
+	}
 }

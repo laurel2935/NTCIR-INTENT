@@ -254,6 +254,7 @@ public class TRECDivEvaluator extends Evaluator{
 	 * which is the basis for testing different diversity strategies
 	 * **/
 	public static void baselineSubtopicRecall(DivVersion divVersion){
+		boolean utility = true;
 		
 		HashMap<String,String> trecDivDocs = TRECDivLoader.loadTrecDivDocs();
 		List<String> evalQueries = TRECDivLoader.getDivEvalQueries(divVersion);
@@ -265,11 +266,23 @@ public class TRECDivEvaluator extends Evaluator{
 			String prefix = OutputDirectory.ROOT+"DivEvaluation/";
 			String filename = null;
 			if(DivVersion.Div2009 == divVersion){
-				filename = "Div2009BaselineSubtopicRecall";			
+				if(utility){
+					filename = "Div2009BaselineUtilityRatio";
+				}else{
+					filename = "Div2009BaselineSubtopicRecall";
+				}							
 			}else if(DivVersion.Div2010 == divVersion){
-				filename = "Div2010BaselineSubtopicRecall";
+				if(utility){
+					filename = "Div2010BaselineUtilityRatio";
+				}else{
+					filename = "Div2010BaselineSubtopicRecall";
+				}				
 			}else if(DivVersion.Div20092010 == divVersion) {
-				filename = "Div20092010BaselineSubtopicRecall";
+				if(utility){
+					filename = "Div20092010BaselineUtilityRatio";
+				}else{
+					filename = "Div20092010BaselineSubtopicRecall";
+				}				
 			}else{
 				System.out.println("ERROR: unexpected DivVersion!");
 				new Exception().printStackTrace();
@@ -317,18 +330,31 @@ public class TRECDivEvaluator extends Evaluator{
 				for(int i=0; i<listForRanking.size(); i++){
 					rankedList.add(listForRanking.get(i).getFirst());
 				}
-				//
-				Object srObject = srFunction.eval(trecQueryAspects, rankedList, cutoffK);
 				
-				export(ps_per_SRecall, number, "BM25", "SubtopicRecall", (double[])srObject, (String [])srFunction.getMetricArray());
-			
-				avg_vs_rank = VectorUtils.Sum(avg_vs_rank, (double[])srObject);				
+				if(utility){
+					//utility ratio (part-1) below part-2
+					Object srObject = srFunction.utilityEval(trecQueryAspects, rankedList, cutoffK);
+					export(ps_per_SRecall, number, "BM25", "UtilityRatio", (double[])srObject, (String [])srFunction.getMetricArray_Ratio());				
+					avg_vs_rank = VectorUtils.Sum(avg_vs_rank, (double[])srObject);
+				}else{
+					//UniformSubtopicRecall (part-1) below part-2
+					///*
+					Object srObject = srFunction.eval(trecQueryAspects, rankedList, cutoffK);
+					export(ps_per_SRecall, number, "BM25", "SubtopicRecall", (double[])srObject, (String [])srFunction.getMetricArray());				
+					avg_vs_rank = VectorUtils.Sum(avg_vs_rank, (double[])srObject);	
+					//*/
+				}		
 			}
 			//
 			avg_vs_rank = VectorUtils.ScalarMultiply(avg_vs_rank, 1d/evalQueries.size());
 			
-			export(ps_avg_SRecall, "Mean", "BM25\t", "SubtopicRecall\n", avg_vs_rank,
-					(String [])srFunction.getMetricArray());
+			if(utility){
+				//utility ratio (part-2)
+				export(ps_avg_SRecall, "Mean", "BM25\t", "UtilityRatio\n", avg_vs_rank, (String [])srFunction.getMetricArray_Ratio());
+			}else{
+				//UniformSubtopicRecall (part-2)				
+				export(ps_avg_SRecall, "Mean", "BM25\t", "SubtopicRecall\n", avg_vs_rank, (String [])srFunction.getMetricArray());				
+			}			
 			//
 			ps_per_SRecall.flush();
 			ps_per_SRecall.close();
@@ -503,7 +529,7 @@ public class TRECDivEvaluator extends Evaluator{
 	//
 	public static void main(String []args){
 		//1 Baseline subtopic recall
-		TRECDivEvaluator.baselineSubtopicRecall(DivVersion.Div2009);
+		TRECDivEvaluator.baselineSubtopicRecall(DivVersion.Div2010);
 		
 		//2 simMetric analysis
 		//TRECDivEvaluator.simMetricAnalysis();		
