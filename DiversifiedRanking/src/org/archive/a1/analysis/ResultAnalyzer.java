@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.Vector;
 import java.util.Map.Entry;
 
 import org.archive.OutputDirectory;
@@ -235,8 +236,208 @@ public class ResultAnalyzer {
        
 	}
 	
+	//////////////////////
+	//WilcoxonSignedRankTest
+	///////////////////////
+	
+	//
+	public static DivResult loadDivResult(String resultFile){
+		ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(resultFile);
+		
+		DivResult divResult = new DivResult();
+		
+		for(String line: lineList){
+			line = line.replaceAll("[\\s]+", "\t");
+			String [] fields = line.split("\\s");
+			
+			double anDCG5 = getDouble(fields[12].trim());
+			double anDCG10 = getDouble(fields[13].trim());
+			double anDCG20 = getDouble(fields[14].trim());
+			
+			double nERRIA5 = getDouble(fields[6].trim());
+			double nERRIA10 = getDouble(fields[7].trim());
+			double nERRIA20 = getDouble(fields[8].trim());
+			
+			double strec10 = getDouble(fields[22].trim());
+			
+			divResult.addAlphanDCG5(anDCG5);
+			divResult.addAlphanDCG10(anDCG10);
+			divResult.addAlphanDCG20(anDCG20);
+			
+			divResult.addnERRIA5(nERRIA5);
+			divResult.addnERRIA10(nERRIA10);
+			divResult.addnERRIA20(nERRIA20);
+			
+			divResult.addStrec10(strec10);
+		}
+		
+		if(DEBUG){
+			System.out.println(divResult.toString());
+		}
+		
+		return divResult;
+	}
+	//
+	private static double [] getDArray(Vector<Double> dVector){
+		double [] dArray = new double[dVector.size()];
+		
+		for(int i=0; i<dVector.size(); i++){
+			dArray[i] = dVector.get(i);
+		}
+		
+		return dArray;
+	}
+	//
+	public static void WilcoxonSignedRankTest(DivResult aDivResult, DivResult bDivResult){
+		org.apache.commons.math3.stat.inference.WilcoxonSignedRankTest wsrTest = new org.apache.commons.math3.stat.inference.WilcoxonSignedRankTest();
+		
+		//
+		System.out.println("anDCG@5-test\t\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aDivResult.alphanDCG5), getDArray(bDivResult.alphanDCG5), false));
+		//System.out.println();
+		System.out.println("anDCG@10-test\t\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aDivResult.alphanDCG10), getDArray(bDivResult.alphanDCG10), false));
+		//System.out.println();
+		System.out.println("anDCG@20-test\t\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aDivResult.alphanDCG20), getDArray(bDivResult.alphanDCG20), false));
+		//System.out.println();
+		System.out.println();
+		
+		System.out.println("nERRIA@5-test\t\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aDivResult.nERRIA5), getDArray(bDivResult.nERRIA5), false));
+		//System.out.println();
+		System.out.println("nERRIA@10-test\t\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aDivResult.nERRIA10), getDArray(bDivResult.nERRIA10), false));
+		//System.out.println();
+		System.out.println("nERRIA@20-test\t\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aDivResult.nERRIA20), getDArray(bDivResult.nERRIA20), false));
+		//System.out.println();
+		System.out.println();
+		
+		System.out.println("strec@10-test\t\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aDivResult.strec10), getDArray(bDivResult.strec10), false));
+		System.out.println();		
+	}
+	//
+	public static void statisticalSignificanceTest(){
+		//baseline results
+		String baselineDir = OutputDirectory.ROOT+"DivEvaluation/NoDescription_Evaluation/Baseline/";
+		String div2009_Baseline = "NoDescription_Div2009BFS_BM25Baseline_ndeval.txt";
+		String div2010_Baseline = "NoDescription_Div2010BFS_BM25Baseline_ndeval.txt";
+		
+		DivResult r2009_Baseline = loadDivResult(baselineDir+div2009_Baseline);
+		DivResult r2010_Baseline = loadDivResult(baselineDir+div2010_Baseline);	
+		
+		String singleLambdaDir = OutputDirectory.ROOT+"DivEvaluation/NoDescription_Evaluation/SingleLambdaEvaluation/";
+		
+		//mmr
+		DivResult r2009_mmr = loadDivResult(singleLambdaDir+"Div2009BFS_BM25Kernel_A1+TFIDF_A1_SingleLambda_ndeval.txt");
+		DivResult r2010_mmr = loadDivResult(singleLambdaDir+"Div2010BFS_BM25Kernel_A1+TFIDF_A1_SingleLambda_ndeval.txt");
+		
+		//dfp
+		DivResult r2009_dfp = loadDivResult(singleLambdaDir+"Div2009MDP_MDP_SingleLambda_ndeval.txt");
+		DivResult r2010_dfp = loadDivResult(singleLambdaDir+"Div2010MDP_MDP_SingleLambda_ndeval.txt");
+		
+		//1-call@k
+		DivResult r2009_1callk = loadDivResult(singleLambdaDir+"Div2009BFS_PLSR_ndeval.txt");
+		DivResult r2010_1callk = loadDivResult(singleLambdaDir+"Div2010BFS_PLSR_ndeval.txt");
+		
+		//0-1 mskp
+		String mskpDir = OutputDirectory.ROOT+"DivEvaluation/NoDescription_Evaluation/01MSKP/";
+		DivResult r2009_mskp = loadDivResult(mskpDir+"Div2009FL_Y_Belief_ndeval.txt");
+		DivResult r2010_mskp = loadDivResult(mskpDir+"Div2010FL_Y_Belief_ndeval.txt");
+		
+		//mmr to bm25 
+		/*
+		System.out.println("2009 mmr->bm25");
+		WilcoxonSignedRankTest(r2009_Baseline, r2009_mmr);
+		System.out.println("2010 mmr->bm25");
+		WilcoxonSignedRankTest(r2010_Baseline, r2010_mmr);
+		System.out.println();
+		*/
+		
+		//dfp to bm25
+		/*
+		System.out.println("2009 dfp->bm25");
+		WilcoxonSignedRankTest(r2009_Baseline, r2009_dfp);
+		System.out.println("2010 dfp->bm25");
+		WilcoxonSignedRankTest(r2010_Baseline, r2010_dfp);
+		System.out.println();
+		*/
+		
+		//1callk to bm25
+		/*
+		System.out.println("2009 1callk->bm25");
+		WilcoxonSignedRankTest(r2009_Baseline, r2009_1callk);
+		System.out.println("2010 1callk->bm25");
+		WilcoxonSignedRankTest(r2010_Baseline, r2010_1callk);
+		System.out.println();
+		*/
+		
+		//mskp to bm25
+		/*
+		System.out.println("[2009 mskp->bm25]");
+		WilcoxonSignedRankTest(r2009_Baseline, r2009_mskp);
+		System.out.println("[2010 mskp->bm25]");
+		WilcoxonSignedRankTest(r2010_Baseline, r2010_mskp);
+		System.out.println();
+		*/
+		
+		//dfp to mmr
+		/*
+		System.out.println("[2009 dfp->mmr]");
+		WilcoxonSignedRankTest(r2009_mmr, r2009_dfp);
+		System.out.println("[2010 dfp->mmr]");
+		WilcoxonSignedRankTest(r2010_mmr, r2010_dfp);
+		System.out.println();
+		*/
+		
+		//1callk to mmr
+		/*
+		System.out.println("[2009 1callk->mmr]");
+		WilcoxonSignedRankTest(r2009_mmr, r2009_1callk);
+		System.out.println("[2010 1callk->mmr]");
+		WilcoxonSignedRankTest(r2010_mmr, r2010_1callk);
+		System.out.println();
+		*/
+		
+		//mskp to mmr
+		/*
+		System.out.println("[2009 mskp->mmr]");
+		WilcoxonSignedRankTest(r2009_mmr, r2009_mskp);
+		System.out.println("[2010 mskp->mmr]");
+		WilcoxonSignedRankTest(r2010_mmr, r2010_mskp);
+		System.out.println();
+		*/
+		
+		//1callk to dfp
+		/*
+		System.out.println("[2009 1callk->dfp]");
+		WilcoxonSignedRankTest(r2009_dfp, r2009_1callk);
+		System.out.println("[2010 1callk->dfp]");
+		WilcoxonSignedRankTest(r2010_dfp, r2010_1callk);
+		System.out.println();
+		*/
+		
+		//mskp to dfp
+		/*
+		System.out.println("[2009 mskp->dfp]");
+		WilcoxonSignedRankTest(r2009_dfp, r2009_mskp);
+		System.out.println("[2010 mskp->dfp]");
+		WilcoxonSignedRankTest(r2010_dfp, r2010_mskp);
+		System.out.println();
+		*/
+		
+		//mskp to 1callk
+		/*
+		System.out.println("[2009 mskp->1callk]");
+		WilcoxonSignedRankTest(r2009_1callk, r2009_mskp);
+		System.out.println("[2010 mskp->1callk]");
+		WilcoxonSignedRankTest(r2010_1callk, r2010_mskp);
+		System.out.println();
+		*/
+		
+		
+		
+	}
 	//
 	public static void main(String []args){
+		////////////////////////////
+		//1
+		////////////////////////////
 		//1 
 		String perLambdaResultdir = OutputDirectory.ROOT+"DivEvaluation/PerLambdaEvaluation/";
 		
@@ -282,6 +483,13 @@ public class ResultAnalyzer {
 		//2
 		
 		//ResultAnalyzer.logTime();
+		
+		
+		////////////////////////////
+		//2
+		////////////////////////////
+		ResultAnalyzer.statisticalSignificanceTest();
+		
 	}
 
 }

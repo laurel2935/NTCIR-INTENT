@@ -32,5 +32,6 @@
 	<classpathentry kind="lib" path="H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/HttpClient/commons-httpclient-3.0.1.jar"/>
 	<classpathentry kind="lib" path="H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/bliki/bliki-core-3.0.19.jar"/>
 	<classpathentry kind="lib" path="H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/htmlparser/htmlparser_inner.jar"/>
+	<classpathentry kind="lib" path="H:/v-haiyu/CodeBench/Pool_Jar/jar_DiversifiedRanking/commons-math3-3.3/commons-math3-3.3.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
