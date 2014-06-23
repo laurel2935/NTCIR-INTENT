@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Vector;
 
 import org.archive.util.tuple.IntStrInt;
@@ -232,6 +233,24 @@ public class IOText {
 		//generate
 		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), DEFAULT_ENCODING));
 		return writer;
+	}
+	//
+	public static void output_UTF8(List<String> lineList, String outputFile){
+		try {
+			BufferedWriter writer = getBufferedWriter_UTF8(outputFile);			
+			
+			for(String line: lineList){
+				writer.write(line);
+				writer.newLine();
+			}
+			
+			writer.flush();
+			writer.close();
+			writer = null;
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
 	}
 	/** 
 	 * @param file
