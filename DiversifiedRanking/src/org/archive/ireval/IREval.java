@@ -1,10 +1,12 @@
 package org.archive.ireval;
 
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Vector;
 
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.Pair;
@@ -340,6 +342,102 @@ public class IREval {
 	}
 	
 	/**
+	 * Metric: AP
+	 * **/
+	private ArrayList<Pair<String, Double>> AP(int cutoff){
+		ArrayList<Pair<String, Double>> apList = new ArrayList<Pair<String,Double>>();
+		
+		for(String topic: _topicList){
+
+			ArrayList<Integer> sysList = _sysRun.get(topic);
+						
+			int releCount = 0;
+			ArrayList<Double> pList = new ArrayList<Double>();
+			for(int i=0; i<cutoff; i++){
+				Integer itemID = sysList.get(i);
+				if(_itemReleMap.containsKey(itemID)){
+					HashMap<String, Integer> releMap = _itemReleMap.get(itemID);
+					if(releMap.containsKey(topic) && releMap.get(topic)>0){
+						releCount++;
+						pList.add(releCount*1.0/(i+1));
+					}else {
+						pList.add(0.0);
+					}
+				}else{
+					pList.add(0.0);
+				}
+			}
+			
+			double sum = 0.0;
+			for(Double p: pList){
+				sum += p;
+			}
+			
+			apList.add(new Pair<String, Double>(topic, sum/cutoff));			
+		}
+		
+		if(debug){
+			for(Pair<String, Double> ap: apList){
+				System.out.println(ap.toString());
+			}
+		}
+		
+		return apList;
+	}
+	
+	private ArrayList<Pair<String, Double>> MAP(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> apList, int cutoff){
+		ArrayList<Pair<String, Double>> mapList = new ArrayList<Pair<String,Double>>();
+		
+		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+			double pastSum = 0.0;
+			int pastCount = 0;
+			
+			double recencySum = 0.0;
+			int recencyCount = 0;
+			
+			double futureSum = 0.0;
+			int futureCount = 0;
+			
+			double atemporalSum = 0.0;
+			int atemporalCount = 0;
+			
+			double allSum = 0.0;			
+			
+			for(Pair<String, Double> pair: apList){
+				allSum += pair.second;
+				
+				if(pair.first.endsWith("p")){
+					pastSum += pair.second;
+					pastCount ++;
+				}else if(pair.first.endsWith("r")){
+					recencyCount++;
+					recencySum += pair.second;
+				}else if(pair.first.endsWith("f")){
+					futureCount ++;
+					futureSum += pair.second;
+				}else {
+					atemporalCount++;
+					atemporalSum += pair.second;
+				}
+			}			
+			
+			mapList.add(new Pair<String, Double>("all\t\tMAP@"+Integer.toString(cutoff), allSum/apList.size()));
+			mapList.add(new Pair<String, Double>("past\t\tMAP@"+Integer.toString(cutoff), pastSum/pastCount));
+			mapList.add(new Pair<String, Double>("recency\t\tMAP@"+Integer.toString(cutoff), recencySum/recencyCount));
+			mapList.add(new Pair<String, Double>("future\t\tMAP@"+Integer.toString(cutoff), futureSum/futureCount));
+			mapList.add(new Pair<String, Double>("atemporal\tMAP@"+Integer.toString(cutoff), atemporalSum/atemporalCount));
+			
+			if(debug){
+				for(Pair<String, Double> map: mapList){
+					System.out.println(map.toString());
+				}
+			}
+		}
+		
+		return mapList;
+	}
+	
+	/**
 	 * Metric: MSnDCG@k
 	 * **/
 	private ArrayList<Pair<String, Double>> MSnDCG(int cutoff){
@@ -546,6 +644,261 @@ public class IREval {
 		
 	}
 	
+	/**
+	 * Metric: ERR@k
+	 * **/
+	private double satisPro(int releInt){
+		//version: power
+		//return (Math.pow(2, releInt)-1)/4;
+		//version: use highest relevance level
+		return releInt*1.0/(2+1);
+	}
+	private ArrayList<Pair<String, Double>> ERR(int cutoff){
+		ArrayList<Pair<String, Double>> errList = new ArrayList<Pair<String,Double>>();
+		
+		for(String topic: _topicList){
+
+			ArrayList<Integer> sysList = _sysRun.get(topic);
+						
+			double err = 0.0;
+			double disPro = 1.0;
+			
+			for(int i=0; i<cutoff; i++){
+				Integer itemID = sysList.get(i);
+				if(_itemReleMap.containsKey(itemID)){
+					HashMap<String, Integer> releMap = _itemReleMap.get(itemID);
+					if(releMap.containsKey(topic) && releMap.get(topic)>0){
+						double satPro = satisPro(releMap.get(topic));
+						double tem = 1.0/(i+1)*satPro*disPro;
+						
+						err += tem;
+						disPro *= (1-satPro);
+					}
+				}
+			}
+			
+			errList.add(new Pair<String, Double>(topic, err));			
+		}
+		
+		if(debug){
+			for(Pair<String, Double> ap: errList){
+				System.out.println(ap.toString());
+			}
+		}
+		
+		return errList;
+	}
+	
+	private ArrayList<Pair<String, Double>> avgERR(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> errList, int cutoff){
+		ArrayList<Pair<String, Double>> avgList = new ArrayList<Pair<String,Double>>();
+		
+		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+			double pastSum = 0.0;
+			int pastCount = 0;
+			
+			double recencySum = 0.0;
+			int recencyCount = 0;
+			
+			double futureSum = 0.0;
+			int futureCount = 0;
+			
+			double atemporalSum = 0.0;
+			int atemporalCount = 0;
+			
+			double allSum = 0.0;			
+			
+			for(Pair<String, Double> pair: errList){
+				allSum += pair.second;
+				
+				if(pair.first.endsWith("p")){
+					pastSum += pair.second;
+					pastCount ++;
+				}else if(pair.first.endsWith("r")){
+					recencyCount++;
+					recencySum += pair.second;
+				}else if(pair.first.endsWith("f")){
+					futureCount ++;
+					futureSum += pair.second;
+				}else {
+					atemporalCount++;
+					atemporalSum += pair.second;
+				}
+			}			
+			
+			avgList.add(new Pair<String, Double>("all\t\tERR@"+Integer.toString(cutoff), allSum/errList.size()));
+			avgList.add(new Pair<String, Double>("past\t\tERR@"+Integer.toString(cutoff), pastSum/pastCount));
+			avgList.add(new Pair<String, Double>("recency\t\tERR@"+Integer.toString(cutoff), recencySum/recencyCount));
+			avgList.add(new Pair<String, Double>("future\t\tERR@"+Integer.toString(cutoff), futureSum/futureCount));
+			avgList.add(new Pair<String, Double>("atemporal\tERR@"+Integer.toString(cutoff), atemporalSum/atemporalCount));
+			
+			if(debug){
+				for(Pair<String, Double> p: avgList){
+					System.out.println(p.toString());
+				}
+			}
+		}
+		
+		return avgList;
+		
+	}
+	
+	/**
+	 * Metric: nERR@k
+	 * **/
+	private ArrayList<Pair<String, Double>> nERR(int cutoff){
+		ArrayList<Pair<String, Double>> nERRList = new ArrayList<Pair<String,Double>>();
+		
+		for(String topic: _topicList){
+
+			ArrayList<Integer> sysList = _sysRun.get(topic);
+						
+			//for run
+			double runERR = 0.0;
+			double runDisPro = 1.0;			
+			for(int i=0; i<cutoff; i++){
+				Integer runItemID = sysList.get(i);
+				if(_itemReleMap.containsKey(runItemID)){
+					HashMap<String, Integer> runReleMap = _itemReleMap.get(runItemID);
+					if(runReleMap.containsKey(topic) && runReleMap.get(topic)>0){
+						double runSatPro = satisPro(runReleMap.get(topic));
+						double tem = 1.0/(i+1)*runSatPro*runDisPro;
+						
+						runERR += tem;
+						runDisPro *= (1-runSatPro);
+					}
+				}
+			}
+			
+			//for ideal
+			ArrayList<Pair<Integer, Integer>> idealReleMap = _topicToReleItemMap.get(topic);
+			
+			double idealERR = 0.0;
+			double idealDisPro = 1.0;
+			for(int i=0; i<cutoff; i++){
+				Pair<Integer, Integer> idealItem = idealReleMap.get(i);
+				double idealSatPro = satisPro(idealItem.second);
+				double tem = 1.0/(i+1)*idealSatPro*idealDisPro;
+				
+				idealERR += tem;
+				idealDisPro *= (1-idealSatPro);
+			}
+						
+			nERRList.add(new Pair<String, Double>(topic, runERR/idealERR));			
+		}
+		
+		if(debug){
+			for(Pair<String, Double> ap: nERRList){
+				System.out.println(ap.toString());
+			}
+		}
+		
+		return nERRList;
+	}
+	
+	private ArrayList<Pair<String, Double>> avgNERR(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> nERRList, int cutoff){
+		ArrayList<Pair<String, Double>> avgList = new ArrayList<Pair<String,Double>>();
+		
+		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+			double pastSum = 0.0;
+			int pastCount = 0;
+			
+			double recencySum = 0.0;
+			int recencyCount = 0;
+			
+			double futureSum = 0.0;
+			int futureCount = 0;
+			
+			double atemporalSum = 0.0;
+			int atemporalCount = 0;
+			
+			double allSum = 0.0;			
+			
+			for(Pair<String, Double> pair: nERRList){
+				allSum += pair.second;
+				
+				if(pair.first.endsWith("p")){
+					pastSum += pair.second;
+					pastCount ++;
+				}else if(pair.first.endsWith("r")){
+					recencyCount++;
+					recencySum += pair.second;
+				}else if(pair.first.endsWith("f")){
+					futureCount ++;
+					futureSum += pair.second;
+				}else {
+					atemporalCount++;
+					atemporalSum += pair.second;
+				}
+			}			
+			
+			avgList.add(new Pair<String, Double>("all\t\tnERR@"+Integer.toString(cutoff), allSum/nERRList.size()));
+			avgList.add(new Pair<String, Double>("past\t\tnERR@"+Integer.toString(cutoff), pastSum/pastCount));
+			avgList.add(new Pair<String, Double>("recency\t\tnERR@"+Integer.toString(cutoff), recencySum/recencyCount));
+			avgList.add(new Pair<String, Double>("future\t\tnERR@"+Integer.toString(cutoff), futureSum/futureCount));
+			avgList.add(new Pair<String, Double>("atemporal\tnERR@"+Integer.toString(cutoff), atemporalSum/atemporalCount));
+			
+			if(debug){
+				for(Pair<String, Double> p: avgList){
+					System.out.println(p.toString());
+				}
+			}
+		}
+		
+		return avgList;
+		
+	}
+	
+	/**
+	 * 
+	 * **/
+	
+	//check with ntcireval
+	public void check(ArrayList<Pair<String, Double>> apList){
+		try {
+			Vector<Double> teVector = new Vector<Double>();
+			Vector<Double> myVector = new Vector<Double>();
+			//
+			String teFile = "C:/Users/cicee/Desktop/TIR-Eval/TUTA1-TIR-RUN-1.20140808clean.nev";
+			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(teFile);			
+		
+			for(String lineString: lineList){
+				
+				if(lineString.indexOf("AP@0020=")>=0){
+					
+					//arrayStrings = lineString.split(" ");
+					if(lineString.indexOf("0.") >= 0){
+						//System.out.println(lineString.substring(lineString.indexOf("0.")));
+						teVector.add(Double.parseDouble(lineString.substring(lineString.indexOf("0."))));
+					}else{
+						//System.out.println(lineString.substring(lineString.indexOf("1.")));
+						teVector.add(Double.parseDouble(lineString.substring(lineString.indexOf("1."))));
+					}			
+				}
+			}		
+						
+			DecimalFormat df = new DecimalFormat("0.0000");
+			for(Pair<String, Double> ap: apList){
+				myVector.add(Double.parseDouble(df.format(ap.second)));
+			}
+			//
+			System.out.println("te size:\t"+teVector.size());
+			System.out.println("my size:\t"+myVector.size());
+			//
+			int size = Math.min(teVector.size(), myVector.size());
+			for(int i=0; i<size; i++){
+				if(!teVector.get(i).equals(myVector.get(i))){
+					System.out.println(teVector.get(i));
+					System.out.println(myVector.get(i));
+					System.out.println("un:\t"+(i+1)+"\t"+apList.get(i).toString());
+					//break;
+				}
+			}			
+		} catch (Exception e) {
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+	}
+	
 	/////
 	
 	public static void main(String []args){
@@ -557,15 +910,30 @@ public class IREval {
 		irEval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, sysRunFile);
 		irEval.loadStandardReleFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile);
 		
+		//P@k
 		//ArrayList<Pair<String, Double>> precisionList = irEval.precision(20);
 		//irEval.avgPrecison(EVAL_TYPE.TIR_NTCIR11, precisionList, 20);
 		
+		//MSnDCG@k
 		//ArrayList<Pair<String, Double>> MSnDCGList = irEval.MSnDCG(20);
 		//irEval.avgMSnDCG(EVAL_TYPE.TIR_NTCIR11, MSnDCGList, 20);
 		
-		ArrayList<Pair<String, Double>> nDCGList = irEval.nDCG(2, 20);
-		irEval.avgNDCG(EVAL_TYPE.TIR_NTCIR11, nDCGList, 20);
+		//nDCG@k
+		//ArrayList<Pair<String, Double>> nDCGList = irEval.nDCG(2, 20);
+		//irEval.avgNDCG(EVAL_TYPE.TIR_NTCIR11, nDCGList, 20);
 		
+		//AP & MAP ! ntcireval may be wrong
+		//ArrayList<Pair<String, Double>> apList = irEval.AP(20);
+		//irEval.check(apList);
+		//irEval.MAP(EVAL_TYPE.TIR_NTCIR11, apList, 20);
+		
+		//ERR@k ！
+		//ArrayList<Pair<String, Double>> errList = irEval.ERR(20);
+		//irEval.avgERR(EVAL_TYPE.TIR_NTCIR11, errList, 20);
+		
+		//nERR@k
+		ArrayList<Pair<String, Double>> nERRList = irEval.nERR(20);
+		irEval.avgERR(EVAL_TYPE.TIR_NTCIR11, nERRList, 20);
 	}
 	
 
