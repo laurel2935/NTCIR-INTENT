@@ -72,7 +72,7 @@ public class ICTCLAS2014 {
 	public static ArrayList<String> segment(String text){		
 		if(!CONFIGED){
 			iniConfig();
-			CONFIGED = true;
+			//CONFIGED = true;
 		}
 		//
 		ArrayList<String> wordList = new ArrayList<String>();
@@ -137,10 +137,10 @@ public class ICTCLAS2014 {
 	public static void main(String[] args) throws Exception {
 		
 		//1
-		//ICTCLAS2014.check();
+		ICTCLAS2014.check();
 		
 		//2 adobe部分源代码被盗
-		System.out.println(ICTCLAS2014.segment("adobe部分源代码被盗"));
+		//System.out.println(ICTCLAS2014.segment("adobe部分源代码被盗"));
 
 	}
 }

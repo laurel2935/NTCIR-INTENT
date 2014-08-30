@@ -105,6 +105,30 @@ public class DRRunParameter {
 	}
 	
 	//
+	public static void checkNoDocTopic(){
+		String drRunTitle = "";
+		String drRunIntroduction = "";
+		
+		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_EN, drRunTitle, drRunIntroduction);
+		
+		int hasCount = 0, noCount = 0;
+		for(int t=0; t<drRunParameter.topicList.size(); t++){
+			
+			SMTopic smTopic = drRunParameter.topicList.get(t);
+			ArrayList<String> baseline = drRunParameter.baselineMap.get(smTopic.getID());
+			
+			if(null == baseline){
+				System.out.println(smTopic.getID());
+				noCount++;
+			}else{
+				hasCount++;
+			}
+		}
+		
+		System.out.println("noCount"+noCount);
+		System.out.println("hasCount"+hasCount);			
+	}
+	//
 	public static void  main(String []args) {
 		//1
 		//NTCIRLoader.loadNTCIR11TopicList(NTCIR_EVAL_TASK.NTCIR11_SM_CH, true);
@@ -119,11 +143,16 @@ public class DRRunParameter {
 		*/
 		
 		//3
+		/*
 		String drRunTitle = "TUTA1-D-E-1B";
 		String drRunIntroduction = "For the English document ranking subtask, the results of subtopic mining are used as input."
 				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
 		
 		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_EN, drRunTitle, drRunIntroduction);
+		*/
+		
+		//4
+		DRRunParameter.checkNoDocTopic();
 		
 	}
 

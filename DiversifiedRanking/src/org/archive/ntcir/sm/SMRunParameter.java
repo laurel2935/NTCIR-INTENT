@@ -166,6 +166,42 @@ public class SMRunParameter {
 		return null;
 	}
 	
+	//check clear topics
+	public static void checkClearTopic(NTCIR_EVAL_TASK task){
+		String runTitle = "";
+		String runIntroduction = "";
+		SMRunParameter runParameter = new SMRunParameter(task, runTitle, runIntroduction, SimilarityFunction.AveragedSemanticSimilarity, ClusteringFunction.StandardAP);
+		
+		int clearCount = 0, polyCount = 0, amCount = 0;
+		ArrayList<String> clearList = new ArrayList<String>();
+		ArrayList<String> polyList = new ArrayList<String>();
+		ArrayList<String> amList = new ArrayList<String>();
+		
+		for(int t=0; t<runParameter.topicList.size(); t++){
+			
+			SMTopic smTopic = runParameter.topicList.get(t);								
+			
+			if(null != smTopic.polysemyList){
+				
+				polyList.add(smTopic.getID());
+				polyCount++;
+				
+			}else if(smTopic.CompleteSentence){
+				
+				clearList.add(smTopic.getID());
+				clearCount++;
+				
+			}else{
+				
+				amList.add(smTopic.getID());
+				amCount++;				
+			}
+		}
+		
+		System.out.println("Clear:\t"+clearCount+"\t"+clearList);
+		System.out.println("Poly:\t"+polyCount+"\t"+polyList);
+		System.out.println("Am:\t"+amCount+"\t"+amList);		
+	}
 	
 	//
 	public static void main(String []args){
@@ -175,6 +211,12 @@ public class SMRunParameter {
 		TopicParser.loadParsedObject(file);
 		RunParameter.loadLTML(file);
 		*/
+		
+		//2
+		//(1)
+		//SMRunParameter.checkClearTopic(NTCIR_EVAL_TASK.NTCIR11_SM_EN);
+		//(2)
+		SMRunParameter.checkClearTopic(NTCIR_EVAL_TASK.NTCIR11_SM_CH);
 	}
 
 }

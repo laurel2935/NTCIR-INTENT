@@ -83,7 +83,7 @@ public class ShallowParser {
     	Collection<TypedDependency> tdCollection = gs.typedDependenciesCollapsed();
     	
     	if(hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.NOMINAL_SUBJECT) && exactCOPEnGramRelation(tdCollection)
-    			|| hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.DIRECT_OBJECT)&&hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.ADVERBIAL_MODIFIER)){
+    			|| hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.DIRECT_OBJECT) && hasEnGramRelation(tdCollection, EnglishGrammaticalRelations.ADVERBIAL_MODIFIER)){
     		return true;
     	}else{
     		return false;

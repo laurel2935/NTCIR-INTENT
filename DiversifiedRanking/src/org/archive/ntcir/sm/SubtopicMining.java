@@ -676,7 +676,8 @@ public class SubtopicMining {
 				ArrayList<ArrayList<String>> jPhraseModifierGroupList = jItem.phraseModifierGroupList;
 				
 				double simValue = 0.0;
-
+				//the same size of i,j grouplist due to using topic itself as a reference
+				//the boolean flag should be added, or there will be impact of the weight factor.
 				for(int k=0; k<iTermModifierGroupList.size(); k++){
 					simValue += ((termIRWeight/iTermModifierGroupList.size())*
 							getSimilarity(iTermModifierGroupList.get(k), jTermModifierGroupList.get(k), lang));

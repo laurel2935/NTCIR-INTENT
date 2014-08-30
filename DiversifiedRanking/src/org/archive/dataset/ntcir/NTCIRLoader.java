@@ -31,9 +31,7 @@ import org.archive.dataset.ntcir.sm.TaggedTerm;
 import org.archive.nlp.chunk.ShallowParser;
 import org.archive.nlp.htmlparser.pk.HtmlExtractor;
 import org.archive.nlp.lcs.LCSScaner;
-import org.archive.nlp.qpunctuation.QueryPreParser;
 import org.archive.nlp.stopword.StopWordChecker;
-import org.archive.nlp.tokenizer.Tokenizer;
 import org.archive.nlp.tokenizer.ictclas.ICTCLAS2014;
 import org.archive.util.DocUtils;
 import org.archive.util.FileFinder;
@@ -52,13 +50,18 @@ public class NTCIRLoader {
 	
 	public static final String CODE_UTF8 = "UTF-8";
 	private static final String CODE_GB2312 = "GB2312";
+	
 	private static final String DR_SPLIT = " ";
 	private static final String SM_SPLIT = ";";
 	
-	//
+	//Task ID
 	public static enum NTCIR_EVAL_TASK{NTCIR9_SM, NTCIR9_DR, 
 											NTCIR10_SM_EN, NTCIR10_SM_CH, NTCIR10_DR_CH,
 												NTCIR11_SM_EN, NTCIR11_SM_CH, NTCIR11_DR_CH, NTCIR11_DR_EN};
+	//											
+	public static enum NTCIR11_TOPIC_TYPE{CLEAR, UNCLEAR, ALL};
+	//first-level-subtopic second-level-subtopic
+	public static enum NTCIR11_TOPIC_LEVEL{FLS, SLS};
 	
 	//location
 	//////////////////
@@ -66,40 +69,47 @@ public class NTCIRLoader {
 	//////////////////
 	
 	private final static String TOP_K = "top-100";	
+	
 	/////////////////
 	//topic
 	////////////////
-	private final static String NTCIR10_TOPIC = "./dataset/ntcir/ntcir-10/DR/INTENT1and2CtopicsQS.xlsx";	
-	//
-	private final static String NTCIR11_TOPIC = DataSetDiretory.ROOT+"ntcir/ntcir-11/SM/IMine.Query.txt";
 	
+	private final static String NTCIR10_TOPIC = "./dataset/ntcir/ntcir-10/DR/INTENT1and2CtopicsQS.xlsx";	
+	
+	private final static String NTCIR11_TOPIC = DataSetDiretory.ROOT+"ntcir/ntcir-11/SM/IMine.Query.txt";
+		
 	/////////////////
-	//NTCIR10 document ranking
+	//Subtopic Mining
 	////////////////
-	private final static String NTCIR10_DR_BASELINE = "./dataset/ntcir/ntcir-10/DR/BASELINE-D-C-1.txt";	
-	private final static String NTCIR10_DR_CH_Iprob = "./dataset/ntcir/ntcir-10/DR/INTENT-2DRC.Iprob";
-	private final static String NTCIR10_DR_CH_Dqrels = "./dataset/ntcir/ntcir-10/DR/INTENT-2DRC.Dqrels";
-	/////////////////
-	//subtopic mining
-	////////////////
+	
+	//NTCIR10
 	private final static String NTCIR10_SM_CH_Iprob = "./dataset/ntcir/ntcir-10/SM/INTENT-2SMC.Iprob";
 	private final static String NTCIR10_SM_CH_Dqrels = "./dataset/ntcir/ntcir-10/SM/INTENT-2SMC.rev.Dqrels";
 	private final static String NTCIR10_SM_EN_Iprob = "./dataset/ntcir/ntcir-10/SM/INTENT-2SME.Iprob";
 	private final static String NTCIR10_SM_EN_Dqrels = "/dataset/ntcir/ntcir-10/SM/INTENT-2SME.rev.Dqrels";
 	
+	//NTCIR11
 	private final static String NTCIR11_SM_RelatedQueries = DataSetDiretory.ROOT+"ntcir/ntcir-11/SM/IMine.RelatedQueries/IMine.RelatedQueries.txt";
 	private final static String NTCIR11_SM_QuerySuggestions = DataSetDiretory.ROOT+"ntcir/ntcir-11/SM/IMine.QuerySuggestion/IMine.QuerySuggestion.txt";
 	
 	/////////////////
-	//document
+	//Document Ranking
 	////////////////
+	
+	//NTCIR10
+	private final static String NTCIR10_DR_BASELINE = "./dataset/ntcir/ntcir-10/DR/BASELINE-D-C-1.txt";	
+	private final static String NTCIR10_DR_CH_Iprob = "./dataset/ntcir/ntcir-10/DR/INTENT-2DRC.Iprob";
+	private final static String NTCIR10_DR_CH_Dqrels = "./dataset/ntcir/ntcir-10/DR/INTENT-2DRC.Dqrels";
+	
+	////Document Collection from Initial Retrieval
+	
 	//private final static String NTCIR10_DOC_HTML_DIR = "E:/Data_Log/DataSource_Raw/NTCIR-10/DocumentRanking/doc/"+TOP_K+"/";
 	//private final static String NTCIR10_DOC_TEXT_BUFFER_DIR = "./buffer/doc/ntcir-10/"+TOP_K+"/c_extracted/";
 	//private final static String NTCIR10_DOC_SEGMENT_BUFFER_DIR = "./buffer/doc/ntcir-10/"+TOP_K+"/c_segmented/";
 	
-	private final static String [] NTCIR10_DOC = {DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/docs/",
-		DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/c_extracted/", 
-			DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/c_segmented/"};
+	private final static String [] NTCIR10_DOC = {DataSetDiretory.ROOT+"/ntcir/ntcir-10/DR/CH/DR_Baseline/docs/",
+		DataSetDiretory.ROOT+"/ntcir/ntcir-10/DR/CH/DR_Baseline/c_extracted/", 
+			DataSetDiretory.ROOT+"/ntcir/ntcir-10/DR/CH/DR_Baseline/c_segmented/"};
 	
 	private final static String [] NTCIR11_DOC = {DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/docs/",
 													DataSetDiretory.ROOT+"/ntcir/ntcir-11/DR/CH/DR_Baseline/c_extracted/", 
@@ -936,7 +946,7 @@ public class NTCIRLoader {
 			}
 		}
 		
-		//perform shallow parsing for subtopic string 	
+		//perform shallow parsing for subtopic string, next perform IRAnnotation for subtopic string	
 		HashMap<String, ArrayList<TaggedTerm>> stInstance_all_term = new HashMap<String, ArrayList<TaggedTerm>>();
 		HashMap<String, ArrayList<ArrayList<TaggedTerm>>> stInstance_all_phrase = new HashMap<String, ArrayList<ArrayList<TaggedTerm>>>();
 		
@@ -1334,7 +1344,69 @@ public class NTCIRLoader {
 		
 	}
 	
-	
+	//
+	public static ArrayList<String> loadNTCIR11Topic(NTCIR_EVAL_TASK task, NTCIR11_TOPIC_TYPE topicType){
+		//Ch  clear:0034-0050 unclear:0001-0033
+		
+		//En  clear:0084-0010 unclear:0051-0083
+		
+		ArrayList<String> topicidList = new ArrayList<String>();
+		
+		if(task == NTCIR_EVAL_TASK.NTCIR11_SM_CH || task == NTCIR_EVAL_TASK.NTCIR11_DR_CH){
+			
+			if(topicType == NTCIR11_TOPIC_TYPE.CLEAR){
+				
+				for(int id=34; id<=50; id++){
+					topicidList.add(StandardFormat.serialFormat(id, "0000"));
+				}
+				
+			}else if(topicType == NTCIR11_TOPIC_TYPE.UNCLEAR){
+				
+				for(int id=1; id<=33; id++){
+					topicidList.add(StandardFormat.serialFormat(id, "0000"));
+				}
+				
+			}else if(topicType == NTCIR11_TOPIC_TYPE.ALL){
+				
+				for(int id=1; id<=50; id++){
+					topicidList.add(StandardFormat.serialFormat(id, "0000"));
+				}
+				
+			}else{
+				System.err.println("Type Error!");
+				System.exit(0);
+			}		
+		}else if(task == NTCIR_EVAL_TASK.NTCIR11_SM_EN || task == NTCIR_EVAL_TASK.NTCIR11_DR_EN){
+			
+			if(topicType == NTCIR11_TOPIC_TYPE.CLEAR){
+				
+				for(int id=84; id<=100; id++){
+					topicidList.add(StandardFormat.serialFormat(id, "0000"));
+				}
+				
+			}else if(topicType == NTCIR11_TOPIC_TYPE.UNCLEAR){
+				
+				for(int id=51; id<=83; id++){
+					topicidList.add(StandardFormat.serialFormat(id, "0000"));
+				}
+				
+			}else if(topicType == NTCIR11_TOPIC_TYPE.ALL){
+				
+				for(int id=50; id<=100; id++){
+					topicidList.add(StandardFormat.serialFormat(id, "0000"));
+				}
+				
+			}else{
+				System.err.println("Type Error!");
+				System.exit(0);
+			}	
+		}else{
+			System.err.println("Type Error!");
+			System.exit(0);
+		}	
+		
+		return topicidList;
+	}
 	
 	public static void main(String []args){
 		//1

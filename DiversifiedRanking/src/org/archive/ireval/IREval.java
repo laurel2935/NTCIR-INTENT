@@ -8,10 +8,11 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Vector;
 
-import org.archive.a1.analysis.DivResult;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.Pair;
+import org.archive.util.tuple.PairComparatorByFirst_Asc;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
+import org.archive.util.tuple.Triple;
 
 /**
  * 
@@ -21,13 +22,13 @@ import org.archive.util.tuple.PairComparatorBySecond_Desc;
 public class IREval {
 	private static final boolean debug = true;
 	
-	public static enum EVAL_TYPE{DIV_NTCIR, DIV_TREC, TIR_NTCIR11};
+	public static enum EVAL_TYPE{DIV_NTCIR_SM, DIV_NTCIR_DR, DIV_TREC, TIR_NTCIR11};
 	
 	/////////////////////
 	//Common
 	/////////////////////
 	
-	//a system run, i.e., topic -> list of <rank, item>
+	//a system run, i.e., topic -> list of <rank, item-id>
 	HashMap<String, ArrayList<Integer>> _sysRun;
 	
 	//topic list
@@ -55,10 +56,11 @@ public class IREval {
 	////////////////////
 	
 	//topic -> list of <subtopic index, probability>
-	HashMap<String, ArrayList<Pair<Integer, Integer>>> _topicToSubtopicMap;
+	HashMap<String, ArrayList<Pair<Integer, Double>>> _topicToSubtopicMap;
 	
 	//relevance assessment, i.e., topic -> subtopic -> list of <item-id, relevance-level>, the list is ranked in an decreasing order of relevance-level 
-	HashMap<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> _topicToSubtopicToReleItemMap;	
+	HashMap<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> _topicToSubtopicToReleItemMap;
+	
 	//relevance assessment, i.e., item-id -> map of <topicid, set of <subtopic-id, relevance level>>
 	HashMap<Integer, HashMap<String, HashSet<Pair<Integer, Integer>>>> _divItemReleMap;
 	
@@ -112,12 +114,31 @@ public class IREval {
 			
 			//skip head-description section, i.e., the first line, thus we start from index=1
 			
-			if(evalType == EVAL_TYPE.DIV_NTCIR){				
+			if(evalType == EVAL_TYPE.DIV_NTCIR_SM){				
 				
 				String []array;
 				for(int i=1; i<lineList.size(); i++){
 					//array[0]:topic-id / array[1]:0 / array[2]:item-string / array[3]:rank / array[4]:score / array[5]:run-name
 					array = lineList.get(i).split(";");
+					String topicid = array[0];
+					String item = array[2];
+					
+					if(_sysRun.containsKey(topicid)){
+						ArrayList<Integer> itemList = _sysRun.get(topicid);
+						itemList.add(getItemIndex(item));
+					}else{
+						ArrayList<Integer> itemList = new ArrayList<Integer>();
+						itemList.add(getItemIndex(item));
+						_sysRun.put(topicid, itemList);
+					}
+				}
+				
+			}else if(evalType == EVAL_TYPE.DIV_NTCIR_DR){
+				
+				String []array;
+				for(int i=1; i<lineList.size(); i++){
+					//array[0]:topic-id / array[1]:0 / array[2]:doc-name / array[3]:rank / array[4]:score / array[5]:run-name
+					array = lineList.get(i).split("\\s");
 					String topicid = array[0];
 					String item = array[2];
 					
@@ -164,10 +185,10 @@ public class IREval {
 	/**
 	 * 
 	 * **/
-	private void loadStandardReleFile(EVAL_TYPE evalType, String standardReleFile){
+	private void loadStandardFile(EVAL_TYPE evalType, String standardQreleFile, String standardIprobFile){
 		
 		try {
-			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(standardReleFile);
+			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(standardQreleFile);
 			
 			HashSet<String> topicSet = new HashSet<String>();
 			
@@ -217,8 +238,118 @@ public class IREval {
 				for(Entry<String, ArrayList<Pair<Integer,Integer>>> entry: _topicToReleItemMap.entrySet()){
 					ArrayList<Pair<Integer,Integer>> itemPairList = entry.getValue();
 					Collections.sort(itemPairList, new PairComparatorBySecond_Desc<Integer, Integer>());
+				}		
+				
+			} else if (evalType == EVAL_TYPE.DIV_NTCIR_DR){
+				//1
+				this._topicToSubtopicMap = new HashMap<String, ArrayList<Pair<Integer,Double>>>();
+				
+				ArrayList<String> probLineList = IOText.getLinesAsAList_UTF8(standardIprobFile);
+				String [] probArray;
+				for(String probLine: probLineList){
+					//[0]: topicid / [1]: subtopic-id / [2]: probability
+					probArray = probLine.split("\\s");
+					String topicid = probArray[0];
+					Integer stID = Integer.parseInt(probArray[1]);
+					Double stPro = Double.parseDouble(probArray[2]);
+					
+					//for _topicList
+					if(!topicSet.contains(topicid)){
+						topicSet.add(topicid);
+						
+						_topicList.add(topicid);
+					}					
+					
+					//sorted in order of subtopic id later: necessary
+					if(this._topicToSubtopicMap.containsKey(topicid)){
+						ArrayList<Pair<Integer, Double>> stList = this._topicToSubtopicMap.get(topicid);
+						stList.add(new Pair<Integer, Double>(stID, stPro));
+					}else{
+						ArrayList<Pair<Integer, Double>> stList = new ArrayList<Pair<Integer,Double>>();
+						stList.add(new Pair<Integer, Double>(stID, stPro));
+						
+						this._topicToSubtopicMap.put(topicid, stList);
+					}
+				}	
+				//for
+				for(Entry<String, ArrayList<Pair<Integer, Double>>> topicEntry: this._topicToSubtopicMap.entrySet()){
+					ArrayList<Pair<Integer, Double>> stList = topicEntry.getValue();
+					
+					Collections.sort(stList, new PairComparatorByFirst_Asc<Integer, Double>());
 				}				
-			}						
+				
+				//2
+				this._topicToSubtopicToReleItemMap = new HashMap<String, HashMap<Integer, ArrayList<Pair<Integer,Integer>>>>();
+				this._divItemReleMap = new HashMap<Integer, HashMap<String,HashSet<Pair<Integer,Integer>>>>();
+				
+				String [] array;
+				for(String line: lineList){
+					//[0]: topic-id / array[1]: subtopic-id / array[2]: doc-name / array[3]: releLevel of L
+					array = line.split("\\s");
+					String topicid = array[0];
+					Integer stID = Integer.parseInt(array[1]);
+					Integer itemID = getItemIndex(array[2]);
+					Integer releLevel = Integer.parseInt(array[3].substring(1).trim());
+										
+					//if necessary
+					if(releLevel > 0){
+						//for _topicToSubtopicToReleItemMap
+						if(this._topicToSubtopicToReleItemMap.containsKey(topicid)){
+							HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stToReleItemMap = this._topicToSubtopicToReleItemMap.get(topicid);
+							
+							if(stToReleItemMap.containsKey(stID)){								
+								ArrayList<Pair<Integer, Integer>> releItemList = stToReleItemMap.get(stID);
+								releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));								
+							}else{								
+								ArrayList<Pair<Integer, Integer>> releItemList = new ArrayList<Pair<Integer,Integer>>();
+								releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));
+								stToReleItemMap.put(stID, releItemList);								
+							}
+							
+						}else{
+							HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stToReleItemMap = new HashMap<Integer, ArrayList<Pair<Integer,Integer>>>();
+							
+							ArrayList<Pair<Integer, Integer>> releItemList = new ArrayList<Pair<Integer,Integer>>();
+							releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));
+							stToReleItemMap.put(stID, releItemList);
+							
+							this._topicToSubtopicToReleItemMap.put(topicid, stToReleItemMap);
+						}
+						
+						//for _divItemReleMap
+						if(this._divItemReleMap.containsKey(itemID)){
+							HashMap<String, HashSet<Pair<Integer, Integer>>> usageMap = this._divItemReleMap.get(itemID);
+							if(usageMap.containsKey(topicid)){
+								HashSet<Pair<Integer, Integer>> releSet = usageMap.get(topicid);
+								releSet.add(new Pair<Integer, Integer>(stID, releLevel));
+							}else {
+								HashSet<Pair<Integer, Integer>> releSet = new HashSet<Pair<Integer,Integer>>();
+								releSet.add(new Pair<Integer, Integer>(stID, releLevel));
+								
+								usageMap.put(topicid, releSet);
+							}
+						}else{
+							HashMap<String, HashSet<Pair<Integer, Integer>>> usageMap = new HashMap<String, HashSet<Pair<Integer,Integer>>>();
+							
+							HashSet<Pair<Integer, Integer>> releSet = new HashSet<Pair<Integer,Integer>>();
+							releSet.add(new Pair<Integer, Integer>(stID, releLevel));							
+							usageMap.put(topicid, releSet);
+							
+							this._divItemReleMap.put(itemID, usageMap);							
+						}
+					}					
+				}	
+				
+				//sort releItemList for each subtopic
+				for(Entry<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> itemEntry: this._topicToSubtopicToReleItemMap.entrySet()){
+					HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stReleMap = itemEntry.getValue();
+					for(Entry<Integer, ArrayList<Pair<Integer, Integer>>> stEntry: stReleMap.entrySet()){
+						ArrayList<Pair<Integer, Integer>> releList = stEntry.getValue();
+						
+						Collections.sort(releList, new PairComparatorBySecond_Desc<Integer, Integer>());
+					}
+				}				
+			}
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();
@@ -882,8 +1013,190 @@ public class IREval {
 	}
 	
 	/**
-	 * 
+	 * Metric: D#-nDCG consisting of I-rec, D-nDCG, D#-nDCG
 	 * **/
+	private ArrayList<Triple<Double, Double, Double>> DSharpnDCG(int cutoff){
+		
+		ArrayList<Triple<Double, Double, Double>> tripleList = new ArrayList<Triple<Double,Double,Double>>();
+		
+		for(String topicid: this._topicList){
+			ArrayList<Integer> sysRun = this._sysRun.get(topicid);
+			//
+			tripleList.add(calMetricTriple(topicid, sysRun, cutoff));
+		}
+		/*
+		if(debug){			
+			int i=0;
+			for(; i<tripleList.size(); i++){
+				Triple<Double, Double, Double> triple = tripleList.get(i);
+				System.out.println(this._topicList.get(i)+"\t"+triple.toString());
+			}		
+			System.out.println("size:\t"+tripleList.size());			
+		}
+		*/
+		
+		return tripleList;		
+	}	
+	//get ranked item list by global gain value
+	private ArrayList<Pair<Integer, Double>> getIdealListByGG(String topicid){
+		//ranked item list by global gain value
+		ArrayList<Pair<Integer, Double>> idealListDecByGG = new ArrayList<Pair<Integer,Double>>();		
+		//global ideal list for each topic
+		for(Entry<Integer, HashMap<String, HashSet<Pair<Integer, Integer>>>> itemEntry: this._divItemReleMap.entrySet()){
+			if(itemEntry.getValue().containsKey(topicid)){
+				Integer itemID = itemEntry.getKey();
+				
+				HashSet<Pair<Integer, Integer>> stSet = itemEntry.getValue().get(topicid);
+				//global gain
+				double gg = 0.0;
+				for(Pair<Integer, Integer> stRelePair: stSet){
+					gg += this._topicToSubtopicMap.get(topicid).get(stRelePair.getFirst()-1).getSecond()*stRelePair.getSecond();
+				}
+				
+				idealListDecByGG.add(new Pair<Integer, Double>(itemID, gg));
+			}
+		}
+		//
+		Collections.sort(idealListDecByGG, new PairComparatorBySecond_Desc<Integer, Double>());	
+
+		return idealListDecByGG;
+	}
+	//system's cumulative gain value
+	private double getSysCGN(ArrayList<Integer> sysRun, int cutoff, ArrayList<Pair<Integer, Double>> idealListDecByGG){
+		int cursor = Math.min(sysRun.size(), cutoff);
+		double cgn = 0.0;
+		for(int k=0; k<cursor; k++){			
+			Integer k_th_itemID = sysRun.get(k);			
+			for(Pair<Integer, Double> idealRankedItemByGG: idealListDecByGG){
+				if(idealRankedItemByGG.first.equals(k_th_itemID)){
+					cgn += idealRankedItemByGG.second/Math.log10(k+2);
+					//
+					break;
+				}
+			}			
+		}		
+		return cgn;
+	}
+	//
+	private double getIdealCGN(ArrayList<Pair<Integer, Double>> idealListDecByGG, int cutoff){
+		double cgn = 0.0;
+		int cursor = Math.min(cutoff, idealListDecByGG.size());
+		for(int i=0; i<cursor; i++){
+			cgn += idealListDecByGG.get(i).second/Math.log10(i+2);
+		}
+		return cgn;
+	}
+	//compute I-rec, D-nDCG, D#-nDCG per topic
+	public Triple<Double, Double, Double> calMetricTriple(String topicid, ArrayList<Integer> sysRun, int cutoff){		
+		//preprocess
+		ArrayList<Pair<Integer, Double>> idealListDecByGG = this.getIdealListByGG(topicid);
+		Triple<Double, Double, Double> metricTriple = null;
+		
+		if(null != sysRun){			
+			//I-rec			
+			HashSet<Integer> stIDSet = new HashSet<Integer>();
+			int cursor = Math.min(sysRun.size(), cutoff);
+			for(int k=0; k<cursor; k++){
+				Integer k_th_itemID = sysRun.get(k);
+				//
+				if(this._divItemReleMap.containsKey(k_th_itemID)){
+					if(this._divItemReleMap.get(k_th_itemID).containsKey(topicid)){
+						HashSet<Pair<Integer, Integer>> stSet = this._divItemReleMap.get(k_th_itemID).get(topicid);
+						for(Pair<Integer, Integer> relePair: stSet){
+							stIDSet.add(relePair.first);
+						}
+					}
+				}								
+			}			
+			//System.out.println("Included intent Number:\t"+inSubtopicIDSet.size());			
+			double Irec = stIDSet.size()*1.0/this._topicToSubtopicMap.get(topicid).size();
+			/*
+			if (debug) {
+				System.out.println("subtopic number:\t"+this._topicToSubtopicMap.get(topicid).size());
+				System.out.println("Irec\t"+Irec);
+			}
+			*/
+			//MSnDCG
+			double sysCGN = this.getSysCGN(sysRun, cutoff, idealListDecByGG);
+			double idealCGN = this.getIdealCGN(idealListDecByGG, cutoff);
+			//System.out.println("System cgv:\t"+sysCGN);
+			//System.out.println("Ideal cgv:\t"+idealCGN);
+			double msnDCG = sysCGN/idealCGN;
+			//D#-nDCG
+			double DSharpnDCG = Irec*0.5 + msnDCG*0.5;
+			//			
+			///*
+			DecimalFormat df = new DecimalFormat("0.0000");
+			//sequential metric value: I-rec -> D-nDCG -> D#-nDCG  
+			metricTriple = new Triple<Double, Double, Double>(Double.parseDouble(df.format(Irec)),
+					Double.parseDouble(df.format(msnDCG)), Double.parseDouble(df.format(DSharpnDCG)));
+		}else{
+			//no result case
+			metricTriple = new Triple<Double, Double, Double>(0.0, 0.0, 0.0);							
+		}
+		
+		return metricTriple;
+	}
+	
+	//specific for NTCIR-11 DR all topic
+	private void DSharpnDCG(String language, int level, String standardDir, int cutoff){
+		if(language.equals("C")){
+			//String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
+			String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/TUTA1-D-C-1B.txt";
+						
+			//unclear			
+			String ch_unclear_qrel = null, ch_unclear_ipro = null;
+			if(1 == level){
+				ch_unclear_qrel = standardDir+"IMine-DR-C-Unclear-Dqrels-FLS";
+				ch_unclear_ipro = standardDir+"IMine-DR-C-Unclear-Iprob-FLS";
+			}else{
+				ch_unclear_qrel = standardDir+"IMine-DR-C-Unclear-Dqrels-SLS";
+				ch_unclear_ipro = standardDir+"IMine-DR-C-Unclear-Iprob-SLS";
+			}
+			
+			IREval unclearIREval = new IREval();
+			unclearIREval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
+			unclearIREval.loadStandardFile(EVAL_TYPE.DIV_NTCIR_DR, ch_unclear_qrel, ch_unclear_ipro);
+			ArrayList<Triple<Double, Double, Double>> tripleList = unclearIREval.DSharpnDCG(cutoff);
+			System.out.println("D#-nDCG for Unclear Topics");			
+			int i=0;
+			for(; i<tripleList.size(); i++){
+				Triple<Double, Double, Double> triple = tripleList.get(i);
+				System.out.println(unclearIREval._topicList.get(i)+"\t"+triple.getThird().toString());
+			}		
+			//System.out.println("size:\t"+tripleList.size());
+			
+			//clear
+			String ch_clear_qrel = standardDir+"IMine-DR-Qrel-C-Clear";
+			IREval clearIREval = new IREval();
+			clearIREval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
+			clearIREval.loadStandardFile(EVAL_TYPE.TIR_NTCIR11, ch_clear_qrel, null);
+			//nDCG@k
+			ArrayList<Pair<String, Double>> nDCGList = clearIREval.nDCG(2, 20);
+			
+			System.out.println("nDCG for Clear Topics");
+			for(Pair<String, Double> pair: nDCGList){
+				System.out.println(pair.toString());
+			}
+			
+			//over all topics
+			double sum = 0.0;
+			for(int j=0; j<tripleList.size(); j++){
+				Triple<Double, Double, Double> triple = tripleList.get(j);
+				sum += triple.getThird();				
+			}
+			for(Pair<String, Double> pair: nDCGList){
+				sum += pair.getSecond();
+			}
+			
+			System.out.println("#avg:\t"+sum/(unclearIREval._topicList.size()+clearIREval._topicList.size()));
+			
+		}else{
+			
+		}
+	}
+	
+	
 	
 	//check with ntcireval
 	public void check(ArrayList<Pair<String, Double>> apList){
@@ -1004,7 +1317,7 @@ public class IREval {
 				String refRun = "H:/v-haiyu/CodeBench/Pool_Output/Output_Temporalia/FinalRuns/TUTA1-TIR/TUTA1-TIR-RUN-"+Integer.toString(refID);
 				IREval refIREval = new IREval();
 				refIREval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, refRun);
-				refIREval.loadStandardReleFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile);
+				refIREval.loadStandardFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile, null);
 				ArrayList<Pair<String, Double>> refPList = refIREval.P(20);
 				ArrayList<Pair<String, Double>> refNDCGList = refIREval.nDCG(2, 20);
 				
@@ -1012,7 +1325,7 @@ public class IREval {
 					String followRun = "H:/v-haiyu/CodeBench/Pool_Output/Output_Temporalia/FinalRuns/TUTA1-TIR/TUTA1-TIR-RUN-"+Integer.toString(followID);				
 					IREval followIREval = new IREval();
 					followIREval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, followRun);
-					followIREval.loadStandardReleFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile);
+					followIREval.loadStandardFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile, null);
 					ArrayList<Pair<String, Double>> followPList = followIREval.P(20);
 					ArrayList<Pair<String, Double>> followNDCGList = followIREval.nDCG(2, 20);
 					//->
@@ -1201,22 +1514,37 @@ public class IREval {
 		///////////////
 		//via formal run
 		///////////////
+		/*
 		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_Temporalia/RerankViaFormalRun/TUTA1-TIR-RUNVIA-2.txt";
 		String standardReleFile = "C:/Users/cicee/Desktop/TIR-Eval/tir_formalrun_20140808clean.qrels";
 				
 		IREval irEval = new IREval();
 		irEval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, sysRunFile);
 		irEval.loadStandardReleFile_formal(EVAL_TYPE.TIR_NTCIR11, standardReleFile);
-		
+		*/
 		//irEval.check();
 		
 		//nDCG@k
+		/*
 		ArrayList<Pair<String, Double>> nDCGList = irEval.nDCG(2, 20);
 		irEval.avgNDCG(EVAL_TYPE.TIR_NTCIR11, nDCGList, 20);
-		
+		*/
 		//P@k
+		/*
 		ArrayList<Pair<String, Double>> precisionList = irEval.P(20);
 		irEval.avgP(EVAL_TYPE.TIR_NTCIR11, precisionList, 20);
+		*/
+		
+		////DR subtask
+		String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
+		//Chinese unclear
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/TUTA1-D-C-1B.txt";
+		String ch_unclear_qrel = dir+"IMine-DR-C-Unclear-Dqrels-SLS";
+		String ch_unclear_ipro = dir+"IMine-DR-C-Unclear-Iprob-SLS";
+		IREval irEval = new IREval();
+		irEval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
+		irEval.loadStandardFile(EVAL_TYPE.DIV_NTCIR_DR, ch_unclear_qrel, ch_unclear_ipro);
+		irEval.DSharpnDCG(20);
 		
 		
 	}
