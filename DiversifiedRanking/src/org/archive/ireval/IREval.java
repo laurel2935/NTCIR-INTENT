@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.Map.Entry;
 import java.util.Vector;
 
+import org.archive.util.Language.Lang;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.Pair;
 import org.archive.util.tuple.PairComparatorByFirst_Asc;
@@ -15,24 +16,31 @@ import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.Triple;
 
 /**
- * 
+ * A set of evaluation metrics w.r.t. information retrieval
  * 
  * **/
 
 public class IREval {
 	private static final boolean debug = true;
-	
-	public static enum EVAL_TYPE{DIV_NTCIR_SM, DIV_NTCIR_DR, DIV_TREC, TIR_NTCIR11};
+	/**
+	 * DIV_NTCIR_SM		;
+	 * DIV_NTCIR_DR		blank
+	 * DIV_TREC			blank
+	 * CLEAR_NTCIR		no subtopic, metric as nDCG, used for clear topics of ntcir-11, temporal rank of temparalia subtask
+	 * **/
+	public static enum EVAL_TYPE{DIV_NTCIR_SM, DIV_NTCIR_DR, DIV_TREC, CLEAR_NTCIR};
 	
 	/////////////////////
 	//Common
 	/////////////////////
 	
 	//a system run, i.e., topic -> list of <rank, item-id>
+	//split symbol may different due to different tasks
 	HashMap<String, ArrayList<Integer>> _sysRun;
 	
 	//topic list
 	ArrayList<String> _topicList;
+	
 	
 	//here item refers to subtopic strings or doc_names
 	ArrayList<String> _itemPooL;
@@ -129,6 +137,7 @@ public class IREval {
 					}else{
 						ArrayList<Integer> itemList = new ArrayList<Integer>();
 						itemList.add(getItemIndex(item));
+						
 						_sysRun.put(topicid, itemList);
 					}
 				}
@@ -152,7 +161,7 @@ public class IREval {
 					}
 				}
 				
-			}else if(evalType == EVAL_TYPE.TIR_NTCIR11){
+			}else if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 				
 				String []array;
 				for(int i=1; i<lineList.size(); i++){
@@ -192,7 +201,7 @@ public class IREval {
 			
 			HashSet<String> topicSet = new HashSet<String>();
 			
-			if(evalType == EVAL_TYPE.TIR_NTCIR11){
+			if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 				
 				this._topicToReleItemMap = new HashMap<String, ArrayList<Pair<Integer,Integer>>>();
 				this._itemReleMap = new HashMap<Integer, HashMap<String,Integer>>();
@@ -240,7 +249,14 @@ public class IREval {
 					Collections.sort(itemPairList, new PairComparatorBySecond_Desc<Integer, Integer>());
 				}		
 				
-			} else if (evalType == EVAL_TYPE.DIV_NTCIR_DR){
+			} else if (evalType.toString().startsWith("DIV_NTCIR")){
+				String split = null;
+				if(evalType == EVAL_TYPE.DIV_NTCIR_DR){
+					split = "\\s";
+				}else {
+					split = ";";
+				}
+				
 				//1
 				this._topicToSubtopicMap = new HashMap<String, ArrayList<Pair<Integer,Double>>>();
 				
@@ -248,7 +264,7 @@ public class IREval {
 				String [] probArray;
 				for(String probLine: probLineList){
 					//[0]: topicid / [1]: subtopic-id / [2]: probability
-					probArray = probLine.split("\\s");
+					probArray = probLine.split(split);
 					String topicid = probArray[0];
 					Integer stID = Integer.parseInt(probArray[1]);
 					Double stPro = Double.parseDouble(probArray[2]);
@@ -285,7 +301,7 @@ public class IREval {
 				String [] array;
 				for(String line: lineList){
 					//[0]: topic-id / array[1]: subtopic-id / array[2]: doc-name / array[3]: releLevel of L
-					array = line.split("\\s");
+					array = line.split(split);
 					String topicid = array[0];
 					Integer stID = Integer.parseInt(array[1]);
 					Integer itemID = getItemIndex(array[2]);
@@ -425,7 +441,7 @@ public class IREval {
 	private ArrayList<Pair<String, Double>> avgP(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> pList, int cutoff){
 		ArrayList<Pair<String, Double>> avgPList = new ArrayList<Pair<String,Double>>();
 		
-		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+		if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 			double pastSum = 0.0;
 			int pastCount = 0;
 			
@@ -523,7 +539,7 @@ public class IREval {
 	private ArrayList<Pair<String, Double>> MAP(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> apList, int cutoff){
 		ArrayList<Pair<String, Double>> mapList = new ArrayList<Pair<String,Double>>();
 		
-		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+		if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 			double pastSum = 0.0;
 			int pastCount = 0;
 			
@@ -617,7 +633,7 @@ public class IREval {
 	private ArrayList<Pair<String, Double>> avgMSnDCG(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> MSnDCGList, int cutoff){
 		ArrayList<Pair<String, Double>> avgMSnDCGList = new ArrayList<Pair<String,Double>>();
 		
-		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+		if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 			double pastSum = 0.0;
 			int pastCount = 0;
 			
@@ -668,14 +684,16 @@ public class IREval {
 	}
 	
 	/**
-	 * Metric: nDCG@k
+	 * Metric: nDCG@k Note: the original definition of nDCG due to base
 	 * **/
 	private ArrayList<Pair<String, Double>> nDCG(int base, int cutoff){
 		ArrayList<Pair<String, Double>> nDCGList = new ArrayList<Pair<String,Double>>();
 		
 		for(String topic: _topicList){
-			//run i<b
+			//run 
 			ArrayList<Integer> runItemList = _sysRun.get(topic);
+			int runMaxCur = Math.min(cutoff, runItemList.size()); 
+			//i<b
 			double runCumuGainValue = 0.0;
 			for(int i=0; i<base; i++){
 				Integer runItemID = runItemList.get(i);
@@ -688,7 +706,7 @@ public class IREval {
 				}
 			}
 			//i>=b
-			for(int i=base; i<cutoff; i++){
+			for(int i=base; i<runMaxCur; i++){
 				Integer runItemID = runItemList.get(i);
 				if(_itemReleMap.containsKey(runItemID)){
 					HashMap<String, Integer> releMap = _itemReleMap.get(runItemID);
@@ -701,14 +719,15 @@ public class IREval {
 			
 			//ideal 
 			ArrayList<Pair<Integer, Integer>> idealItemList = _topicToReleItemMap.get(topic);
-			double idealCumuGainValue = 0.0;
-			//i<b			
+			int idealMaxCur = Math.min(cutoff, idealItemList.size());
+			//i<b
+			double idealCumuGainValue = 0.0;						
 			for(int j=0; j<base; j++){
 				Integer idealGainValue = idealItemList.get(j).second;
 				idealCumuGainValue += idealGainValue;
 			}
 			//i>=b
-			for(int j=base; j<cutoff; j++){
+			for(int j=base; j<idealMaxCur; j++){
 				Integer idealGainValue = idealItemList.get(j).second;
 				idealCumuGainValue += (idealGainValue*1.0/(Math.log10(j+1)/Math.log10(base)));
 			}
@@ -731,7 +750,7 @@ public class IREval {
 	private ArrayList<Pair<String, Double>> avgNDCG(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> nDCGList, int cutoff){
 		ArrayList<Pair<String, Double>> avgNDCGList = new ArrayList<Pair<String,Double>>();
 		
-		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+		if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 			double pastSum = 0.0;
 			int pastCount = 0;
 			
@@ -789,7 +808,7 @@ public class IREval {
 	//satisfying probability
 	private double satPro(EVAL_TYPE evalType, int releInt){
 		int maxReleLevel = 0;
-		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+		if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 			maxReleLevel = 2;
 		}else {
 			System.err.println("Non-determined EvalType!");
@@ -856,7 +875,7 @@ public class IREval {
 	private ArrayList<Pair<String, Double>> avgERR(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> errList, int cutoff){
 		ArrayList<Pair<String, Double>> avgERRList = new ArrayList<Pair<String,Double>>();
 		
-		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+		if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 			double pastSum = 0.0;
 			int pastCount = 0;
 			
@@ -963,7 +982,7 @@ public class IREval {
 	private ArrayList<Pair<String, Double>> avgNERR(EVAL_TYPE evalType, ArrayList<Pair<String, Double>> nERRList, int cutoff){
 		ArrayList<Pair<String, Double>> avgNERRList = new ArrayList<Pair<String,Double>>();
 		
-		if(evalType == EVAL_TYPE.TIR_NTCIR11){
+		if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 			double pastSum = 0.0;
 			int pastCount = 0;
 			
@@ -1015,16 +1034,16 @@ public class IREval {
 	/**
 	 * Metric: D#-nDCG consisting of I-rec, D-nDCG, D#-nDCG
 	 * **/
-	private ArrayList<Triple<Double, Double, Double>> DSharpnDCG(int cutoff){
+	private ArrayList<Triple<Double, Double, Double>> DSharpnDCG(int base, int cutoff){
 		
 		ArrayList<Triple<Double, Double, Double>> tripleList = new ArrayList<Triple<Double,Double,Double>>();
 		
 		for(String topicid: this._topicList){
 			ArrayList<Integer> sysRun = this._sysRun.get(topicid);
 			//
-			tripleList.add(calMetricTriple(topicid, sysRun, cutoff));
+			tripleList.add(calMetricTriple(topicid, sysRun, base, cutoff));
 		}
-		/*
+		///*
 		if(debug){			
 			int i=0;
 			for(; i<tripleList.size(); i++){
@@ -1033,10 +1052,28 @@ public class IREval {
 			}		
 			System.out.println("size:\t"+tripleList.size());			
 		}
-		*/
+		//*/
 		
 		return tripleList;		
-	}	
+	}
+	//mean D#-nDCG
+	private Triple<Double, Double, Double> avgDSharpnDCG(ArrayList<Triple<Double, Double, Double>> tripleList){
+		double irecSum = 0.0, ndcgSum = 0.0, sharpndcgSum = 0.0;
+		for(Triple<Double, Double, Double> triple: tripleList){
+			irecSum += triple.getFirst();
+			ndcgSum += triple.getSecond();
+			sharpndcgSum += triple.getThird();
+		}
+		
+		int size = tripleList.size();
+		Triple<Double, Double, Double> avgTriple = new Triple<Double, Double, Double>(irecSum/size, ndcgSum/size, sharpndcgSum/size);
+		if(debug){
+			System.out.println("Avg D#-nDCG:\t"+avgTriple.toString());
+		}
+		
+		return avgTriple;
+	}
+		
 	//get ranked item list by global gain value
 	private ArrayList<Pair<Integer, Double>> getIdealListByGG(String topicid){
 		//ranked item list by global gain value
@@ -1062,14 +1099,14 @@ public class IREval {
 		return idealListDecByGG;
 	}
 	//system's cumulative gain value
-	private double getSysCGN(ArrayList<Integer> sysRun, int cutoff, ArrayList<Pair<Integer, Double>> idealListDecByGG){
+	private double getSysCGN(ArrayList<Integer> sysRun, int base, int cutoff, ArrayList<Pair<Integer, Double>> idealListDecByGG){
 		int cursor = Math.min(sysRun.size(), cutoff);
 		double cgn = 0.0;
 		for(int k=0; k<cursor; k++){			
 			Integer k_th_itemID = sysRun.get(k);			
 			for(Pair<Integer, Double> idealRankedItemByGG: idealListDecByGG){
 				if(idealRankedItemByGG.first.equals(k_th_itemID)){
-					cgn += idealRankedItemByGG.second/Math.log10(k+2);
+					cgn += idealRankedItemByGG.second/(Math.log10(k+2)/Math.log10(base));
 					//
 					break;
 				}
@@ -1077,17 +1114,17 @@ public class IREval {
 		}		
 		return cgn;
 	}
-	//
-	private double getIdealCGN(ArrayList<Pair<Integer, Double>> idealListDecByGG, int cutoff){
+	//ideal's cumulative gain value
+	private double getIdealCGN(int base, int cutoff, ArrayList<Pair<Integer, Double>> idealListDecByGG){
 		double cgn = 0.0;
 		int cursor = Math.min(cutoff, idealListDecByGG.size());
 		for(int i=0; i<cursor; i++){
-			cgn += idealListDecByGG.get(i).second/Math.log10(i+2);
+			cgn += idealListDecByGG.get(i).second/(Math.log10(i+2)/Math.log10(base));
 		}
 		return cgn;
 	}
 	//compute I-rec, D-nDCG, D#-nDCG per topic
-	public Triple<Double, Double, Double> calMetricTriple(String topicid, ArrayList<Integer> sysRun, int cutoff){		
+	public Triple<Double, Double, Double> calMetricTriple(String topicid, ArrayList<Integer> sysRun, int base, int cutoff){		
 		//preprocess
 		ArrayList<Pair<Integer, Double>> idealListDecByGG = this.getIdealListByGG(topicid);
 		Triple<Double, Double, Double> metricTriple = null;
@@ -1117,8 +1154,8 @@ public class IREval {
 			}
 			*/
 			//MSnDCG
-			double sysCGN = this.getSysCGN(sysRun, cutoff, idealListDecByGG);
-			double idealCGN = this.getIdealCGN(idealListDecByGG, cutoff);
+			double sysCGN = this.getSysCGN(sysRun, base, cutoff, idealListDecByGG);
+			double idealCGN = this.getIdealCGN(base, cutoff, idealListDecByGG);
 			//System.out.println("System cgv:\t"+sysCGN);
 			//System.out.println("Ideal cgv:\t"+idealCGN);
 			double msnDCG = sysCGN/idealCGN;
@@ -1138,15 +1175,18 @@ public class IREval {
 		return metricTriple;
 	}
 	
+	
+	
+	private static enum STLevel{FLS, SLS};
 	//specific for NTCIR-11 DR all topic
-	private void DSharpnDCG(String language, int level, String standardDir, int cutoff){
-		if(language.equals("C")){
+	private void DSharpnDCG(Lang lang, STLevel stLevel, String standardDir, int cutoff){
+		if(lang == Lang.Chinese){
 			//String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
 			String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/TUTA1-D-C-1B.txt";
 						
 			//unclear			
 			String ch_unclear_qrel = null, ch_unclear_ipro = null;
-			if(1 == level){
+			if(stLevel == STLevel.FLS){
 				ch_unclear_qrel = standardDir+"IMine-DR-C-Unclear-Dqrels-FLS";
 				ch_unclear_ipro = standardDir+"IMine-DR-C-Unclear-Iprob-FLS";
 			}else{
@@ -1157,8 +1197,8 @@ public class IREval {
 			IREval unclearIREval = new IREval();
 			unclearIREval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
 			unclearIREval.loadStandardFile(EVAL_TYPE.DIV_NTCIR_DR, ch_unclear_qrel, ch_unclear_ipro);
-			ArrayList<Triple<Double, Double, Double>> tripleList = unclearIREval.DSharpnDCG(cutoff);
-			System.out.println("D#-nDCG for Unclear Topics");			
+			ArrayList<Triple<Double, Double, Double>> tripleList = unclearIREval.DSharpnDCG(2, cutoff);
+			System.out.println(stLevel.toString()+"\t"+"D#-nDCG for Unclear Topics");			
 			int i=0;
 			for(; i<tripleList.size(); i++){
 				Triple<Double, Double, Double> triple = tripleList.get(i);
@@ -1169,8 +1209,8 @@ public class IREval {
 			//clear
 			String ch_clear_qrel = standardDir+"IMine-DR-Qrel-C-Clear";
 			IREval clearIREval = new IREval();
-			clearIREval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
-			clearIREval.loadStandardFile(EVAL_TYPE.TIR_NTCIR11, ch_clear_qrel, null);
+			clearIREval.loadSysRun(EVAL_TYPE.CLEAR_NTCIR, sysRunFile);
+			clearIREval.loadStandardFile(EVAL_TYPE.CLEAR_NTCIR, ch_clear_qrel, null);
 			//nDCG@k
 			ArrayList<Pair<String, Double>> nDCGList = clearIREval.nDCG(2, 20);
 			
@@ -1307,25 +1347,29 @@ public class IREval {
 		System.out.println();	
 		System.out.println(des+" Sig-test for atemporal:\t"+wsrTest.wilcoxonSignedRankTest(getDArray(aList_1), getDArray(aList_2), false));		
 		System.out.println();		
+		System.out.println(des+" Sig-test for all:\t"+wsrTest.wilcoxonSignedRankTest(getDArray(mList_1), getDArray(mList_2), false));		
+		System.out.println();
 	}
 	
 	public static void pairedSigTest(){
-		String standardReleFile = "C:/Users/cicee/Desktop/TIR-Eval/tir_formalrun_20140808clean.qrels";
-		
+		//old 185
+		//String _standardReleFile = "C:/Users/cicee/Desktop/TIR-Eval/tir_formalrun_20140808clean.qrels";
+		//new 200
+		String standardReleFile = "H:/v-haiyu/TaskPreparation/Ntcir11-Temporalia/Eval-Tem-Results/TIR/tir_formalrun_2014080829.qrels";
 		for(int refID=1; refID<=4; refID++){
 			if(refID < 4){
 				String refRun = "H:/v-haiyu/CodeBench/Pool_Output/Output_Temporalia/FinalRuns/TUTA1-TIR/TUTA1-TIR-RUN-"+Integer.toString(refID);
 				IREval refIREval = new IREval();
-				refIREval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, refRun);
-				refIREval.loadStandardFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile, null);
+				refIREval.loadSysRun(EVAL_TYPE.CLEAR_NTCIR, refRun);
+				refIREval.loadStandardFile(EVAL_TYPE.CLEAR_NTCIR, standardReleFile, null);
 				ArrayList<Pair<String, Double>> refPList = refIREval.P(20);
 				ArrayList<Pair<String, Double>> refNDCGList = refIREval.nDCG(2, 20);
 				
 				for(int followID=refID+1; followID<=4; followID++){
 					String followRun = "H:/v-haiyu/CodeBench/Pool_Output/Output_Temporalia/FinalRuns/TUTA1-TIR/TUTA1-TIR-RUN-"+Integer.toString(followID);				
 					IREval followIREval = new IREval();
-					followIREval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, followRun);
-					followIREval.loadStandardFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile, null);
+					followIREval.loadSysRun(EVAL_TYPE.CLEAR_NTCIR, followRun);
+					followIREval.loadStandardFile(EVAL_TYPE.CLEAR_NTCIR, standardReleFile, null);
 					ArrayList<Pair<String, Double>> followPList = followIREval.P(20);
 					ArrayList<Pair<String, Double>> followNDCGList = followIREval.nDCG(2, 20);
 					//->
@@ -1385,7 +1429,7 @@ public class IREval {
 			
 			HashSet<String> topicSet = new HashSet<String>();
 			
-			if(evalType == EVAL_TYPE.TIR_NTCIR11){
+			if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 				
 				this._topicToReleItemMap = new HashMap<String, ArrayList<Pair<Integer,Integer>>>();
 				this._itemReleMap = new HashMap<Integer, HashMap<String,Integer>>();
@@ -1472,22 +1516,27 @@ public class IREval {
 	
 	public static void main(String []args){
 		//1 precision test
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_Temporalia/FinalRuns/TUTA1-TIR/TUTA1-TIR-RUN-3";
 		//String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_Temporalia/FinalRuns/TUTA1-TIR/TUTA1-TIR-RUN-4";
-		//String standardReleFile = "C:/Users/cicee/Desktop/TIR-Eval/tir_formalrun_20140808clean.qrels";
+		//old-TIR-185
+		//String _standardReleFile = "H:/v-haiyu/TaskPreparation/Ntcir11-Temporalia/Eval-Tem-Results/TIR-185/tir_formalrun_20140808clean.qrels";
+		//new 200
+		String standardReleFile = "H:/v-haiyu/TaskPreparation/Ntcir11-Temporalia/Eval-Tem-Results/TIR/tir_formalrun_2014080829.qrels";
 		
-		//IREval irEval = new IREval();
-		//irEval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, sysRunFile);
-		//irEval.loadStandardReleFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile);
+		IREval irEval = new IREval();
+		irEval.loadSysRun(EVAL_TYPE.TIR_NTCIR11, sysRunFile);
+		irEval.loadStandardFile(EVAL_TYPE.TIR_NTCIR11, standardReleFile, null);
 		
 		//P@k
-		//ArrayList<Pair<String, Double>> precisionList = irEval.P(20);
-		//irEval.avgP(EVAL_TYPE.TIR_NTCIR11, precisionList, 20);
+		ArrayList<Pair<String, Double>> precisionList = irEval.P(20);
+		irEval.avgP(EVAL_TYPE.TIR_NTCIR11, precisionList, 20);
 		
 		//MSnDCG@k
 		//ArrayList<Pair<String, Double>> MSnDCGList = irEval.MSnDCG(20);
 		//irEval.avgMSnDCG(EVAL_TYPE.TIR_NTCIR11, MSnDCGList, 20);
 		
-		//nDCG@k
+		//nDCG@k base discussion, which is strictly implemented as the original definition
 		//ArrayList<Pair<String, Double>> nDCGList = irEval.nDCG(2, 20);
 		//irEval.avgNDCG(EVAL_TYPE.TIR_NTCIR11, nDCGList, 20);
 		
@@ -1504,6 +1553,7 @@ public class IREval {
 		//nERR@k
 		//ArrayList<Pair<String, Double>> nERRList = irEval.nERR(20);
 		//irEval.avgERR(EVAL_TYPE.TIR_NTCIR11, nERRList, 20);
+		*/
 		
 		////////////
 		//sig-test
@@ -1535,7 +1585,21 @@ public class IREval {
 		irEval.avgP(EVAL_TYPE.TIR_NTCIR11, precisionList, 20);
 		*/
 		
+		//check D#-nDCG -> ok
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/ntcir-10/SM/TUTA1-S-C-1A";
+		String ch_sm_qrel = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-10/SM/INTENT-2SMC.rev.Dqrels";
+		String ch_sm_ipro = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-10/SM/INTENT-2SMC.Iprob";
+		
+		IREval irEval = new IREval();
+		irEval.loadSysRun(EVAL_TYPE.DIV_NTCIR_SM, sysRunFile);
+		irEval.loadStandardFile(EVAL_TYPE.DIV_NTCIR_SM, ch_sm_qrel, ch_sm_ipro);
+		ArrayList<Triple<Double, Double, Double>> tripleList = irEval.DSharpnDCG(10, 10);
+		irEval.avgDSharpnDCG(tripleList);
+		*/
+		
 		////DR subtask
+		/*
 		String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
 		//Chinese unclear
 		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/TUTA1-D-C-1B.txt";
@@ -1544,8 +1608,15 @@ public class IREval {
 		IREval irEval = new IREval();
 		irEval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
 		irEval.loadStandardFile(EVAL_TYPE.DIV_NTCIR_DR, ch_unclear_qrel, ch_unclear_ipro);
-		irEval.DSharpnDCG(20);
+		ArrayList<Triple<Double, Double, Double>> tripleList = irEval.DSharpnDCG(10, 20);
+		irEval.avgDSharpnDCG(tripleList);
+		*/
 		
+		////DR subtask of NTCIR-11
+		String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
+		
+		IREval irEval = new IREval();
+		irEval.DSharpnDCG(Lang.Chinese, STLevel.SLS, dir, 20);
 		
 	}
 	
