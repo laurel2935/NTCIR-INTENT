@@ -125,6 +125,7 @@ public class NTCIRLoader {
 	
 	//candidate html_parser
 	//private static HITHtmlExtractor htmlExtractor = new HITHtmlExtractor();
+	//used for ntcir-11 dr subtask
 	private static HtmlExtractor htmlExtractor = new HtmlExtractor();
 	
 	//topicID -> baseline line of doc names

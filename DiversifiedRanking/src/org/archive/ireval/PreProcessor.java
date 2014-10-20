@@ -169,15 +169,15 @@ public class PreProcessor {
 	/**
 	 * Extract qrel xml file
 	 * **/
-	public static ArrayList<Triple<String, String, Integer>> getXmlQrel(NTCIRLoader.NTCIR_EVAL_TASK eval, NTCIRLoader.NTCIR11_TOPIC_TYPE type){
-		String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/";
+	public static ArrayList<Triple<String, String, Integer>> getXmlQrel(String qrelDir, NTCIRLoader.NTCIR_EVAL_TASK eval, NTCIRLoader.NTCIR11_TOPIC_TYPE type){
+		//String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/";
 		
 		String drFile = null;
 		
 		if(eval == NTCIR_EVAL_TASK.NTCIR11_DR_CH){
-			drFile = dir+"IMine.Qrel.DRC/IMine.Qrel.DRC.xml";
+			drFile = qrelDir+"IMine.Qrel.DRC/IMine.Qrel.DRC.xml";
 		}else if(eval == NTCIR_EVAL_TASK.NTCIR11_DR_EN){
-			drFile = dir+"IMine.Qrel.DRE/IMine.Qrel.DRE.xml";
+			drFile = qrelDir+"IMine.Qrel.DRE/IMine.Qrel.DRE.xml";
 		}else{
 			System.err.println("Type Error!");
 			System.exit(0);
@@ -248,9 +248,9 @@ public class PreProcessor {
 	/**
 	 * generate standard qrel file
 	 * **/
-	public static void generateQrelFile(String dir, NTCIR_EVAL_TASK eval, NTCIR11_TOPIC_TYPE type, NTCIR11_TOPIC_LEVEL stLevel){
+	public static void generateQrelFile(String xmlDir, String dir, NTCIR_EVAL_TASK eval, NTCIR11_TOPIC_TYPE type, NTCIR11_TOPIC_LEVEL stLevel){
 		
-		ArrayList<Triple<String, String, Integer>> triList = getXmlQrel(eval, type);
+		ArrayList<Triple<String, String, Integer>> triList = getXmlQrel(xmlDir, eval, type);
 		
 		HashSet<String> topicSet = new HashSet<String>();
 		
@@ -288,13 +288,13 @@ public class PreProcessor {
 					dFile = dir+"IMine-DR-C-Unclear-Dqrels-";
 					iFile = dir+"IMine-DR-C-Unclear-Iprob-";
 					
-					String chLevelFile = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/IMine.Qrel.SMC/IMine.Qrel.SMC.xml";
+					String chLevelFile = xmlDir + "IMine.Qrel.SMC/IMine.Qrel.SMC.xml";
 					load2LT(chLevelFile);					
 				}else if(eval == NTCIR_EVAL_TASK.NTCIR11_DR_EN){					
 					dFile = dir+"IMine-DR-E-Unclear-Dqrels-";
 					iFile = dir+"IMine-DR-E-Unclear-Iprob-";
 					
-					String enLevelFile = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/IMine.Qrel.SME/IMine.Qrel.SME.xml";
+					String enLevelFile = xmlDir + "IMine.Qrel.SME/IMine.Qrel.SME.xml";
 					load2LT(enLevelFile);
 				}
 				
@@ -397,21 +397,22 @@ public class PreProcessor {
 		*/
 		
 		//2
-		String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
+		//String dir = "H:/CurrentResearch/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
+		String dir = "H:/CurrentResearch/Ntcir11-IMine/Eval-IMine/0913/CheckEval/";
+		String xmlDir = "H:/CurrentResearch/Ntcir11-IMine/Eval-IMine/0913/";
+		
 		//ch, clear
-		//PreProcessor.generateQrelFile(dir, NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.CLEAR, null);
-		
+		//PreProcessor.generateQrelFile(xmlDir, dir, NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.CLEAR, null);		
 		//ch, unclear, fls
-		//PreProcessor.generateQrelFile(dir, NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.FLS);
-		
+		//PreProcessor.generateQrelFile(xmlDir, dir, NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.FLS);		
 		//ch, unclear, sls
-		//PreProcessor.generateQrelFile(dir, NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.SLS);
+		//PreProcessor.generateQrelFile(xmlDir, dir, NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.SLS);
 		
 		//en, clear
-		//PreProcessor.generateQrelFile(dir, NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.CLEAR, null);
+		PreProcessor.generateQrelFile(xmlDir, dir, NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.CLEAR, null);
 		//en, unclear, fls
-		//PreProcessor.generateQrelFile(dir, NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.FLS);
+		//PreProcessor.generateQrelFile(xmlDir, dir, NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.FLS);
 		//en, unclear, sls
-		//PreProcessor.generateQrelFile(dir, NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.SLS);
+		//PreProcessor.generateQrelFile(xmlDir, dir, NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, NTCIR11_TOPIC_LEVEL.SLS);
 	}
 }

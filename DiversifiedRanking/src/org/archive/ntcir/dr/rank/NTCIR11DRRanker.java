@@ -353,7 +353,7 @@ public class NTCIR11DRRanker {
 		///*
 		String drRunTitle = "TUTA1-D-E-1B";
 		String drRunIntroduction = "For the English document ranking subtask, the results of subtopic mining are used as input."
-				+ " Corresponding to different kinds of topics, different ranking strategies are adopted.";
+				+ "Corresponding to different kinds of topics, different ranking strategies are adopted.";
 		
 		DRRunParameter drRunParameter = new DRRunParameter(NTCIR_EVAL_TASK.NTCIR11_DR_EN, drRunTitle, drRunIntroduction);
 		try {

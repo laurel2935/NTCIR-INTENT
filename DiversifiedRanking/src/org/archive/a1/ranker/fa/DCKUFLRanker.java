@@ -12,6 +12,7 @@ import org.archive.dataset.trec.query.TRECSubtopic;
 import org.archive.ml.clustering.ap.affinitymain.InteractionData;
 import org.archive.ml.ufl.DCKUFL;
 import org.archive.ml.ufl.DCKUFL.ExemplarType;
+import org.archive.ml.ufl.DCKUFLForDR;
 import org.archive.ml.ufl.Mat;
 import org.archive.nicta.kernel.Kernel;
 import org.archive.nicta.ranker.ResultRanker;
@@ -278,8 +279,8 @@ public class DCKUFLRanker extends ResultRanker{
 		ArrayList<Double> popList = getPopularityList(subtopicList);
 		    	
     	int preK = (int)Mat.sum(capList); 
-    	
-    	DCKUFL dckufl = new DCKUFL(null, _lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList, null);
+    	//restoring
+    	DCKUFLForDR dckufl = new DCKUFLForDR(_lambda, _iterationTimes, _noChangeIterSpan, preK, releMatrix, subSimMatrix, capList, popList);
     	dckufl.run();
     	ArrayList<String> facilityList = dckufl.getSelectedFacilities();
     	//(1)final ranking by similarity between query and document

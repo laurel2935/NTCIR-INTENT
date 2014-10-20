@@ -692,6 +692,13 @@ public class IREval {
 		for(String topic: _topicList){
 			//run 
 			ArrayList<Integer> runItemList = _sysRun.get(topic);
+			
+			if(null == runItemList){
+				System.err.println("No results for "+topic);				
+				nDCGList.add(new Pair<String, Double>(topic, 0.0));					
+				continue;
+			}
+			
 			int runMaxCur = Math.min(cutoff, runItemList.size()); 
 			//i<b
 			double runCumuGainValue = 0.0;
@@ -1177,13 +1184,10 @@ public class IREval {
 	
 	
 	
-	private static enum STLevel{FLS, SLS};
+	private static enum STLevel{FLS, SLS};	
 	//specific for NTCIR-11 DR all topic
-	private void DSharpnDCG(Lang lang, STLevel stLevel, String standardDir, int cutoff){
-		if(lang == Lang.Chinese){
-			//String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
-			String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/TUTA1-D-C-1B.txt";
-						
+	private void DSharpnDCG(String sysRunFile, Lang lang, STLevel stLevel, String standardDir, int cutoff){
+		if(lang == Lang.Chinese){						
 			//unclear			
 			String ch_unclear_qrel = null, ch_unclear_ipro = null;
 			if(stLevel == STLevel.FLS){
@@ -1198,11 +1202,12 @@ public class IREval {
 			unclearIREval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
 			unclearIREval.loadStandardFile(EVAL_TYPE.DIV_NTCIR_DR, ch_unclear_qrel, ch_unclear_ipro);
 			ArrayList<Triple<Double, Double, Double>> tripleList = unclearIREval.DSharpnDCG(2, cutoff);
-			System.out.println(stLevel.toString()+"\t"+"D#-nDCG for Unclear Topics");			
+			
+			System.out.println("\n\n"+stLevel.toString()+"\t"+"D#-nDCG for Unclear Topics"+"\tsize: "+unclearIREval._topicList.size());			
 			int i=0;
 			for(; i<tripleList.size(); i++){
 				Triple<Double, Double, Double> triple = tripleList.get(i);
-				System.out.println(unclearIREval._topicList.get(i)+"\t"+triple.getThird().toString());
+				System.out.println(unclearIREval._topicList.get(i)+"\t"+"I-rec: "+triple.getFirst().toString()+"\tD-nDCG: "+triple.getSecond().toString()+"\tD#-nDCG: "+triple.getThird().toString());
 			}		
 			//System.out.println("size:\t"+tripleList.size());
 			
@@ -1214,7 +1219,7 @@ public class IREval {
 			//nDCG@k
 			ArrayList<Pair<String, Double>> nDCGList = clearIREval.nDCG(2, 20);
 			
-			System.out.println("nDCG for Clear Topics");
+			System.out.println("\nnDCG for Clear Topics"+"\tsize: "+clearIREval._topicList.size());
 			for(Pair<String, Double> pair: nDCGList){
 				System.out.println(pair.toString());
 			}
@@ -1225,14 +1230,67 @@ public class IREval {
 				Triple<Double, Double, Double> triple = tripleList.get(j);
 				sum += triple.getThird();				
 			}
+			//-1 due to 0033
+			System.out.println("\n"+lang.toString()+"-"+stLevel.toString()+"  #avg w.r.t. unclear topics:\t"+sum/(unclearIREval._topicList.size()-1));
+			
 			for(Pair<String, Double> pair: nDCGList){
 				sum += pair.getSecond();
 			}
-			
-			System.out.println("#avg:\t"+sum/(unclearIREval._topicList.size()+clearIREval._topicList.size()));
+			//-1 due to 0033
+			System.out.println("\n"+lang.toString()+"-"+stLevel.toString()+"  #avg w.r.t. all topics:\t"+sum/(unclearIREval._topicList.size()+clearIREval._topicList.size()-1));
 			
 		}else{
+		
+			//unclear			
+			String ch_unclear_qrel = null, ch_unclear_ipro = null;
+			if(stLevel == STLevel.FLS){
+				ch_unclear_qrel = standardDir+"IMine-DR-E-Unclear-Dqrels-FLS";
+				ch_unclear_ipro = standardDir+"IMine-DR-E-Unclear-Iprob-FLS";
+			}else{
+				ch_unclear_qrel = standardDir+"IMine-DR-E-Unclear-Dqrels-SLS";
+				ch_unclear_ipro = standardDir+"IMine-DR-E-Unclear-Iprob-SLS";
+			}
 			
+			IREval unclearIREval = new IREval();
+			unclearIREval.loadSysRun(EVAL_TYPE.DIV_NTCIR_DR, sysRunFile);
+			unclearIREval.loadStandardFile(EVAL_TYPE.DIV_NTCIR_DR, ch_unclear_qrel, ch_unclear_ipro);
+			ArrayList<Triple<Double, Double, Double>> tripleList = unclearIREval.DSharpnDCG(2, cutoff);
+			
+			System.out.println("\n\n"+stLevel.toString()+"\t"+"D#-nDCG for Unclear Topics"+"\tsize: "+unclearIREval._topicList.size());			
+			int i=0;
+			for(; i<tripleList.size(); i++){
+				Triple<Double, Double, Double> triple = tripleList.get(i);
+				System.out.println(unclearIREval._topicList.get(i)+"\t"+"I-rec: "+triple.getFirst().toString()+"\tD-nDCG: "+triple.getSecond().toString()+"\tD#-nDCG: "+triple.getThird().toString());
+			}		
+			//System.out.println("size:\t"+tripleList.size());
+			
+			//clear
+			String ch_clear_qrel = standardDir+"IMine-DR-Qrel-E-Clear";
+			IREval clearIREval = new IREval();
+			clearIREval.loadSysRun(EVAL_TYPE.CLEAR_NTCIR, sysRunFile);
+			clearIREval.loadStandardFile(EVAL_TYPE.CLEAR_NTCIR, ch_clear_qrel, null);
+			//nDCG@k
+			ArrayList<Pair<String, Double>> nDCGList = clearIREval.nDCG(2, 20);
+			
+			System.out.println("\n\nnDCG for Clear Topics"+"\tsize: "+clearIREval._topicList.size());
+			for(Pair<String, Double> pair: nDCGList){
+				System.out.println(pair.toString());
+			}
+			
+			//over all topics
+			double sum = 0.0;
+			for(int j=0; j<tripleList.size(); j++){
+				Triple<Double, Double, Double> triple = tripleList.get(j);
+				sum += triple.getThird();				
+			}
+			//-1 because of 0076 due we failed to obtain baseline documents
+			System.out.println("\n"+lang.toString()+"-"+stLevel.toString()+"  #avg w.r.t. unclear topics:\t"+sum/(unclearIREval._topicList.size()-1));
+			
+			for(Pair<String, Double> pair: nDCGList){
+				sum += pair.getSecond();
+			}
+			//-1 becasue of 0100 due we failed to obtain baseline documents, meanwhile, 0084,0085,00925 are not included due to no rele judgements
+			System.out.println("\n"+lang.toString()+"-"+stLevel.toString()+"  #avg w.r.t. all topics:\t"+sum/(unclearIREval._topicList.size()+clearIREval._topicList.size()-1));
 		}
 	}
 	
@@ -1600,9 +1658,9 @@ public class IREval {
 		
 		////DR subtask
 		/*
-		String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
+		String dir = "H:/CurrentResearch/Ntcir11-IMine/Eval-IMine/0913/CheckEval/";
 		//Chinese unclear
-		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/TUTA1-D-C-1B.txt";
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-C-1B.txt";
 		String ch_unclear_qrel = dir+"IMine-DR-C-Unclear-Dqrels-SLS";
 		String ch_unclear_ipro = dir+"IMine-DR-C-Unclear-Iprob-SLS";
 		IREval irEval = new IREval();
@@ -1613,11 +1671,72 @@ public class IREval {
 		*/
 		
 		////DR subtask of NTCIR-11
-		String dir = "H:/v-haiyu/TaskPreparation/Ntcir11-IMine/Eval-IMine/20140830/CheckEval/";
+		//standard files
+		String dir = "H:/CurrentResearch/Ntcir11-IMine/Eval-IMine/0913/CheckEval/";
+		IREval irEval = new IREval();	
 		
-		IREval irEval = new IREval();
-		irEval.DSharpnDCG(Lang.Chinese, STLevel.SLS, dir, 20);
+		//submitted run
+		//Chinese
+		/*		
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-C-1B.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.Chinese, STLevel.FLS, dir, 20);
+		*/
+		//50
+		//String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-C-1B.txt";
+		//irEval.DSharpnDCG(sysRunFile, Lang.Chinese, STLevel.SLS, dir, 50);
 		
+		//baseline run
+		/*		
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-11/DR/CH/DR_Baseline/BASELINE.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.Chinese, STLevel.FLS, dir, 20);
+		*/
+		//50
+		//String sysRunFile = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-11/DR/CH/DR_Baseline/BASELINE.txt";
+		//irEval.DSharpnDCG(sysRunFile, Lang.Chinese, STLevel.SLS, dir, 50);
+		
+		//English
+		
+		//TUTA1-D-E-1B.txt & FLS & 20
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-1B.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.FLS, dir, 20);
+		*/
+		//TUTA1-D-E-1B.txt & SLS
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-1B.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 20);
+		*/
+		//SLS & 50
+		//String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-1B.txt";
+		//irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 50);
+		
+		//TUTA1-D-E-2B.txt & FLS
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-2B.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.FLS, dir, 20);
+		*/
+		//TUTA1-D-E-1B.txt & SLS
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-2B.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 20);
+		*/
+		//SLS & 50
+		//String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-2B.txt";
+		//irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 50);
+		
+		//indri baseline & FLS
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-11/DR/EN/EntireBaseline.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.FLS, dir, 20);
+		*/
+		//indri baseline & SLS
+		/*
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-11/DR/EN/EntireBaseline.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 20);
+		*/
+		//SLS & 50
+		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-11/DR/EN/EntireBaseline.txt";
+		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 50);
 	}
 	
 

@@ -360,12 +360,13 @@ public class HttpDownloader {
 	 * */
 	public static void main(String [] args){
 		//1
-		/*
+		///*
 		try{
 			//System.out.println(queryUrl);
 			//System.out.println(URLEncoder.encode(queryUrl, "utf-8"));
 			
 			StringBuffer buffer;
+			//replace the query
 			String oov = "american online";
 			String encodedOOV = URLEncoder.encode(oov, "utf-8");
 			String queryUrl = "http://www.google.com/search?hl=zh-CN&as_epq="+encodedOOV+"&num=10&start=0";
@@ -379,15 +380,17 @@ public class HttpDownloader {
 		}catch(Exception e){
 			e.printStackTrace();
 		}	
-		*/
+		//*/
 		
 		//2
+		/*
 		try {
 			HttpDownloader.queryClueweb();
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();
 		}
+		*/
 		
 		
 	}
