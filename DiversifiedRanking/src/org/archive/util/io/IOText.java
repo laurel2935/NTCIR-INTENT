@@ -205,7 +205,7 @@ public class IOText {
 	 * @return
 	 * @throws IOException
 	 */
- 	public static BufferedWriter getBufferedWriter_UTF8_(String targetFile) throws IOException{
+ 	public static BufferedWriter getBufferedWriter(String targetFile, String encoding) throws IOException{
 		//check exist
 		File file = new File(targetFile);
 		if(!file.exists()){
@@ -213,7 +213,7 @@ public class IOText {
 			file = new File(targetFile);
 		}
 		//generate
-		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file)));
+		BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), encoding));
 		return writer;
 	}
 	/**

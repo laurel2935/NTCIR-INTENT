@@ -53,7 +53,7 @@ public class TRECQueryAspects implements Comparable<TRECQueryAspects> {
 	//weight of each subtopic or aspect normalized using count of relevant documents
 	public double[] _weights = null;
 	//for computing nDCG
-	private HashMap<Integer, HashSet<String>> _subtopic2ReleSet;
+	public HashMap<Integer, HashSet<String>> _subtopic2ReleSet;
 	
 	public TRECQueryAspects(String query_name) {
 		this(query_name, -1, null);
@@ -335,7 +335,7 @@ public class TRECQueryAspects implements Comparable<TRECQueryAspects> {
 	/////////////////////////
 	//subtopic specific nDCG with topn documents
 	/////////////////////////
-	private void iniSubtopic2ReleSet(){
+	public void iniSubtopic2ReleSet(){
 		for(Entry<String, boolean[]> entry : _aspects.entrySet()){
 			String doc_name = entry.getKey();
 			boolean[] b_aspects = entry.getValue();

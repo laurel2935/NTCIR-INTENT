@@ -4,8 +4,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.archive.util.tuple.Pair;
+
+/**
+ * A wrapper of a two-level hierarchy of subtopics
+ * **/
 
 public class TwoLevelTopic {
 	
@@ -79,6 +84,50 @@ public class TwoLevelTopic {
 				_slsContentMap.put(slsSet.get(slsID-1).getFirst(), new Pair<Integer, Integer>(flsID, slsID));
 			}
 		}
+	}
+	
+	/**
+	 * get fls probability based on number of descendant topic units (i.e., second-level subtopics), which are equally treated 
+	 * **/
+	public double getFlsPro(int flsID){
+		int sumOfTopicUnits = 0;
+		for(ArrayList<Pair<String, Double>> slsSet: _slsSetList){
+			sumOfTopicUnits += slsSet.size();
+		}
+		
+		return (_slsSetList.get(flsID-1)).size()*1.0/sumOfTopicUnits;
+	}
+	
+	/**
+	 * get relevance probability for a specific fls given the set of sls of a document
+	 * this function cal also be used for computing the marginal utility for a document w.r.t. a specific subtopic when
+	 * slsSetCoveredByDoc is the set difference, i.e., $(d_k,t_h^i)\$(L^(k-1),t_h^i)
+	 * 
+	 * @param flsID A specific first-level subtopic id
+	 * @param slsSetCoveredByDoc the set of second-level subtopics covered by a document
+	 * **/
+	public double getRelePro(int flsID, HashSet<String> slsSetCoveredByDoc){
+		ArrayList<Pair<String, Double>> slsList = _slsSetList.get(flsID-1);
+		//used as the denominator |#(t_h^i)|
+		int numberOfTopicUnits = slsList.size();
+		
+		/*
+		if(0 == numberOfTopicUnits){
+			System.err.println(_id+"\t"+flsID);
+		}
+		*/
+		
+		HashSet<String> slsSet = new HashSet<String>();
+		for(Pair<String, Double> sls: slsList){
+			slsSet.add(sls.first);
+		}		
+		slsSet.retainAll(slsSetCoveredByDoc);
+		
+		return (slsSet.size()*1.0)/numberOfTopicUnits;		
+	}
+	
+	public String getTopicID(){
+		return this._id;
 	}
 	
 	public String toString(){

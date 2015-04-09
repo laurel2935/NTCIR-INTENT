@@ -26,9 +26,12 @@ public class IREval {
 	 * DIV_NTCIR_SM		;
 	 * DIV_NTCIR_DR		blank
 	 * DIV_TREC			blank
-	 * CLEAR_NTCIR		no subtopic, metric as nDCG, used for clear topics of ntcir-11, temporal rank of temparalia subtask
+	 * CLEAR_NTCIR		no subtopic, metric as nDCG, used for clear topics of ntcir-11, temporal rank (TIR) of temporalia-1 subtask
+	 * 					(since TIR in Temporalia-1 is essentially a per-intent ranking instead of diversified ranking)
+	 * 
+	 * TDIV_NTCIR		temporal setting w.r.t. TIR in Temporalia-1
 	 * **/
-	public static enum EVAL_TYPE{DIV_NTCIR_SM, DIV_NTCIR_DR, DIV_TREC, CLEAR_NTCIR};
+	public static enum EVAL_TYPE{DIV_NTCIR_SM, DIV_NTCIR_DR, DIV_TREC, CLEAR_NTCIR, TDIV_NTCIR};
 	
 	/////////////////////
 	//Common
@@ -196,18 +199,19 @@ public class IREval {
 	 * **/
 	private void loadStandardFile(EVAL_TYPE evalType, String standardQreleFile, String standardIprobFile){
 		
-		try {
-			ArrayList<String> lineList = IOText.getLinesAsAList_UTF8(standardQreleFile);
+		try {			
 			
 			HashSet<String> topicSet = new HashSet<String>();
 			
 			if(evalType == EVAL_TYPE.CLEAR_NTCIR){
 				
+				ArrayList<String> clearLineList = IOText.getLinesAsAList_UTF8(standardQreleFile);
+				
 				this._topicToReleItemMap = new HashMap<String, ArrayList<Pair<Integer,Integer>>>();
 				this._itemReleMap = new HashMap<Integer, HashMap<String,Integer>>();
 				
 				String []array;
-				for(String line: lineList){
+				for(String line: clearLineList){
 					//array[0]:subtopic-id / array[1]:item-string / array[3]:relevance-level
 					array = line.split("\\s");
 					String subtopicid = array[0];
@@ -250,6 +254,9 @@ public class IREval {
 				}		
 				
 			} else if (evalType.toString().startsWith("DIV_NTCIR")){
+				
+				ArrayList<String> divLineList = IOText.getLinesAsAList_UTF8(standardQreleFile);
+				
 				String split = null;
 				if(evalType == EVAL_TYPE.DIV_NTCIR_DR){
 					split = "\\s";
@@ -299,7 +306,7 @@ public class IREval {
 				this._divItemReleMap = new HashMap<Integer, HashMap<String,HashSet<Pair<Integer,Integer>>>>();
 				
 				String [] array;
-				for(String line: lineList){
+				for(String line: divLineList){
 					//[0]: topic-id / array[1]: subtopic-id / array[2]: doc-name / array[3]: releLevel of L
 					array = line.split(split);
 					String topicid = array[0];
@@ -364,14 +371,377 @@ public class IREval {
 						
 						Collections.sort(releList, new PairComparatorBySecond_Desc<Integer, Integer>());
 					}
+				}	
+				
+			}else if(evalType.toString().startsWith("TDIV_NTCIR")){
+				
+				ArrayList<String> tdivLineList = IOText.getLinesAsAList_UTF8(standardQreleFile);
+				
+				String split = "\\s";
+				
+				//1
+				this._topicToSubtopicToReleItemMap = new HashMap<String, HashMap<Integer, ArrayList<Pair<Integer,Integer>>>>();
+				this._divItemReleMap = new HashMap<Integer, HashMap<String,HashSet<Pair<Integer,Integer>>>>();
+				
+				String [] array;
+				for(String tdivLine: tdivLineList){
+					
+					//array[0]: subtopic-id / array[1]: doc-name / array[2]: releLevel of L
+					array = tdivLine.split(split);
+					String topicid = array[0].substring(0, 3);
+					Integer stID = toSubID(array[0]);
+					Integer itemID = getItemIndex(array[1]);
+					Integer releLevel = Integer.parseInt(array[2].substring(1).trim());
+					
+					//for _topicList
+					if(!topicSet.contains(topicid)){
+						topicSet.add(topicid);
+						
+						_topicList.add(topicid);
+					}
+										
+					//if necessary
+					if(releLevel > 0){
+						//for _topicToSubtopicToReleItemMap
+						if(this._topicToSubtopicToReleItemMap.containsKey(topicid)){
+							HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stToReleItemMap = this._topicToSubtopicToReleItemMap.get(topicid);
+							
+							if(stToReleItemMap.containsKey(stID)){								
+								ArrayList<Pair<Integer, Integer>> releItemList = stToReleItemMap.get(stID);
+								releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));								
+							}else{								
+								ArrayList<Pair<Integer, Integer>> releItemList = new ArrayList<Pair<Integer,Integer>>();
+								releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));
+								stToReleItemMap.put(stID, releItemList);								
+							}
+							
+						}else{
+							HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stToReleItemMap = new HashMap<Integer, ArrayList<Pair<Integer,Integer>>>();
+							
+							ArrayList<Pair<Integer, Integer>> releItemList = new ArrayList<Pair<Integer,Integer>>();
+							releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));
+							stToReleItemMap.put(stID, releItemList);
+							
+							this._topicToSubtopicToReleItemMap.put(topicid, stToReleItemMap);
+						}
+						
+						//for _divItemReleMap
+						if(this._divItemReleMap.containsKey(itemID)){
+							HashMap<String, HashSet<Pair<Integer, Integer>>> usageMap = this._divItemReleMap.get(itemID);
+							if(usageMap.containsKey(topicid)){
+								HashSet<Pair<Integer, Integer>> releSet = usageMap.get(topicid);
+								releSet.add(new Pair<Integer, Integer>(stID, releLevel));
+							}else {
+								HashSet<Pair<Integer, Integer>> releSet = new HashSet<Pair<Integer,Integer>>();
+								releSet.add(new Pair<Integer, Integer>(stID, releLevel));
+								
+								usageMap.put(topicid, releSet);
+							}
+						}else{
+							HashMap<String, HashSet<Pair<Integer, Integer>>> usageMap = new HashMap<String, HashSet<Pair<Integer,Integer>>>();
+							
+							HashSet<Pair<Integer, Integer>> releSet = new HashSet<Pair<Integer,Integer>>();
+							releSet.add(new Pair<Integer, Integer>(stID, releLevel));							
+							usageMap.put(topicid, releSet);
+							
+							this._divItemReleMap.put(itemID, usageMap);							
+						}
+					}					
+				}	
+				
+				//sort releItemList for each subtopic
+				for(Entry<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> itemEntry: this._topicToSubtopicToReleItemMap.entrySet()){
+					HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stReleMap = itemEntry.getValue();
+					for(Entry<Integer, ArrayList<Pair<Integer, Integer>>> stEntry: stReleMap.entrySet()){
+						ArrayList<Pair<Integer, Integer>> releList = stEntry.getValue();
+						
+						Collections.sort(releList, new PairComparatorBySecond_Desc<Integer, Integer>());
+					}
+				}
+				
+				//for tir in Temporalia-1
+				this._topicToSubtopicMap = new HashMap<String, ArrayList<Pair<Integer,Double>>>();
+				for(String topicid: _topicList){
+					//sorted in order of subtopic id later: necessary
+					ArrayList<Pair<Integer, Double>> stList = new ArrayList<Pair<Integer,Double>>();
+					stList.add(new Pair<Integer, Double>(1, 0.25));
+					stList.add(new Pair<Integer, Double>(2, 0.25));
+					stList.add(new Pair<Integer, Double>(3, 0.25));
+					stList.add(new Pair<Integer, Double>(4, 0.25));
+					
+					this._topicToSubtopicMap.put(topicid, stList);
 				}				
-			}
+				
+			}else if(evalType.toString().startsWith("DIV_TREC")){
+				
+				ArrayList<String> qrelLineList = IOText.getLinesAsAList_UTF8(standardQreleFile);
+				
+				String split = "\\s";
+				
+				/*
+				//1
+				this._topicToSubtopicMap = new HashMap<String, ArrayList<Pair<Integer,Double>>>();
+				
+				ArrayList<String> probLineList = IOText.getLinesAsAList_UTF8(standardIprobFile);
+				String [] probArray;
+				for(String probLine: probLineList){
+					//[0]: topicid / [1]: subtopic-id / [2]: probability
+					probArray = probLine.split(split);
+					String topicid = probArray[0];
+					Integer stID = Integer.parseInt(probArray[1]);
+					Double stPro = Double.parseDouble(probArray[2]);
+					
+					//for _topicList
+					if(!topicSet.contains(topicid)){
+						topicSet.add(topicid);
+						
+						_topicList.add(topicid);
+					}					
+					
+					//sorted in order of subtopic id later: necessary
+					if(this._topicToSubtopicMap.containsKey(topicid)){
+						ArrayList<Pair<Integer, Double>> stList = this._topicToSubtopicMap.get(topicid);
+						stList.add(new Pair<Integer, Double>(stID, stPro));
+					}else{
+						ArrayList<Pair<Integer, Double>> stList = new ArrayList<Pair<Integer,Double>>();
+						stList.add(new Pair<Integer, Double>(stID, stPro));
+						
+						this._topicToSubtopicMap.put(topicid, stList);
+					}
+				}	
+				//for
+				for(Entry<String, ArrayList<Pair<Integer, Double>>> topicEntry: this._topicToSubtopicMap.entrySet()){
+					ArrayList<Pair<Integer, Double>> stList = topicEntry.getValue();
+					
+					Collections.sort(stList, new PairComparatorByFirst_Asc<Integer, Double>());
+				}
+				*/
+				
+				//2
+				this._topicToSubtopicToReleItemMap = new HashMap<String, HashMap<Integer, ArrayList<Pair<Integer,Integer>>>>();
+				this._divItemReleMap = new HashMap<Integer, HashMap<String,HashSet<Pair<Integer,Integer>>>>();
+				
+				String [] array;
+				for(String line: qrelLineList){
+					//[0]: topic-id / array[1]: subtopic-id / array[2]: doc-name / array[3]: releLevel of L 
+					//as for array[3]: releLevel of L. Commonly, it should be >=0 as relevant, in 2011, there is a -2 span case
+					array = line.split(split);
+					
+					String topicid = array[0];
+					Integer stID = Integer.parseInt(array[1]);
+					Integer itemID = getItemIndex(array[2]);
+					Integer releLevel = Integer.parseInt(array[3]);
+										
+					//if necessary
+					if(releLevel > 0){
+						//for _topicList
+						if(!topicSet.contains(topicid)){
+							topicSet.add(topicid);
+							
+							_topicList.add(topicid);
+						} 
+						
+						//for _topicToSubtopicToReleItemMap
+						if(this._topicToSubtopicToReleItemMap.containsKey(topicid)){
+							HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stToReleItemMap = this._topicToSubtopicToReleItemMap.get(topicid);
+							
+							if(stToReleItemMap.containsKey(stID)){								
+								ArrayList<Pair<Integer, Integer>> releItemList = stToReleItemMap.get(stID);
+								releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));								
+							}else{								
+								ArrayList<Pair<Integer, Integer>> releItemList = new ArrayList<Pair<Integer,Integer>>();
+								releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));
+								stToReleItemMap.put(stID, releItemList);								
+							}
+							
+						}else{
+							HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stToReleItemMap = new HashMap<Integer, ArrayList<Pair<Integer,Integer>>>();
+							
+							ArrayList<Pair<Integer, Integer>> releItemList = new ArrayList<Pair<Integer,Integer>>();
+							releItemList.add(new Pair<Integer, Integer>(itemID, releLevel));
+							stToReleItemMap.put(stID, releItemList);
+							
+							this._topicToSubtopicToReleItemMap.put(topicid, stToReleItemMap);
+						}
+						
+						//for _divItemReleMap
+						if(this._divItemReleMap.containsKey(itemID)){
+							HashMap<String, HashSet<Pair<Integer, Integer>>> usageMap = this._divItemReleMap.get(itemID);
+							if(usageMap.containsKey(topicid)){
+								HashSet<Pair<Integer, Integer>> releSet = usageMap.get(topicid);
+								releSet.add(new Pair<Integer, Integer>(stID, releLevel));
+							}else {
+								HashSet<Pair<Integer, Integer>> releSet = new HashSet<Pair<Integer,Integer>>();
+								releSet.add(new Pair<Integer, Integer>(stID, releLevel));
+								
+								usageMap.put(topicid, releSet);
+							}
+						}else{
+							HashMap<String, HashSet<Pair<Integer, Integer>>> usageMap = new HashMap<String, HashSet<Pair<Integer,Integer>>>();
+							
+							HashSet<Pair<Integer, Integer>> releSet = new HashSet<Pair<Integer,Integer>>();
+							releSet.add(new Pair<Integer, Integer>(stID, releLevel));							
+							usageMap.put(topicid, releSet);
+							
+							this._divItemReleMap.put(itemID, usageMap);							
+						}
+					}					
+				}	
+				
+				//sort releItemList for each subtopic
+				for(Entry<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> itemEntry: this._topicToSubtopicToReleItemMap.entrySet()){
+					HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stReleMap = itemEntry.getValue();
+					for(Entry<Integer, ArrayList<Pair<Integer, Integer>>> stEntry: stReleMap.entrySet()){
+						ArrayList<Pair<Integer, Integer>> releList = stEntry.getValue();
+						
+						Collections.sort(releList, new PairComparatorBySecond_Desc<Integer, Integer>());
+					}
+				}
+				
+			}			
+			
 		} catch (Exception e) {
 			// TODO: handle exception
 			e.printStackTrace();
 		}
 		
 	}
+	
+	private Integer toSubID(String stIDStr){
+		String str = stIDStr.substring(3);
+		if(str.equals("a")){
+			return 1;
+		}else if(str.equals("f")){
+			return 2;
+		}else if(str.equals("p")){
+			return 3;
+		}else if(str.equals("r")){
+			return 4;
+		}else{
+			System.err.println("type error!");
+			return null;
+		}		
+	}
+	
+	/**
+	 * basic statistics w.r.t. qrel of Temporalia-1
+	 * **/
+
+	private void staOfTemporalia_1(){
+		//
+		//check
+		for(String topicid: _topicList){
+			int stSum = 0;
+			HashMap<Integer, ArrayList<Pair<Integer, Integer>>> stMap = _topicToSubtopicToReleItemMap.get(topicid);
+			for(Entry<Integer, ArrayList<Pair<Integer, Integer>>> stEntry: stMap.entrySet()){
+				stSum += stEntry.getValue().size();				
+			}
+			
+			int docSum = 0;
+			for(Entry<Integer, HashMap<String, HashSet<Pair<Integer, Integer>>>> docMap : _divItemReleMap.entrySet()){
+				if(docMap.getValue().containsKey(topicid)){
+					docSum += docMap.getValue().get(topicid).size();					
+				}
+			}
+			
+			if(stSum != docSum){
+				System.out.println(topicid);
+				System.out.println("stSum:\t"+stSum);
+				System.out.println("docSum:\t"+docSum);
+				return;
+			}
+		}
+		
+		//Average number of rele-doc per subtopic	
+		int docStSum = 0;
+		for(Entry<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> tEntry: 
+			_topicToSubtopicToReleItemMap.entrySet()){
+			
+			for(Entry<Integer, ArrayList<Pair<Integer, Integer>>> stEntry: tEntry.getValue().entrySet()){
+				
+				docStSum += stEntry.getValue().size();
+				
+			}			
+		}		
+		System.out.println("AveNumOfReleDocPerSubtopic:\t"+docStSum/(1.0*4*_topicToSubtopicToReleItemMap.size()));
+		
+		//Average number of rele-doc per topic
+		int docTSum = 0;
+		for(Entry<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> tEntry: 
+			_topicToSubtopicToReleItemMap.entrySet()){
+			
+			HashSet<Integer> itemSet = new HashSet<Integer>();
+			
+			for(Entry<Integer, ArrayList<Pair<Integer, Integer>>> stEntry: tEntry.getValue().entrySet()){
+				
+				for(Pair<Integer, Integer> p: stEntry.getValue()){
+					if(!itemSet.contains(p.first)){
+						itemSet.add(p.first);
+					}
+				}
+				
+			}		
+			
+			docTSum += itemSet.size();
+		}		
+		System.out.println("AveNumOfReleDocPerTopic:\t"+docTSum/(1.0*_topicToSubtopicToReleItemMap.size()));
+		
+		//Average number of mul-rele-doc per topic
+		int muldocTSum = 0;
+		for(Entry<String, HashMap<Integer, ArrayList<Pair<Integer, Integer>>>> tEntry: 
+			_topicToSubtopicToReleItemMap.entrySet()){
+			
+			HashSet<Integer> itemSet = new HashSet<Integer>();
+			HashSet<Integer> mulitemSet = new HashSet<Integer>();
+			int tem = 0;
+			
+			for(Entry<Integer, ArrayList<Pair<Integer, Integer>>> stEntry: tEntry.getValue().entrySet()){
+				
+				for(Pair<Integer, Integer> p: stEntry.getValue()){
+					if(!itemSet.contains(p.first)){
+						itemSet.add(p.first);
+					}else{
+						if(!mulitemSet.contains(p.first)){
+							mulitemSet.add(p.first);
+							tem++;
+						}
+					}
+				}				
+			}		
+			
+			muldocTSum += tem;
+			System.out.print(tem+" ");
+		}
+		System.out.println();
+		
+		System.out.println("AveNumOfMulreleDocPerTopic:\t"+muldocTSum/(1.0*_topicToSubtopicToReleItemMap.size()));
+
+		//distribution of mul-rele-document
+		int [] mulArray = new int[4];
+		mulArray[0] = 0;
+		mulArray[1] = 0;
+		mulArray[2] = 0;
+		mulArray[3] = 0;
+		for(Entry<Integer, HashMap<String, HashSet<Pair<Integer, Integer>>>> itemEntry: 
+			_divItemReleMap.entrySet()){
+			
+			HashMap<String, HashSet<Pair<Integer, Integer>>> usageMap = itemEntry.getValue();
+			
+			for(Entry<String, HashSet<Pair<Integer, Integer>>> usageEntry: usageMap.entrySet()){
+				
+				mulArray[usageEntry.getValue().size()-1]++;
+				
+			}			
+		}
+		//
+		System.out.println("NumOf 1-rele documents:\t"+mulArray[0]);
+		System.out.println("NumOf 2-rele documents:\t"+mulArray[1]);
+		System.out.println("NumOf 3-rele documents:\t"+mulArray[2]);
+		System.out.println("NumOf 4-rele documents:\t"+mulArray[3]);
+		
+	}
+	////////////////////////////////////////
+	
 	
 	/**
 	 * Metric: P@k
@@ -1672,8 +2042,10 @@ public class IREval {
 		
 		////DR subtask of NTCIR-11
 		//standard files
+		/*
 		String dir = "H:/CurrentResearch/Ntcir11-IMine/Eval-IMine/0913/CheckEval/";
 		IREval irEval = new IREval();	
+		*/
 		
 		//submitted run
 		//Chinese
@@ -1735,8 +2107,20 @@ public class IREval {
 		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 20);
 		*/
 		//SLS & 50
+		/*
 		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/ntcir/ntcir-11/DR/EN/EntireBaseline.txt";
 		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.SLS, dir, 50);
+		*/
+		
+		
+		/**
+		 * basic statistics w.r.t. qrel of Temporalia-1
+		 * **/
+		String standardReleFile = "C:/T/WorkBench/Bench_Dataset/DataSet_Temporalia/Temporalia/FormalRun/tir_formalrun_20140808clean.qrels";
+
+		IREval irEval = new IREval();
+		irEval.loadStandardFile(EVAL_TYPE.TDIV_NTCIR, standardReleFile, "");
+		irEval.staOfTemporalia_1();
 	}
 	
 

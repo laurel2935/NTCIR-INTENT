@@ -39,7 +39,7 @@ public class Checker {
 			}else if(NTCIR_EVAL_TASK.NTCIR11_DR_CH==eval || NTCIR_EVAL_TASK.NTCIR11_DR_EN==eval){
 				String [] fields = line.split("\\s");
 				resultID = fields[0];
-			}else{
+			}else{				
 				System.err.println("NTCIR_EVAL_TASK Input Error!");
 				System.exit(1);
 			}

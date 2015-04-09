@@ -2,7 +2,7 @@ package org.archive.dataset;
 
 public class DataSetDiretory {
 	//
-	public static final String ROOT = "H:/v-haiyu/CodeBench/Pool_DataSet/DataSet_DiversifiedRanking/";
+	public static final String ROOT = "C:/T/WorkBench/Bench_Dataset/DataSet_DiversifiedRanking/";
 	
 	
 	//ntcir-11
