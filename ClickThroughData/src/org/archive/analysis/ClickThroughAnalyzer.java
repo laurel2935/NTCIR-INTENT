@@ -1247,9 +1247,11 @@ public class ClickThroughAnalyzer {
     		//
     		for(IntStrInt ununiqueQuery: UniqueQTextList){    			
     			if(LogVersion.AOL == version){
-    				words = Tokenizer.qSegment(ununiqueQuery.getSecond(), Lang.English);
+    				//words = Tokenizer.qSegment(ununiqueQuery.getSecond(), Lang.English);
+    				words = Tokenizer.adaptiveQuerySegment(Lang.English, ununiqueQuery.getSecond(), "", true, true);
     			}else{
-    				words = Tokenizer.qSegment(ununiqueQuery.getSecond(), Lang.Chinese);
+    				//words = Tokenizer.qSegment(ununiqueQuery.getSecond(), Lang.Chinese);
+    				words = Tokenizer.adaptiveQuerySegment(Lang.Chinese, ununiqueQuery.getSecond(), "", true, true);
     			}
     			//
     			if(null!=words){
@@ -1595,11 +1597,11 @@ public class ClickThroughAnalyzer {
 	//(3): SogouQ2012: the same cookie id in a day;
 	//////////////////////////////////
 	/** analysis for SogouQ2012 session identification
-	//ÓÃ»§IDÊÇ¸ù¾ÝÓÃ»§Ê¹ÓÃä¯ÀÀÆ÷·ÃÎÊËÑË÷ÒýÇæÊ±µÄCookieÐÅÏ¢×Ô¶¯¸³Öµ£¬¼´Í¬Ò»´ÎÊ¹ÓÃä¯ÀÀÆ÷ÊäÈëµÄ²»Í¬²éÑ¯¶ÔÓ¦Í¬Ò»¸öÓÃ»§ID
-	20111230000009	96994a0480e7e1edcaef67b20d8816b7	Î°´óµ¼ÑÝ	1	1	http://movie.douban.com/review/1128960/
-	20111230000135	96994a0480e7e1edcaef67b20d8816b7	Î°´óµ¼ÑÝ	2	2	http://www.mtime.com/news/2009/02/20/1404845.html
-	20111230000149	96994a0480e7e1edcaef67b20d8816b7	Î°´óµ¼ÑÝ	5	3	http://i.mtime.com/1449171/blog/4297703/
-	20111230000439	96994a0480e7e1edcaef67b20d8816b7	Î°´óµ¼ÑÝ	9	4	http://news.xinhuanet.com/newmedia/2007-08/14/content_6527307.htm
+	//ï¿½Ã»ï¿½IDï¿½Ç¸ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Cookieï¿½ï¿½Ï¢ï¿½Ô¶ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Í¬Ò»ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½Í¬ï¿½ï¿½Ñ¯ï¿½ï¿½Ó¦Í¬Ò»ï¿½ï¿½ï¿½Ã»ï¿½ID
+	20111230000009	96994a0480e7e1edcaef67b20d8816b7	Î°ï¿½ï¿½ï¿½ï¿½	1	1	http://movie.douban.com/review/1128960/
+	20111230000135	96994a0480e7e1edcaef67b20d8816b7	Î°ï¿½ï¿½ï¿½ï¿½	2	2	http://www.mtime.com/news/2009/02/20/1404845.html
+	20111230000149	96994a0480e7e1edcaef67b20d8816b7	Î°ï¿½ï¿½ï¿½ï¿½	5	3	http://i.mtime.com/1449171/blog/4297703/
+	20111230000439	96994a0480e7e1edcaef67b20d8816b7	Î°ï¿½ï¿½ï¿½ï¿½	9	4	http://news.xinhuanet.com/newmedia/2007-08/14/content_6527307.htm
 	//
 	 * **/
 	
@@ -2071,7 +2073,7 @@ public class ClickThroughAnalyzer {
 	public static void main(String []args){
 		/** get ordered files **/
 		//ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2008);
-		//ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2012);
+		ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2012);
 		
 		/** split SogouQ2012 **/
 		//ClickThroughAnalyzer.splitSogouQ2012();
@@ -2106,7 +2108,7 @@ public class ClickThroughAnalyzer {
 		//ClickThroughAnalyzer.generateGraphFile_QQCoSession(LogVersion.SogouQ2012);
 		
 		//5	QQCoClick	
-		ClickThroughAnalyzer.generateGraphFile_QQCoClick(LogVersion.AOL);
+		//ClickThroughAnalyzer.generateGraphFile_QQCoClick(LogVersion.AOL);
 		//ClickThroughAnalyzer.generateGraphFile_QQCoClick(LogVersion.SogouQ2008);
 		//ClickThroughAnalyzer.generateGraphFile_QQCoClick(LogVersion.SogouQ2012);
 		

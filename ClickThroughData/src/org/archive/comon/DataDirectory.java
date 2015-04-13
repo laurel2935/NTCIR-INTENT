@@ -2,7 +2,8 @@ package org.archive.comon;
 
 public class DataDirectory {
 	//RawData
-	public static String RawDataRoot = "E:/Data_Log/DataSource_Raw/";
+	//public static String RawDataRoot = "E:/Data_Log/DataSource_Raw/";
+	public static String RawDataRoot = "C:/T/WorkBench/Corpus/DataSource_Raw/";
 	//
 	public static String [] RawData = {"AOLCorpus/", "SogouQ2008/", "SogouQ2012/"};
 	
@@ -23,7 +24,8 @@ public class DataDirectory {
 	public static String [] DigitalFormat = {"AOL/", "SogouQ2008/", "SogouQ2012/"};
 	
 	//ordered sogouQ
-	public static String OrderedSogouQRoot = "E:/Data_Log/DataSource_Analyzed/OrderedSogouQ/";
+	//public static String OrderedSogouQRoot = "E:/Data_Log/DataSource_Analyzed/OrderedSogouQ/";
+	public static String OrderedSogouQRoot = "C:/T/WorkBench/Corpus/DataSource_Analyzed/OrderedSogouQ/";
 	//
 	//public static String [] OrderedVersion = {"", "SogouQ2008/", "SogouQ2012/"};
 	
