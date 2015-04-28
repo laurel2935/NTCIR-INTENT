@@ -1553,7 +1553,7 @@ public class IREval {
 	}
 	
 	
-	
+	//subtopic-level
 	private static enum STLevel{FLS, SLS};	
 	//specific for NTCIR-11 DR all topic
 	private void DSharpnDCG(String sysRunFile, Lang lang, STLevel stLevel, String standardDir, int cutoff){
@@ -2042,10 +2042,10 @@ public class IREval {
 		
 		////DR subtask of NTCIR-11
 		//standard files
-		/*
+		///*
 		String dir = "H:/CurrentResearch/Ntcir11-IMine/Eval-IMine/0913/CheckEval/";
 		IREval irEval = new IREval();	
-		*/
+		//*/
 		
 		//submitted run
 		//Chinese
@@ -2069,10 +2069,10 @@ public class IREval {
 		//English
 		
 		//TUTA1-D-E-1B.txt & FLS & 20
-		/*
+		///*
 		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-1B.txt";
 		irEval.DSharpnDCG(sysRunFile, Lang.English, STLevel.FLS, dir, 20);
-		*/
+		//*/
 		//TUTA1-D-E-1B.txt & SLS
 		/*
 		String sysRunFile = "H:/v-haiyu/CodeBench/Pool_Output/Output_DiversifiedRanking/DRResult/SubmittedVersion/TUTA1-D-E-1B.txt";
@@ -2116,11 +2116,13 @@ public class IREval {
 		/**
 		 * basic statistics w.r.t. qrel of Temporalia-1
 		 * **/
+		/*
 		String standardReleFile = "C:/T/WorkBench/Bench_Dataset/DataSet_Temporalia/Temporalia/FormalRun/tir_formalrun_20140808clean.qrels";
 
 		IREval irEval = new IREval();
 		irEval.loadStandardFile(EVAL_TYPE.TDIV_NTCIR, standardReleFile, "");
 		irEval.staOfTemporalia_1();
+		*/
 	}
 	
 

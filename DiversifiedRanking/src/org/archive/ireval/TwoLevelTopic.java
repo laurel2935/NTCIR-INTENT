@@ -87,6 +87,19 @@ public class TwoLevelTopic {
 	}
 	
 	/**
+	 * get first-level subtopic probability
+	 * 
+	 * @param equal true means that the fls are equally treated, 1/(number of fls) false means using the official given pro
+	 * **/
+	public double getFlsPro(int flsID, boolean equal){
+		if(equal){
+			return (1.0/this._flsList.size());
+		}else{
+			return this._flsList.get(flsID-1).getSecond();
+		}
+	}
+	
+	/**
 	 * get fls probability based on number of descendant topic units (i.e., second-level subtopics), which are equally treated 
 	 * **/
 	public double getFlsPro(int flsID){
@@ -100,7 +113,7 @@ public class TwoLevelTopic {
 	
 	/**
 	 * get relevance probability for a specific fls given the set of sls of a document
-	 * this function cal also be used for computing the marginal utility for a document w.r.t. a specific subtopic when
+	 * this function can also be used for computing the marginal utility for a document w.r.t. a specific subtopic when
 	 * slsSetCoveredByDoc is the set difference, i.e., $(d_k,t_h^i)\$(L^(k-1),t_h^i)
 	 * 
 	 * @param flsID A specific first-level subtopic id

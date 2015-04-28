@@ -2069,11 +2069,64 @@ public class ClickThroughAnalyzer {
 			e.printStackTrace();
 		}		
 	}
-	
+	//--test for fajie
+	private static void getNumberOfRecordsSogouQ2012(){
+		//input file		
+		String inputDir = DataDirectory.RawDataRoot;
+		String unitFile = inputDir + "SogouQ2012_Original/querylog";			
+		//recordMap of one unit file
+		HashMap<String, Vector<SogouQRecord2012>> recordMap = new HashMap<String, Vector<SogouQRecord2012>>();
+		//
+		int count = 0;
+		int acceptedC = 0;
+		try{		
+			//input
+    		File file = new File(unitFile);
+			if(file.exists()){	
+				System.out.println("loading...\t"+unitFile);
+				BufferedReader reader = IOText.getBufferedReader(unitFile, "GBK");
+				//
+				String recordLine = null;				
+				SogouQRecord2012 record = null;				
+				while(null!=(recordLine=reader.readLine())){
+										
+					try{							
+						record = new SogouQRecord2012(recordLine, false);
+						if(null != record){
+							
+						}
+					}catch(Exception ee){
+						System.out.println("invalid record-line exist!");
+						System.out.println(recordLine);
+						System.out.println();
+						recordLine=null;
+						record=null;
+						continue;
+					}
+					count++;
+					//
+					if(null!=record && record.validRecord()){
+						acceptedC++;
+					}																
+				}
+				reader.close();
+				reader=null;				
+			}
+			
+		}catch(Exception e){
+			e.printStackTrace();
+		}	
+		
+		System.out.println("count:\t"+count);
+		System.out.println("accepted:\t"+acceptedC);
+	}
+	//
 	public static void main(String []args){
+		ClickThroughAnalyzer.getNumberOfRecordsSogouQ2012();
+		
 		/** get ordered files **/
 		//ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2008);
-		ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2012);
+		//ClickThroughAnalyzer.getOrderedSogouQ(LogVersion.SogouQ2012);
 		
 		/** split SogouQ2012 **/
 		//ClickThroughAnalyzer.splitSogouQ2012();

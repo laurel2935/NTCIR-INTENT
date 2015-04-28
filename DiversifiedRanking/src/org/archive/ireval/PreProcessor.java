@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.archive.dataset.ntcir.NTCIRLoader.NTCIR11_TOPIC_TYPE;
 import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.Pair;
+import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.Triple;
 import org.jdom.Document;
 import org.jdom.Element;
@@ -29,6 +31,7 @@ public class PreProcessor {
 	
 	//
 	public static ArrayList<TwoLevelTopic> _2LTList = new ArrayList<TwoLevelTopic>();
+	//{queryid -> TwoLevelTopic}
 	public static HashMap<String, TwoLevelTopic> _2LTMap = new HashMap<String, TwoLevelTopic>();
 
 	/**
@@ -753,6 +756,42 @@ public class PreProcessor {
 			}
 			System.out.println();
 			
+			//order systems by their avg
+			ArrayList<Pair<Integer, Double>> rankedSysByCom = new ArrayList<Pair<Integer,Double>>();
+			ArrayList<Pair<Integer, Double>> rankedSysByUp = new ArrayList<Pair<Integer,Double>>();
+			
+			for(int i=0; i<runIDList.size(); i++){
+				rankedSysByCom.add(new Pair<Integer, Double>(i+1, avgCommonERRIAList.get(i)));
+				
+				rankedSysByUp.add(new Pair<Integer, Double>(i+1, avgUpdatedERRIAList.get(i)));
+			}
+			
+			Collections.sort(rankedSysByCom, new PairComparatorBySecond_Desc<Integer, Double>());
+			Collections.sort(rankedSysByUp, new PairComparatorBySecond_Desc<Integer, Double>());
+			
+			System.out.println();
+			//1
+			System.out.println("Order by avgComERR-IA:");
+			for(Pair<Integer, Double> comR: rankedSysByCom){
+				System.out.print(comR.getFirst()+"\t");
+			}
+			System.out.println();
+			for(Pair<Integer, Double> comR: rankedSysByCom){
+				System.out.print(resultFormat.format(comR.getSecond())+"\t");
+			}
+			System.out.println();
+			//2
+			System.out.println();
+			System.out.println("Order by avgUpERR-IA:");
+			for(Pair<Integer, Double> upR: rankedSysByUp){
+				System.out.print(upR.getFirst()+"\t");
+			}
+			System.out.println();
+			for(Pair<Integer, Double> upR: rankedSysByUp){
+				System.out.print(resultFormat.format(upR.getSecond())+"\t");
+			}
+			System.out.println();
+			
 		}else {
 			System.err.println("Unsupported type error!");
 		}
@@ -880,7 +919,7 @@ public class PreProcessor {
 		*/
 		
 		//5	compared results of different versions of ERR-IA
-		PreProcessor.compareMetricERRIA(NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, 20);
-		//PreProcessor.compareMetricERRIA(NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, 20);
+		//PreProcessor.compareMetricERRIA(NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, 20);
+		PreProcessor.compareMetricERRIA(NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, 20);
 	}
 }
