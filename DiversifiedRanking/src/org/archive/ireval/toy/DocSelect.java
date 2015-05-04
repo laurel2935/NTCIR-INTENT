@@ -292,12 +292,19 @@ d_{8},d_{9},d_{10}		 0.0			0.2
 		/*
 		IASelect iaSelect = new IASelect();
 		iaSelect.getIdealList();
-		*/
 		
 		//PM-2Select
+		/*
 		DocSelect docSelect = new DocSelect();
 		docSelect.ini();
 		docSelect.PM2Select(5);
+		*/
+		String s = System.getProperty("java.library.path");
+		for(String t: s.split(";")){
+			System.out.println(t);
+		}
+		
+		//System.out.println(s);
 		
 		
 	}

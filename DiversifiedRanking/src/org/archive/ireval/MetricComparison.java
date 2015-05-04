@@ -1,6 +1,7 @@
 package org.archive.ireval;
 
 import java.io.File;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -11,10 +12,12 @@ import java.util.Map.Entry;
 import org.archive.dataset.ntcir.NTCIRLoader;
 import org.archive.dataset.ntcir.NTCIRLoader.NTCIR11_TOPIC_TYPE;
 import org.archive.dataset.ntcir.NTCIRLoader.NTCIR_EVAL_TASK;
+import org.archive.rscript.TauCorrelation;
 import org.archive.util.io.IOText;
 import org.archive.util.tuple.Pair;
 import org.archive.util.tuple.PairComparatorBySecond_Desc;
 import org.archive.util.tuple.Triple;
+import org.archive.util.tuple.TripleComparatorByThird_Desc;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
@@ -29,19 +32,34 @@ import org.jdom.input.SAXBuilder;
 public class MetricComparison {
 	
 	public static final boolean debug = false;
+	private static DecimalFormat resultFormat = new DecimalFormat("#.####");
 	//subtopic-level
 	private static enum STLevel{FLS, SLS};	
+	//metric dimension
+	private static enum IDimension{I_AWARE, I_SQUARE};
+	
 	
 	//alphaNDCg
 	private static double ALPHA = 0.5;
 	//D#-nDCG, DIN#-nDCG
 	private static double GAMA = 0.5;
-	
+	//B
+	private static int Experiment_B = 5000;
+	private static double CurveCut = 0.1;
+	//
+	private static TauCorrelation tauCorrelation;
+ 	
 	//
 	public static ArrayList<TwoLevelTopic> _2LTList = new ArrayList<TwoLevelTopic>();
 	//{queryid -> TwoLevelTopic}
 	public static HashMap<String, TwoLevelTopic> _2LTMap = new HashMap<String, TwoLevelTopic>();
 
+	MetricComparison(){
+		//
+		tauCorrelation = new TauCorrelation();
+	}
+	
+	
 	/**
 	 * Two-level hierarchy of subtopics
 	 * **/
@@ -198,8 +216,8 @@ public class MetricComparison {
 	
 	//{docid -> {queryid -> {flsID -> relevanceLevel}}}
 	private static HashMap<String, HashMap<String, HashMap<Integer, Integer>>> fls_DocReleMap = null;
-	//{docid -> {queryid -> {slsID -> relevanceLevel}}}
-	private static HashMap<String, HashMap<String, HashMap<Integer, Integer>>> sls_DocReleMap = null;
+	//{docid -> {queryid -> {flsID -> {slsID -> relevanceLevel}}}}
+	private static HashMap<String, HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>>> sls_DocReleMap = null;
 	
 	/**
 	 * Extract qrel xml file
@@ -294,7 +312,7 @@ public class MetricComparison {
 	private static void getDocUsageMap(String xmlDir, NTCIR_EVAL_TASK eval, NTCIR11_TOPIC_TYPE type){
 		//1 ini
 		fls_DocReleMap = new HashMap<String, HashMap<String, HashMap<Integer, Integer>>>();
-		sls_DocReleMap = new HashMap<String, HashMap<String, HashMap<Integer, Integer>>>();
+		sls_DocReleMap = new HashMap<String, HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>>>();
 		
 		ArrayList<Triple<String, String, Integer>> triList = null;
 		
@@ -341,23 +359,40 @@ public class MetricComparison {
 			//sls
 			Integer slsID = e.getSecond();
 			if(sls_DocReleMap.containsKey(docid)){
-				HashMap<String, HashMap<Integer, Integer>> docUsage = sls_DocReleMap.get(docid);
+				//queryid->
+				HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocUsage = sls_DocReleMap.get(docid);
 				
-				if(docUsage.containsKey(queryid)){
-					docUsage.get(queryid).put(slsID, releLevel);
+				if(slsDocUsage.containsKey(queryid)){
+					//flsID->
+					HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsDocUsage.get(queryid);					
+					if(slsQReleMap.containsKey(flsID)){
+						slsQReleMap.get(flsID).put(slsID, releLevel);
+					}else{
+						HashMap<Integer, Integer> slsReleMap = new HashMap<Integer, Integer>();
+						
+						slsReleMap.put(slsID, releLevel);						
+						slsQReleMap.put(flsID, slsReleMap);						
+					}					
 				}else{
+					HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = new HashMap<Integer, HashMap<Integer,Integer>>();
 					HashMap<Integer, Integer> slsReleMap = new HashMap<Integer, Integer>();
-					slsReleMap.put(slsID, releLevel);
 					
-					docUsage.put(queryid, slsReleMap);
+					slsReleMap.put(slsID, releLevel);					
+					slsQReleMap.put(flsID, slsReleMap);	
+					slsDocUsage.put(queryid, slsQReleMap);
 				}
 			}else{
-				HashMap<String, HashMap<Integer, Integer>> docUsage = new HashMap<String, HashMap<Integer,Integer>>();
-				HashMap<Integer, Integer> slsReleMap = new HashMap<Integer, Integer>();
-				slsReleMap.put(slsID, releLevel);
-				docUsage.put(queryid, slsReleMap);
+				HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocUsage = 
+						new HashMap<String, HashMap<Integer,HashMap<Integer,Integer>>>();
+				HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = 
+						new HashMap<Integer, HashMap<Integer,Integer>>();
+				HashMap<Integer, Integer> slsReleMap = 
+						new HashMap<Integer, Integer>();
 				
-				sls_DocReleMap.put(docid, docUsage);
+				slsReleMap.put(slsID, releLevel);				
+				slsQReleMap.put(flsID, slsReleMap);
+				slsDocUsage.put(queryid, slsQReleMap);				
+				sls_DocReleMap.put(docid, slsDocUsage);
 			}
 		}		
 	}
@@ -443,144 +478,275 @@ public class MetricComparison {
 		
 		return allRuns;
 	}
+	
+	
 	////////////
 	//Metrics
 	////////////
 	
 	/////	Subtopic-recall	////
-	private static HashSet<Integer> SRecall_i(String queryid, STLevel stLevel, int sID, 
-			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic){
+	/**
+	 * For I-Aware,  compute the covered subtopics for one first-level subtopic, 
+	 * 		always the id of this first-level subtopic if there exists one or more relevant documents w.r.t. this first-level subtopic 
+	 * For I-Square, compute the covered subtopics for one second-level subtopic
+	 * 		always the id of this second-level subtopic if there exists one or more relevant documents w.r.t. this second-level subtopic
+	 * 
+	 * **/
+	private static HashSet<Integer> SRecall_i(String queryid, STLevel stLevel, int flsID, 
+			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic, int squareSlsID){
 		
-		if(null==sysList || sysList.size() == 0){
+		if(null==sysList || sysList.size()==0){
 			return null;
 		}
 		
 		//without enough documents provided
 		int onCutoff = Math.min(sysList.size(), cutoff);
 		
-		HashSet<Integer> releDocSet_i = new HashSet<Integer>();		
-		
-		for(int k=1; k<=onCutoff; k++){
-			String docid = sysList.get(k-1);
+		if(STLevel.FLS==stLevel && 0>squareSlsID){
 			
-			if(STLevel.FLS == stLevel){
+			HashSet<Integer> coveredFlsSet_i = new HashSet<Integer>();	
+			
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);		
+				
 				if(fls_DocReleMap.containsKey(docid)){
 					
 					HashMap<String, HashMap<Integer, Integer>> docReleMap = fls_DocReleMap.get(docid);
 					if(docReleMap.containsKey(queryid)){
 						
 						HashMap<Integer, Integer> qReleMap = docReleMap.get(queryid);
-						if(qReleMap.containsKey(sID)){
+						if(qReleMap.containsKey(flsID)){
 							
-							releDocSet_i.add(sID);
+							coveredFlsSet_i.add(flsID);
 						}										
 					}					
-				}
-			}else{				
-				System.err.println("Non-accepted STLevel!");
-				System.exit(0);
-				return null;		
+				}				
 			}
-		}
-		
-		return releDocSet_i;
+			
+			return coveredFlsSet_i;
+			
+		}else if(STLevel.SLS==stLevel && 0<squareSlsID){	
+			//computing subtopic-specific retrieved documents for one specific second-level subtopic
+			
+			//representing the covered second-level subtopics
+			HashSet<Integer> coveredSlsSet_slsi = new HashSet<Integer>();
+			
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);
+				
+				if(sls_DocReleMap.containsKey(docid)){
+					HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocReleMap = sls_DocReleMap.get(docid);
+					if(slsDocReleMap.containsKey(queryid)){
+						HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsDocReleMap.get(queryid);
+						if(slsQReleMap.containsKey(flsID)){
+							HashMap<Integer, Integer> slsFlsReleMap = slsQReleMap.get(flsID);
+							if(slsFlsReleMap.containsKey(squareSlsID)){
+								coveredSlsSet_slsi.add(squareSlsID);
+							}							
+						}						
+					}					
+				}
+			}
+
+			return coveredSlsSet_slsi;
+		}else{
+			System.err.println("Non-accepted setting error!");
+			System.exit(0);
+			return null;	
+		}		
 	}
 	
-	private static double SRecall(String queryid, STLevel stLevel, 
-			ArrayList<String> sysList, int cutoff){	
+	/**
+	 * For I-Aware,  compute the SRecall for the query
+	 * For I-Square, compute the SRecall for a first-level subtopic
+	 * **/
+	
+	private static double SRecall(String queryid, IDimension iDimension, 
+			ArrayList<String> sysList, int cutoff, int squareFlsID){	
 		
 		TwoLevelTopic topic = _2LTMap.get(queryid);
-		//fls
-		if(STLevel.FLS == stLevel){
+		//intent-aware
+		if(IDimension.I_AWARE==iDimension && 0>squareFlsID){
+			
 			int flsCount = topic._flsList.size();			
 			
-			HashSet<Integer> releFlsSet = new HashSet<Integer>();
+			HashSet<Integer> coveredFlsSet = new HashSet<Integer>();
 			
 			for(int i=1; i<=flsCount; i++){
-				HashSet<Integer> releFlsSet_i = SRecall_i(queryid,stLevel, i, sysList,cutoff, topic);
-				if(null != releFlsSet_i){
-					releFlsSet.addAll(releFlsSet_i);
+				HashSet<Integer> coveredFlsSet_i = SRecall_i(queryid, STLevel.FLS, i, sysList, cutoff, topic, -1);
+				if(null != coveredFlsSet_i){
+					coveredFlsSet.addAll(coveredFlsSet_i);
 				}
 			}
 			
-			double sRecall = (1.0*releFlsSet.size())/flsCount;
+			double sRecall = (1.0*coveredFlsSet.size())/flsCount;
 			
 			return sRecall;
-		}else{			
-			System.err.println("Non-accepted STLevel!");
+			
+		//intent-square
+		}else if(IDimension.I_SQUARE == iDimension && 0<squareFlsID){
+			//covered second-level subtopics for the given fls
+			HashSet<Integer> coveredSlsSet_flsi = new HashSet<Integer>();
+			
+			ArrayList<Pair<String, Double>> slsList = topic._slsSetList.get(squareFlsID-1);
+			
+			for(int slsI = 1; slsI<=slsList.size(); slsI++){
+				HashSet<Integer> coveredSlsSet_slsi = SRecall_i(queryid, STLevel.SLS, squareFlsID, sysList, cutoff, topic, slsI);
+				if(null != coveredSlsSet_slsi){
+					coveredSlsSet_flsi.addAll(coveredSlsSet_slsi);
+				}
+			}	
+			
+			double sRecall_flsi = (1.0*coveredSlsSet_flsi.size())/slsList.size();	
+			
+			return sRecall_flsi;
+		}else{
+			System.err.println("Non-accepted setting error!");
 			System.exit(0);
-			return Double.NaN;
+			return Double.NaN;	
 		}
+	}
+	
+	private static double Square_SRecall(String queryid, boolean squareEqual, ArrayList<String> sysList, int cutoff){
+		
+		TwoLevelTopic topic = _2LTMap.get(queryid);
+		int flsCount = topic._flsList.size();
+		
+		double squareSRecall = 0.0;
+		
+		for(int i=1; i<=flsCount; i++){
+			//System.out.println("flsPro:\t"+topic.getFlsPro(i, squareEqual));
+			//System.out.println(SRecall(queryid, IDimension.I_SQUARE, sysList, cutoff, i));
+			
+			squareSRecall += topic.getFlsPro(i, squareEqual)*SRecall(queryid, IDimension.I_SQUARE, sysList, cutoff, i);
+			
+			//System.out.println(squareSRecall);
+			//System.out.println();
+		}
+		
+		return squareSRecall;		
 	}
 	
 	////	AP-IA	////
-	private static double AP_i(String queryid, STLevel stLevel, int sID, 
-			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic){
-		
-		if(null==sysList || sysList.size() == 0){
+	/**
+	 * For I-Aware,  compute AP for one first-level subtopic
+	 * For I-Square, compute AP for for one second-level subtopic
+	 * **/
+	private static double AP_i(String queryid, STLevel stLevel, int flsID, 
+			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic, int squareSlsID){
+		//
+		if(null ==sysList || sysList.size() == 0){
 			return 0.0;
 		}
 		
 		//without enough documents provided
 		int onCutoff = Math.min(sysList.size(), cutoff);
-				
-		double  ap_i = 0.0;
-		double  relesCountByNow = 0;
 		
-		for(int k=1; k<=onCutoff; k++){
-			String docid = sysList.get(k-1);
+		if(STLevel.FLS==stLevel && 0>squareSlsID){
+			double  ap_i = 0.0;
+			double  relesCountByNow = 0;
 			
-			if(STLevel.FLS == stLevel){
-				
-				if(fls_DocReleMap.containsKey(docid)){
-					
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);				
+				if(fls_DocReleMap.containsKey(docid)){					
 					HashMap<String, HashMap<Integer, Integer>> docReleMap = fls_DocReleMap.get(docid);
-					if(docReleMap.containsKey(queryid)){
-						
+					if(docReleMap.containsKey(queryid)){						
 						HashMap<Integer, Integer> qReleMap = docReleMap.get(queryid);
-						if(qReleMap.containsKey(sID)){
-							
-							double satPro = I(qReleMap.get(sID));
-							
-							relesCountByNow += I(qReleMap.get(sID));
-							
+						if(qReleMap.containsKey(flsID)){							
+							double satPro = I(qReleMap.get(flsID));							
+							relesCountByNow += I(qReleMap.get(flsID));							
 							ap_i += satPro*(1.0/k)*relesCountByNow;
 						}										
 					}					
-				}				
-			}else{				
-				System.err.println("Non-accepted STLevel!");
-				System.exit(0);
-				return Double.NaN;		
+				}
 			}
-		}
-		
-		ap_i = ap_i/cutoff;
-		
-		return ap_i;		
+			
+			ap_i = ap_i/cutoff;			
+			return ap_i;			
+		}else if(STLevel.SLS==stLevel && 0<squareSlsID){			
+			double ap_slsi = 0.0;
+			double relesCountByNow_slsi = 0;
+			
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);				
+				if(sls_DocReleMap.containsKey(docid)){
+					HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocReleMap = sls_DocReleMap.get(docid);
+					if(slsDocReleMap.containsKey(queryid)){
+						HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsDocReleMap.get(queryid);
+						if(slsQReleMap.containsKey(flsID)){
+							HashMap<Integer, Integer> slsFlsReleMap = slsQReleMap.get(flsID);
+							if(slsFlsReleMap.containsKey(squareSlsID)){								
+								double satPro = I(slsFlsReleMap.get(squareSlsID));								
+								relesCountByNow_slsi += I(slsFlsReleMap.get(squareSlsID));								
+								ap_slsi += satPro*(1.0/k)*relesCountByNow_slsi;								
+							}							
+						}						
+					}					
+				}				
+			}
+			
+			ap_slsi = ap_slsi/cutoff;			
+			return ap_slsi;			
+		}else{
+			System.err.println("Non-accepted setting error!");
+			System.exit(0);
+			return Double.NaN;	
+		}				
 	}
-	
-	private static double APIA(boolean equal, String queryid, STLevel stLevel, 
-			ArrayList<String> sysList, int cutoff){
+	/**
+	 * For I-Aware,  compute APIA for the query
+	 * For I-Square, compute APIA for a first-level subtopic
+	 * **/
+	private static double APIA(boolean awareEqual, String queryid, IDimension iDimension, 
+			ArrayList<String> sysList, int cutoff, int squareFlsID){
 		
 		TwoLevelTopic topic = _2LTMap.get(queryid);
-		//fls
-		if(STLevel.FLS == stLevel){	
+		//intent-aware
+		if(IDimension.I_AWARE == iDimension && 0>squareFlsID){	
 			int flsCount = topic._flsList.size();
 			
 			double apIA = 0.0;
 			for(int i=1; i<=flsCount; i++){
-				apIA += (topic.getFlsPro(i, equal)*AP_i(queryid, stLevel, i, sysList, cutoff, topic));
+				apIA += (topic.getFlsPro(i, awareEqual)*AP_i(queryid, STLevel.FLS, i, sysList, cutoff, topic, -1));
 			}
 			
 			return apIA;
+		
+		//intent-square
+		}else if(IDimension.I_SQUARE == iDimension && 0<squareFlsID){		
 			
-		}else{			
-			System.err.println("Non-accepted STLevel!");
+			ArrayList<Pair<String, Double>> slsList = topic._slsSetList.get(squareFlsID-1);
+			
+			double apIA_flsi = 0.0;
+			for(int slsI = 1; slsI<=slsList.size(); slsI++){
+				apIA_flsi += (topic.getSlsPro(squareFlsID, slsI, awareEqual))*AP_i(queryid, STLevel.SLS, squareFlsID, sysList, cutoff, topic, slsI);				
+			}
+			
+			return apIA_flsi;			
+		}else{
+			System.err.println("Non-accepted setting error!");
 			System.exit(0);
-			return Double.NaN;
+			return Double.NaN;	
+		}		
+	}
+	
+	private static double Square_AP(String queryid, boolean squareEqual, ArrayList<String> sysList, int cutoff, boolean awareEqual){
+		TwoLevelTopic topic = _2LTMap.get(queryid);
+		int flsCount = topic._flsList.size();
+		
+		double squareAP = 0.0;
+		
+		for(int i=1; i<=flsCount; i++){
+			//System.out.println("flsPro:\t"+topic.getFlsPro(i, squareEqual));
+			//System.out.println("ERRIA for "+i+":\t"+APIA(awareEqual, queryid, IDimension.I_SQUARE, sysList, cutoff, i));
+			
+			squareAP += topic.getFlsPro(i, squareEqual)*APIA(awareEqual, queryid, IDimension.I_SQUARE, sysList, cutoff, i);
+			
+			//System.out.println(squareAP);
+			//System.out.println();
 		}
 		
+		return squareAP;
 	}
 	
 	////	ERR-IA	////
@@ -591,100 +757,126 @@ public class MetricComparison {
 	 * @param flsID	first-level subtopic id
 	 * @param sysList system ranking results for a specific query
 	 * **/
-	private static double ERRIA_i(String queryid, STLevel stLevel, int sID, 
-			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic){
+	private static double ERRIA_i(String queryid, STLevel stLevel, int flsID, 
+			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic, int squareSlsID){
 		
 		if(null==sysList || sysList.size() == 0){
 			return 0.0;
-		}
-		
-		double err_i = 0.0;
-		double disPro = 1.0;		
+		}			
 		
 		//without enough documents provided
 		int onCutoff = Math.min(sysList.size(), cutoff);
 		
-		for(int k=1; k<=onCutoff; k++){
-			String docid = sysList.get(k-1);
+		if(STLevel.FLS==stLevel && 0>squareSlsID){
+			double err_i = 0.0;
+			double disPro = 1.0;
 			
-			if(STLevel.FLS == stLevel){
-				if(fls_DocReleMap.containsKey(docid)){
-					
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);
+				
+				if(fls_DocReleMap.containsKey(docid)){					
 					HashMap<String, HashMap<Integer, Integer>> docReleMap = fls_DocReleMap.get(docid);
-					if(docReleMap.containsKey(queryid)){
-						
+					if(docReleMap.containsKey(queryid)){						
 						HashMap<Integer, Integer> qReleMap = docReleMap.get(queryid);
-						if(qReleMap.containsKey(sID)){
-							
-							double satPro = R(qReleMap.get(sID), 2);
-																	
-							double tem = (1.0/k)*satPro*disPro;
-							
-							err_i += tem;
-							
+						if(qReleMap.containsKey(flsID)){							
+							double satPro = R(qReleMap.get(flsID), 2);																	
+							double tem = (1.0/k)*satPro*disPro;							
+							err_i += tem;							
 							disPro *= (1-satPro);	
 						}										
 					}					
-				}
-			}else{
-				if(sls_DocReleMap.containsKey(docid)){
-					
-					HashMap<String, HashMap<Integer, Integer>> docReleMap = sls_DocReleMap.get(docid);
-					if(docReleMap.containsKey(queryid)){
-						
-						HashMap<Integer, Integer> qReleMap = docReleMap.get(queryid);
-						if(qReleMap.containsKey(sID)){
-							double satPro = R(qReleMap.get(sID), 2);
-							
-							double tem = (1.0/k)*satPro*disPro;
-							
-							err_i += tem;
-							
-							disPro *= (1-satPro);
-						}											
-					}					
-				}
+				}			
 			}			
-		}
-		
-		if(Double.isNaN(err_i)){
-			System.out.println(queryid);
-		}
-		
-		return err_i;		
+			return err_i;
+		}else if(STLevel.SLS==stLevel && 0<squareSlsID){
+			double err_slsi = 0.0;
+			double disPro_slsi = 1.0;
+			
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);				
+				if(sls_DocReleMap.containsKey(docid)){
+					HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocReleMap = sls_DocReleMap.get(docid);
+					if(slsDocReleMap.containsKey(queryid)){
+						HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsDocReleMap.get(queryid);
+						if(slsQReleMap.containsKey(flsID)){
+							HashMap<Integer, Integer> slsFlsReleMap = slsQReleMap.get(flsID);
+							if(slsFlsReleMap.containsKey(squareSlsID)){								
+								double satPro_slsi = R(slsFlsReleMap.get(squareSlsID), 2);
+								//System.out.println("satPro_slsi\t"+satPro_slsi);
+								double tem_slsi = (1.0/k)*satPro_slsi*disPro_slsi;
+								err_slsi += tem_slsi;
+								disPro_slsi *= (1-satPro_slsi);													
+							}							
+						}						
+					}					
+				}				
+			}					
+			return err_slsi;			
+		}else{
+			System.err.println("Non-accepted setting error!");
+			System.exit(0);
+			return Double.NaN;	
+		}				
 	}
 	/**
 	 * ERR-IA
 	 * **/
-	private static double ERRIA(boolean equal, String queryid, STLevel stLevel, 
-			ArrayList<String> sysList, int cutoff){
+	private static double ERRIA(boolean awareEqual, String queryid, IDimension iDimension, 
+			ArrayList<String> sysList, int cutoff, int squareFlsID){
 		
 		TwoLevelTopic topic = _2LTMap.get(queryid);
 		//fls
-		if(STLevel.FLS == stLevel){			
-			
-			int flsCount = topic._flsList.size();
-			
+		if(IDimension.I_AWARE == iDimension && 0>squareFlsID){			
+			int flsCount = topic._flsList.size();			
 			double errIA = 0.0;
 			for(int i=1; i<=flsCount; i++){
-				errIA += (topic.getFlsPro(i, equal)*ERRIA_i(queryid, stLevel, i, sysList, cutoff, topic));
-			}
-			
-			return errIA;
-			
-		}else{			
-			System.err.println("Non-accepted STLevel!");
+				errIA += (topic.getFlsPro(i, awareEqual)*ERRIA_i(queryid, STLevel.FLS, i, sysList, cutoff, topic, -1));
+			}			
+			return errIA;			
+		}else if(IDimension.I_SQUARE == iDimension && 0<squareFlsID){			
+			ArrayList<Pair<String, Double>> slsList = topic._slsSetList.get(squareFlsID-1);			
+			double errIA_flsi = 0.0;
+			for(int slsI = 1; slsI<=slsList.size(); slsI++){
+				//System.out.println("slsPro-"+slsI+"\t"+topic.getSlsPro(squareFlsID, slsI, awareEqual));
+				//System.out.println("ERRIA_i\t"+ERRIA_i(queryid, STLevel.SLS, squareFlsID, sysList, cutoff, topic, slsI));
+				errIA_flsi += (topic.getSlsPro(squareFlsID, slsI, awareEqual))*ERRIA_i(queryid, STLevel.SLS, squareFlsID, sysList, cutoff, topic, slsI);	
+				//System.out.println();
+			}			
+			return errIA_flsi;			
+		}else{
+			System.err.println("Non-accepted setting error!");
 			System.exit(0);
-			return Double.NaN;
-		}		
+			return Double.NaN;	
+		}			
 	}
+	/**
+	 * 
+	 * **/	
+	private static double Square_ERR(String queryid, boolean squareEqual, ArrayList<String> sysList, int cutoff, boolean awareEqual){
+		TwoLevelTopic topic = _2LTMap.get(queryid);
+		int flsCount = topic._flsList.size();
 		
+		double squareERR = 0.0;
+		
+		for(int i=1; i<=flsCount; i++){
+			//System.out.println("flsPro:\t"+topic.getFlsPro(i, squareEqual));
+			//System.out.println("ERRIA for "+i+":\t"+ERRIA(awareEqual, queryid, IDimension.I_SQUARE, sysList, cutoff, i));
+			
+			squareERR += topic.getFlsPro(i, squareEqual)*ERRIA(awareEqual, queryid, IDimension.I_SQUARE, sysList, cutoff, i);
+			
+			//System.out.println(squareERR);
+			//System.out.println();
+		}
+		
+		return squareERR;
+	}
+	
 	////	alpha-nDCg	////
 	/**
 	 * alpha-nDCG_i
 	 * **/
-	private static double alpha_DCG_i(String queryid, STLevel stLevel, int sID, 
-			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic){
+	private static double alpha_DCG_i(String queryid, STLevel stLevel, int flsID, 
+			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic, int squareSlsID){
 		
 		if(null==sysList || sysList.size() == 0){
 			return 0.0;
@@ -693,61 +885,78 @@ public class MetricComparison {
 		//without enough documents provided
 		int onCutoff = Math.min(sysList.size(), cutoff);
 		
-		double  alpha_DCG_i = 0.0;
-		double  countPriorReles = 0;
-		
-		for(int k=1; k<=onCutoff; k++){
-			String docid = sysList.get(k-1);
-			
-			if(STLevel.FLS == stLevel){
+		if(STLevel.FLS==stLevel && 0>squareSlsID){
+			double  alpha_DCG_i = 0.0;
+			double  countPriorReles = 0;		
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);
 				
-				if(fls_DocReleMap.containsKey(docid)){
-					
+				if(fls_DocReleMap.containsKey(docid)){				
 					HashMap<String, HashMap<Integer, Integer>> docReleMap = fls_DocReleMap.get(docid);
-					if(docReleMap.containsKey(queryid)){
-						
+					if(docReleMap.containsKey(queryid)){					
 						HashMap<Integer, Integer> qReleMap = docReleMap.get(queryid);
-						if(qReleMap.containsKey(sID)){
-							
-							double satPro = I(qReleMap.get(sID));
-							
-							alpha_DCG_i += (1.0/(Math.log10(k+1)/Math.log10(2)))*satPro*Math.pow((1-ALPHA), countPriorReles);
-							
-							countPriorReles += I(qReleMap.get(sID));
+						if(qReleMap.containsKey(flsID)){						
+							double satPro = I(qReleMap.get(flsID));						
+							alpha_DCG_i += (1.0/(Math.log10(k+1)/Math.log10(2)))*satPro*Math.pow((1-ALPHA), countPriorReles);						
+							countPriorReles += I(qReleMap.get(flsID));
 						}										
 					}					
 				}
-				
-			}else{				
-				System.err.println("Non-accepted STLevel!");
-				System.exit(0);
-				return Double.NaN;		
-			}
-		}
-		
-		if(Double.isNaN(alpha_DCG_i)){
-			System.out.println(queryid);
-		}
-		
-		return alpha_DCG_i;		
+			}				
+			return alpha_DCG_i;
+		}else if(STLevel.SLS==stLevel && 0<squareSlsID){			
+			double alpha_DCG_slsi = 0.0;
+			double countPriorReles_slsi = 0;
+			
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);				
+				if(sls_DocReleMap.containsKey(docid)){
+					HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocReleMap = sls_DocReleMap.get(docid);
+					if(slsDocReleMap.containsKey(queryid)){
+						HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsDocReleMap.get(queryid);
+						if(slsQReleMap.containsKey(flsID)){
+							HashMap<Integer, Integer> slsFlsReleMap = slsQReleMap.get(flsID);
+							if(slsFlsReleMap.containsKey(squareSlsID)){	
+								
+								double satPro_slsi = I(slsFlsReleMap.get(squareSlsID));
+								alpha_DCG_slsi += (1.0/(Math.log10(k+1)/Math.log10(2)))*satPro_slsi*Math.pow((1-ALPHA), countPriorReles_slsi);
+								
+								countPriorReles_slsi += I(slsFlsReleMap.get(squareSlsID));												
+							}							
+						}						
+					}					
+				}				
+			}								
+			return alpha_DCG_slsi;			
+		}else{
+			System.err.println("Non-accepted setting error!");
+			System.exit(0);
+			return Double.NaN;	
+		}		
 	}
 	/**
 	 * alpha-nDCG
 	 * **/
-	private static double alpha_DCG(String queryid, STLevel stLevel, 
-			ArrayList<String> sysList, int cutoff){
+	private static double alpha_DCG(String queryid, IDimension iDimension, 
+			ArrayList<String> sysList, int cutoff, int squareFlsID){
 		
 		TwoLevelTopic topic = _2LTMap.get(queryid);
 		//fls
-		if(STLevel.FLS == stLevel){
-			int flsCount = topic._flsList.size();
-			
+		if(IDimension.I_AWARE == iDimension && 0>squareFlsID){
+			int flsCount = topic._flsList.size();			
 			double alpha_DCG = 0.0;
 			for(int i=1; i<=flsCount; i++){
-				alpha_DCG += alpha_DCG_i(queryid,stLevel, i, sysList,cutoff, topic);
-			}
-			
+				alpha_DCG += alpha_DCG_i(queryid, STLevel.FLS, i, sysList,cutoff, topic, -1);
+			}			
 			return alpha_DCG;
+		}else if(IDimension.I_SQUARE == iDimension && 0<squareFlsID){
+			ArrayList<Pair<String, Double>> slsList = topic._slsSetList.get(squareFlsID-1);			
+			double alpha_DCG_flsi = 0.0;
+			for(int slsI = 1; slsI<=slsList.size(); slsI++){
+				alpha_DCG_flsi += alpha_DCG_i(queryid, STLevel.SLS, squareFlsID, sysList, cutoff, topic, slsI);				
+			}			
+			return alpha_DCG_flsi;
+			
 		}else{			
 			System.err.println("Non-accepted STLevel!");
 			System.exit(0);
@@ -755,32 +964,102 @@ public class MetricComparison {
 		}
 	}
 	//
-	private static double alpha_n_DCG(String queryid, STLevel stLevel, 
-			ArrayList<String> sysList, int cutoff){
+	private static double alpha_n_DCG(String queryid, IDimension iDimension, 
+			ArrayList<String> sysList, int cutoff, int squareFlsID){
 		
-		return alpha_DCG(queryid, stLevel, sysList, cutoff)/alpha_DCG(queryid, stLevel, 
-				idealList_alpha_DCG(queryid, stLevel, cutoff), cutoff);
+		if(IDimension.I_AWARE == iDimension && 0>squareFlsID){
+			
+			ArrayList<String> awareIdealList = idealList_alpha_DCG(queryid, STLevel.FLS, cutoff, -1);
+			
+			
+			if(null != awareIdealList){
+				double aware_alpha_DCG = alpha_DCG(queryid, IDimension.I_AWARE, sysList, cutoff, -1);
+				double aware_ideal_alpha_DCG = alpha_DCG(queryid, IDimension.I_AWARE, awareIdealList, cutoff, -1);
+				
+				/*
+				if(Double.isNaN(aware_alpha_DCG)){
+					System.err.println("aware_alpha_DCG");
+				}
+				if(Double.isNaN(aware_ideal_alpha_DCG) || 0 == aware_ideal_alpha_DCG){
+					System.out.println(queryid);
+					System.out.println(awareIdealList.size());
+					System.err.println("aware_ideal_alpha_DCG");
+				}
+				*/
+				
+				return aware_alpha_DCG/aware_ideal_alpha_DCG;
+			}else{
+				System.err.println(queryid);
+				return 0.0;
+			} 
+			
+		}else if(IDimension.I_SQUARE == iDimension && 0<squareFlsID){
+			
+			double square_Alpha_DCG = alpha_DCG(queryid, IDimension.I_SQUARE, sysList, cutoff, squareFlsID);
+			
+			if(Double.isNaN(square_Alpha_DCG)){
+				System.err.println("1");
+			}
+			
+			ArrayList<String> squareIdealList = idealList_alpha_DCG(queryid, STLevel.SLS, cutoff, squareFlsID);
+			
+			if(null != squareIdealList){
+				double ideal_Square_Alpha_DCG = alpha_DCG(queryid, IDimension.I_SQUARE, squareIdealList, cutoff, squareFlsID);
+				
+				if(Double.isNaN(ideal_Square_Alpha_DCG) || 0.0==ideal_Square_Alpha_DCG){
+					System.err.println("2\t"+squareIdealList.size());
+				}		
+				
+				return square_Alpha_DCG/ideal_Square_Alpha_DCG;
+				
+			}else{
+				
+				return 0.0;
+			}			
+		}else{			
+			System.err.println("Non-accepted STLevel!");
+			System.exit(0);
+			return Double.NaN;
+		}		
+	}
+	/**
+	 * 
+	 * **/
+	private static double Square_alpha_n_DCG(String queryid, boolean squareEqual, ArrayList<String> sysList, int cutoff){
+		TwoLevelTopic topic = _2LTMap.get(queryid);
+		int flsCount = topic._flsList.size();
 		
+		double squareAlpha_N_DCGERR = 0.0;
+		
+		for(int i=1; i<=flsCount; i++){
+			squareAlpha_N_DCGERR += topic.getFlsPro(i, squareEqual)*alpha_n_DCG(queryid, IDimension.I_SQUARE, sysList, cutoff, i);
+		}
+		
+		return squareAlpha_N_DCGERR;
 	}
 	
 	/**
 	 * find the ideal list by greedy search
 	 * **/
-	private static ArrayList<String> idealList_alpha_DCG(String queryid, STLevel stLevel, int cutoff){
-		//list of relevant doc
-		ArrayList<String> releDocList = new ArrayList<String>();
-		
-		ArrayList<String> idealList = new ArrayList<String>();
-		
-		HashSet<String> selectedDocSet = new HashSet<String>();
-		
-		if(STLevel.FLS == stLevel){
+	private static ArrayList<String> idealList_alpha_DCG(String queryid, STLevel stLevel, int cutoff, int squareFlsID){
+				
+		if(STLevel.FLS==stLevel && 0>squareFlsID){
+			//list of relevant doc
+			ArrayList<String> releDocList = new ArrayList<String>();		
+			ArrayList<String> idealList = new ArrayList<String>();		
+			HashSet<String> selectedDocSet = new HashSet<String>();
 			//list preparation
 			for(Entry<String, HashMap<String, HashMap<Integer, Integer>>> flsEntry: fls_DocReleMap.entrySet()){				
 				if(flsEntry.getValue().containsKey(queryid)){
 					releDocList.add(flsEntry.getKey());
 				}				
 			}
+			
+			if(0 == releDocList.size()){
+				System.out.println("queryid:"+queryid+"\tflsID:"+squareFlsID);
+				return null;
+			}
+			
 			
 			TwoLevelTopic topic = _2LTMap.get(queryid);
 			int flsCount = topic._flsList.size();
@@ -815,7 +1094,7 @@ public class MetricComparison {
 							for(int i=1; i<=flsCount; i++){
 								int binRele = 0;
 								if(fls_DocReleMap.get(candidateDoc).get(queryid).containsKey(i)){
-									binRele = fls_DocReleMap.get(candidateDoc).get(queryid).get(i);
+									binRele = (int)I(fls_DocReleMap.get(candidateDoc).get(queryid).get(i));
 								}
 								releList.add(binRele);
 								//
@@ -841,6 +1120,92 @@ public class MetricComparison {
 			}
 			
 			return idealList;
+			
+		}else if(STLevel.SLS==stLevel && 0<squareFlsID){
+			
+			//list of relevant doc
+			ArrayList<String> releDocList_flsi = new ArrayList<String>();		
+			ArrayList<String> idealList_flsi = new ArrayList<String>();		
+			HashSet<String> selectedDocSet_flsi = new HashSet<String>();
+			//
+			for(Entry<String, HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>>> slsEntry: sls_DocReleMap.entrySet()){				
+				if(slsEntry.getValue().containsKey(queryid)){
+					HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsEntry.getValue().get(queryid);
+					if(slsQReleMap.containsKey(squareFlsID)){
+						releDocList_flsi.add(slsEntry.getKey());
+					}					
+				}				
+			}
+			
+			//System.out.println("releDocList_flsi\t"+);
+			
+			if(0 == releDocList_flsi.size()){
+				//System.out.println("queryid:"+queryid+"\tflsID:"+squareFlsID);
+				return null;
+			}
+			
+			TwoLevelTopic topic = _2LTMap.get(queryid);
+			ArrayList<Pair<String, Double>> slsList_flsi = topic._slsSetList.get(squareFlsID-1);
+			int slsCount = slsList_flsi.size();
+			//size as the count of sls w.r.t. the given flsID, flsID corresponds to the (flsID-1)-th element
+			ArrayList<Integer> priorReleCountList_flsi = new ArrayList<Integer>();
+			for(int i=1; i<=slsCount; i++){
+				priorReleCountList_flsi.add(0);
+			}
+			//buffer the releList of each doc
+			HashMap<String, ArrayList<Integer>> releListMap_flsi = new HashMap<String, ArrayList<Integer>>();
+			//
+			int availableCut = Math.min(cutoff, releDocList_flsi.size());
+			//
+			while(selectedDocSet_flsi.size() < availableCut){
+				ArrayList<Pair<String, Double>> desDocListByGain_flsi = new ArrayList<Pair<String,Double>>();
+				
+				
+				for(String candidateDoc_flsi: releDocList_flsi){
+					if(!selectedDocSet_flsi.contains(candidateDoc_flsi)){
+						double gain_flsi = 0.0;
+						
+						if(releListMap_flsi.containsKey(candidateDoc_flsi)){
+							ArrayList<Integer> releList_flsi = releListMap_flsi.get(candidateDoc_flsi);
+							
+							for(int slsI=1; slsI<=slsCount; slsI++){
+								gain_flsi += releList_flsi.get(slsI-1)*(Math.pow((1-ALPHA), priorReleCountList_flsi.get(slsI-1)));							
+							}
+							
+						}else{
+							
+							ArrayList<Integer> releList_flsi = new ArrayList<Integer>();
+							for(int slsI=1; slsI<=slsCount; slsI++){
+								int binRele = 0;
+								if(sls_DocReleMap.get(candidateDoc_flsi).get(queryid).get(squareFlsID).containsKey(slsI)){
+									binRele = (int)I(sls_DocReleMap.get(candidateDoc_flsi).get(queryid).get(squareFlsID).get(slsI));
+								}
+								releList_flsi.add(binRele);
+								//
+								gain_flsi += binRele*(Math.pow((1-ALPHA), priorReleCountList_flsi.get(slsI-1)));							
+							}
+							releListMap_flsi.put(candidateDoc_flsi, releList_flsi);
+						}						
+						
+						desDocListByGain_flsi.add(new Pair<String, Double>(candidateDoc_flsi, gain_flsi));												
+					}
+				}
+				
+				Collections.sort(desDocListByGain_flsi, new PairComparatorBySecond_Desc<String, Double>());
+				
+				//the ideal one
+				idealList_flsi.add(desDocListByGain_flsi.get(0).getFirst());
+				selectedDocSet_flsi.add(desDocListByGain_flsi.get(0).getFirst());
+				
+				//sls-specific rele count w.r.t. the given squareFlsID
+				ArrayList<Integer> addedReleList = releListMap_flsi.get(desDocListByGain_flsi.get(0).getFirst());
+				for(int slsI=1; slsI<=slsCount; slsI++){
+					priorReleCountList_flsi.set(slsI-1, addedReleList.get(slsI-1)+priorReleCountList_flsi.get(slsI-1));
+				}				
+			}
+			
+			return idealList_flsi;
+			
 		}else{			
 			System.err.println("Non-accepted STLevel!");
 			System.exit(0);
@@ -849,34 +1214,85 @@ public class MetricComparison {
 	}
 	
 	////	D#-nDCG	////
-	private static double D_Sharp_n_DCG(boolean equal, String queryid, STLevel stLevel, 
-			ArrayList<String> sysList, int cutoff){
+	private static double D_Sharp_n_DCG(boolean awareEqual, String queryid, IDimension iDimension, 
+			ArrayList<String> sysList, int cutoff, int squareFlsID){
 		
-		double sRecall = SRecall(queryid, stLevel, sysList, cutoff);
-		
-		ArrayList<String> idealList = idealList_D_Sharp_DCG(equal, queryid, stLevel, cutoff);
-		
-		double d_Sharp_n_DCG = D_Sharp_DCG(equal, queryid, stLevel, sysList, cutoff)/D_Sharp_DCG(
-				equal, queryid, stLevel, idealList, cutoff);
-		
-		return GAMA*sRecall + (1-GAMA)*d_Sharp_n_DCG;		
+		if(IDimension.I_AWARE == iDimension && 0>squareFlsID){
+			double sRecall = SRecall(queryid, iDimension, sysList, cutoff, squareFlsID);
+			
+			ArrayList<String> idealList = idealList_D_Sharp_DCG(awareEqual, queryid, STLevel.FLS, cutoff, -1);
+			
+			if(null != idealList){
+				double d_Sharp_n_DCG = D_Sharp_DCG(awareEqual, queryid, iDimension, sysList, cutoff, squareFlsID)/D_Sharp_DCG(
+						awareEqual, queryid, iDimension, idealList, cutoff, squareFlsID);
+				
+				return GAMA*sRecall + (1-GAMA)*d_Sharp_n_DCG;
+			}else{
+				System.err.println(queryid);
+				return 0.0;
+			}			
+		}else if(IDimension.I_SQUARE == iDimension && 0<squareFlsID){
+			
+			double sRecall_flsi = SRecall(queryid, iDimension, sysList, cutoff, squareFlsID);
+			
+			ArrayList<String> idealList_flsi = idealList_D_Sharp_DCG(awareEqual, queryid, STLevel.SLS, cutoff, squareFlsID);
+			
+			if(null != idealList_flsi){
+				double d_Sharp_n_DCG_flsi = D_Sharp_DCG(awareEqual, queryid, iDimension, sysList, cutoff, squareFlsID)/D_Sharp_DCG(
+						awareEqual, queryid, iDimension, idealList_flsi, cutoff, squareFlsID);
+				
+				return GAMA*sRecall_flsi + (1-GAMA)*d_Sharp_n_DCG_flsi;
+			
+			}else{
+				return 0.0;
+			}
+			
+			
+			
+		}else{			
+			System.err.println("Non-accepted STLevel!");
+			System.exit(0);
+			return Double.NaN;
+		}				
 	}	
 	
-	private static double D_Sharp_DCG(boolean equal, String queryid, STLevel stLevel, 
-			ArrayList<String> sysList, int cutoff){
+	private static double Square_D_Sharp_n_DCG(String queryid, boolean squareEqual, ArrayList<String> sysList, int cutoff, boolean awareEqual){
+		TwoLevelTopic topic = _2LTMap.get(queryid);
+		int flsCount = topic._flsList.size();
+		
+		double squareDSharpNDCG = 0.0;
+		
+		for(int i=1; i<=flsCount; i++){
+			squareDSharpNDCG += topic.getFlsPro(i, squareEqual)*D_Sharp_n_DCG(awareEqual, queryid, IDimension.I_SQUARE, sysList, cutoff, i);
+		}
+		
+		return squareDSharpNDCG;
+	}
+	
+	private static double D_Sharp_DCG(boolean awareEqual, String queryid, IDimension iDimension, 
+			ArrayList<String> sysList, int cutoff, int squareFlsID){
 		
 		TwoLevelTopic topic = _2LTMap.get(queryid);
 		//fls
-		if(STLevel.FLS == stLevel){			
+		if(IDimension.I_AWARE == iDimension && 0>squareFlsID){		
 			
 			int flsCount = topic._flsList.size();
 			
 			double d_Sharp_DCG = 0.0;
 			for(int i=1; i<=flsCount; i++){
-				d_Sharp_DCG += (topic.getFlsPro(i, equal)*D_Sharp_DCG_i(queryid, stLevel, i, sysList, cutoff, topic));
+				d_Sharp_DCG += (topic.getFlsPro(i, awareEqual)*D_Sharp_DCG_i(queryid, STLevel.FLS, i, sysList, cutoff, topic, -1));
 			}
 			
 			return d_Sharp_DCG;
+			
+		}else if(IDimension.I_SQUARE == iDimension && 0<squareFlsID){
+			
+			ArrayList<Pair<String, Double>> slsList = topic._slsSetList.get(squareFlsID-1);			
+			double d_Sharp_DCG_flsi = 0.0;
+			for(int slsI = 1; slsI<=slsList.size(); slsI++){
+				d_Sharp_DCG_flsi += (topic.getSlsPro(squareFlsID, slsI, awareEqual))*D_Sharp_DCG_i(queryid, STLevel.SLS, squareFlsID, sysList, cutoff, topic, slsI);				
+			}			
+			return d_Sharp_DCG_flsi;			
 			
 		}else{			
 			System.err.println("Non-accepted STLevel!");
@@ -885,8 +1301,8 @@ public class MetricComparison {
 		}
 	}
 	
-	private static double D_Sharp_DCG_i(String queryid, STLevel stLevel, int sID, 
-			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic){
+	private static double D_Sharp_DCG_i(String queryid, STLevel stLevel, int flsID, 
+			ArrayList<String> sysList, int cutoff, TwoLevelTopic twoLevelTopic, int squareSlsID){
 		
 		if(null==sysList || sysList.size() == 0){
 			return 0.0;
@@ -895,49 +1311,60 @@ public class MetricComparison {
 		//without enough documents provided
 		int onCutoff = Math.min(sysList.size(), cutoff);
 		
-		double  d_Sharp_DCG_i = 0.0;
-		
-		for(int k=1; k<=onCutoff; k++){
-			String docid = sysList.get(k-1);
-			
-			if(STLevel.FLS == stLevel){
-				
-				if(fls_DocReleMap.containsKey(docid)){
-					
+		if(STLevel.FLS==stLevel && 0>squareSlsID){
+			double  d_Sharp_DCG_i = 0.0;			
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);				
+				if(fls_DocReleMap.containsKey(docid)){					
 					HashMap<String, HashMap<Integer, Integer>> docReleMap = fls_DocReleMap.get(docid);
-					if(docReleMap.containsKey(queryid)){
-						
+					if(docReleMap.containsKey(queryid)){						
 						HashMap<Integer, Integer> qReleMap = docReleMap.get(queryid);
-						if(qReleMap.containsKey(sID)){
-							
-							double gain = V(qReleMap.get(sID));
-							
+						if(qReleMap.containsKey(flsID)){							
+							double gain = V(qReleMap.get(flsID));							
 							d_Sharp_DCG_i += (1.0/(Math.log10(k+1)/Math.log10(2)))*gain;							
 						}										
 					}					
 				}
-				
-			}else{				
-				System.err.println("Non-accepted STLevel!");
-				System.exit(0);
-				return Double.NaN;		
-			}
-		}
-		
-		return d_Sharp_DCG_i;		
+			}			
+			return d_Sharp_DCG_i;
+			
+		}else if(STLevel.SLS==stLevel && 0<squareSlsID){
+			
+			double d_Sharp_DCG_slsi = 0.0;
+			
+			for(int k=1; k<=onCutoff; k++){
+				String docid = sysList.get(k-1);				
+				if(sls_DocReleMap.containsKey(docid)){
+					HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocReleMap = sls_DocReleMap.get(docid);
+					if(slsDocReleMap.containsKey(queryid)){
+						HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsDocReleMap.get(queryid);
+						if(slsQReleMap.containsKey(flsID)){
+							HashMap<Integer, Integer> slsFlsReleMap = slsQReleMap.get(flsID);
+							if(slsFlsReleMap.containsKey(squareSlsID)){	
+								double gain = V(slsFlsReleMap.get(squareSlsID));
+								d_Sharp_DCG_slsi += (1.0/(Math.log10(k+1)/Math.log10(2)))*gain;										
+							}							
+						}						
+					}					
+				}				
+			}					
+			return d_Sharp_DCG_slsi;
+			
+		}else{			
+			System.err.println("Non-accepted STLevel!");
+			System.exit(0);
+			return Double.NaN;
+		}			
 	}
 	
 	/** 
 	 * find the ideal list by greedy search
 	 * **/
-	private static ArrayList<String> idealList_D_Sharp_DCG(boolean equal, String queryid, STLevel stLevel, int cutoff){
-		
-		//list of relevant doc
-		ArrayList<String> releDocList = new ArrayList<String>();
-		
-		ArrayList<String> idealList = new ArrayList<String>();
-				
-		if(STLevel.FLS == stLevel){
+	private static ArrayList<String> idealList_D_Sharp_DCG(boolean awareEqual, String queryid, STLevel stLevel, int cutoff, int squareFlsID){
+		if(STLevel.FLS==stLevel && 0>squareFlsID){
+			//list of relevant doc
+			ArrayList<String> releDocList = new ArrayList<String>();		
+			ArrayList<String> idealList = new ArrayList<String>();
 			
 			TwoLevelTopic topic = _2LTMap.get(queryid);
 			int flsCount = topic._flsList.size();
@@ -949,6 +1376,10 @@ public class MetricComparison {
 				}				
 			}
 			
+			if(0 == releDocList.size()){
+				return null;
+			}
+			
 			ArrayList<Pair<String, Double>> desDocListByGG = new ArrayList<Pair<String,Double>>();
 			
 			for(String releDoc: releDocList){
@@ -956,7 +1387,7 @@ public class MetricComparison {
 				
 				for(int i=1; i<=flsCount; i++){					
 					if(fls_DocReleMap.get(releDoc).get(queryid).containsKey(i)){
-						globalGain += (topic.getFlsPro(i, equal))*V(fls_DocReleMap.get(releDoc).get(queryid).get(i));
+						globalGain += (topic.getFlsPro(i, awareEqual))*V(fls_DocReleMap.get(releDoc).get(queryid).get(i));
 					}					
 				}
 				
@@ -973,6 +1404,56 @@ public class MetricComparison {
 			
 			return idealList;
 			
+		}else if(STLevel.SLS==stLevel && 0<squareFlsID){
+			
+			//list of relevant doc
+			ArrayList<String> releDocList_flsi = new ArrayList<String>();		
+			ArrayList<String> idealList_flsi = new ArrayList<String>();
+			
+			TwoLevelTopic topic = _2LTMap.get(queryid);
+			int flsCount = topic._flsList.size();
+			
+			//list preparation
+			for(Entry<String, HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>>> slsEntry: sls_DocReleMap.entrySet()){				
+				if(slsEntry.getValue().containsKey(queryid)){
+					HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsEntry.getValue().get(queryid);
+					if(slsQReleMap.containsKey(squareFlsID)){
+						releDocList_flsi.add(slsEntry.getKey());
+					}					
+				}				
+			}
+			
+			if(0 == releDocList_flsi.size()){
+				return null;
+			}
+			
+			ArrayList<Pair<String, Double>> desDocListByGG_flsi = new ArrayList<Pair<String,Double>>();
+			
+			ArrayList<Pair<String, Double>> slsList_flsi = topic._slsSetList.get(squareFlsID-1);
+			int slsCount = slsList_flsi.size();
+			
+			for(String releDoc_flsi: releDocList_flsi){
+				double globalGain_flsi = 0.0;
+				
+				for(int slsI=1; slsI<=slsCount; slsI++){					
+					if(sls_DocReleMap.get(releDoc_flsi).get(queryid).get(squareFlsID).containsKey(slsI)){
+						globalGain_flsi += (topic.getSlsPro(squareFlsID, slsI, awareEqual))*V(sls_DocReleMap.get(releDoc_flsi).get(queryid).get(squareFlsID).get(slsI));
+					}					
+				}
+				
+				desDocListByGG_flsi.add(new Pair<String, Double>(releDoc_flsi, globalGain_flsi));
+			}
+			
+			Collections.sort(desDocListByGG_flsi, new PairComparatorBySecond_Desc<String, Double>());
+			
+			int availableCutoff = Math.min(cutoff, desDocListByGG_flsi.size());
+			
+			for(int k=1; k<=availableCutoff; k++){
+				idealList_flsi.add(desDocListByGG_flsi.get(k-1).getFirst());
+			}
+			
+			return idealList_flsi;
+			
 		}else{			
 			System.err.println("Non-accepted STLevel!");
 			System.exit(0);
@@ -980,14 +1461,14 @@ public class MetricComparison {
 		}	
 	}
 	
-	//test
-	public static void test(boolean equal){
+	//test intent-aware metrics
+	public static void test(boolean awareEqual){
 		String queryid = "0001";
 		//topic
 		TwoLevelTopic aTwoLevelTopic = new TwoLevelTopic(queryid, "test");
 		
 		ArrayList<Pair<String, Double>> flsList = new ArrayList<Pair<String,Double>>();
-		if(equal){
+		if(awareEqual){
 			flsList.add(new Pair<String, Double>("i", 0.5));
 			flsList.add(new Pair<String, Double>("j", 0.5));
 		}else{
@@ -1040,15 +1521,580 @@ public class MetricComparison {
 		
 		//
 		int cutoff = 3;
-		System.out.println("SRecall:\t"+SRecall(queryid, STLevel.FLS, rankedList, cutoff));
-		System.out.println("APIA:\t"+APIA(equal, queryid, STLevel.FLS, rankedList, cutoff));
-		System.out.println("ERRIA:\t"+ERRIA(equal, queryid, STLevel.FLS, rankedList, cutoff));
-		System.out.println("alpha_n_DCG:\t"+alpha_n_DCG(queryid, STLevel.FLS, rankedList, cutoff));
-		System.out.println("D#-nDCG:\t"+D_Sharp_n_DCG(equal, queryid, STLevel.FLS, rankedList, cutoff));
+		System.out.println("SRecall:\t"+SRecall(queryid, IDimension.I_AWARE, rankedList, cutoff, -1));
+		System.out.println("APIA:\t"+APIA(awareEqual, queryid, IDimension.I_AWARE, rankedList, cutoff, -1));
+		System.out.println("ERRIA:\t"+ERRIA(awareEqual, queryid, IDimension.I_AWARE, rankedList, cutoff, -1));
+		System.out.println("alpha_n_DCG:\t"+alpha_n_DCG(queryid, IDimension.I_AWARE, rankedList, cutoff, -1));
+		System.out.println("D#-nDCG:\t"+D_Sharp_n_DCG(awareEqual, queryid, IDimension.I_AWARE, rankedList, cutoff, -1));
 		//System.out.println(":\t"+);	
 		
 		
 	}
+	
+	//test intent-square metrics
+	public static void test_2(boolean awareEqual, boolean squareEqual){
+		String queryid = "0001";
+		//topic
+		TwoLevelTopic aTwoLevelTopic = new TwoLevelTopic(queryid, "test");
+		
+		ArrayList<Pair<String, Double>> flsList = new ArrayList<Pair<String,Double>>();
+		if(squareEqual){
+			flsList.add(new Pair<String, Double>("i", 0.5));
+			flsList.add(new Pair<String, Double>("j", 0.5));
+		}else{
+			flsList.add(new Pair<String, Double>("i", 0.7));
+			flsList.add(new Pair<String, Double>("j", 0.3));
+		}
+		
+		aTwoLevelTopic.setFlsList(flsList);
+		
+		ArrayList<ArrayList<Pair<String, Double>>> slsSetList = new ArrayList<ArrayList<Pair<String,Double>>>();
+		ArrayList<Pair<String, Double>> slsList_i = new ArrayList<Pair<String,Double>>();
+		slsList_i.add(new Pair<String, Double>("o1", 0.25));
+		slsList_i.add(new Pair<String, Double>("o2", 0.25));
+		slsList_i.add(new Pair<String, Double>("o3", 0.25));
+		slsList_i.add(new Pair<String, Double>("o4", 0.25));
+		ArrayList<Pair<String, Double>> slsList_j = new ArrayList<Pair<String,Double>>();
+		slsList_j.add(new Pair<String, Double>("e1", 1.0));
+		
+		slsSetList.add(slsList_i);
+		slsSetList.add(slsList_j);
+		
+		aTwoLevelTopic.setSlsSetList(slsSetList);
+		
+		
+		_2LTMap.put("0001", aTwoLevelTopic);
+		
+		//doc
+		sls_DocReleMap = new HashMap<String, HashMap<String,HashMap<Integer,HashMap<Integer,Integer>>>>();
+		
+		//doc_1		
+		
+		String doc_1 = "doc_1";
+		HashMap<String,HashMap<Integer,HashMap<Integer,Integer>>> slsDocReleMap_1 = 
+				new HashMap<String, HashMap<Integer,HashMap<Integer,Integer>>>();
+		HashMap<Integer, HashMap<Integer,Integer>> slsQReleMap_1 = new HashMap<Integer, HashMap<Integer,Integer>>();
+		HashMap<Integer,Integer> slsFlsReleMap_1 = new HashMap<Integer, Integer>();
+		slsFlsReleMap_1.put(1, 1);
+		slsFlsReleMap_1.put(2, 1);
+		slsQReleMap_1.put(1, slsFlsReleMap_1);		
+		slsDocReleMap_1.put(queryid, slsQReleMap_1);
+		
+		sls_DocReleMap.put(doc_1, slsDocReleMap_1);
+		
+		//doc_2		
+		
+		String doc_2 = "doc_2";
+		HashMap<String,HashMap<Integer,HashMap<Integer,Integer>>> slsDocReleMap_2 = 
+				new HashMap<String, HashMap<Integer,HashMap<Integer,Integer>>>();
+		HashMap<Integer, HashMap<Integer,Integer>> slsQReleMap_2 = new HashMap<Integer, HashMap<Integer,Integer>>();
+		HashMap<Integer,Integer> slsFlsReleMap_2 = new HashMap<Integer, Integer>();
+		slsFlsReleMap_2.put(1, 1);
+		slsFlsReleMap_2.put(2, 1);
+		slsQReleMap_2.put(1, slsFlsReleMap_2);		
+		slsDocReleMap_2.put(queryid, slsQReleMap_2);
+		
+		sls_DocReleMap.put(doc_2, slsDocReleMap_2);
+		
+		
+		//doc_3
+		String doc_3 = "doc_3";
+		HashMap<String,HashMap<Integer,HashMap<Integer,Integer>>> slsDocReleMap_3 = 
+				new HashMap<String, HashMap<Integer,HashMap<Integer,Integer>>>();
+		HashMap<Integer, HashMap<Integer,Integer>> slsQReleMap_3 = new HashMap<Integer, HashMap<Integer,Integer>>();
+		HashMap<Integer,Integer> slsFlsReleMap_3 = new HashMap<Integer, Integer>();
+		slsFlsReleMap_3.put(1, 1);
+		slsQReleMap_3.put(2, slsFlsReleMap_3);		
+		slsDocReleMap_3.put(queryid, slsQReleMap_3);
+		
+		sls_DocReleMap.put(doc_3, slsDocReleMap_3);
+		
+		
+		
+		ArrayList<String> rankedList = new ArrayList<String>();
+		rankedList.add(doc_1);
+		rankedList.add(doc_2);
+		rankedList.add(doc_3);
+		
+		//
+		int cutoff = 3;
+		System.out.println("Square-SRecall:\t"+Square_SRecall(queryid, squareEqual, rankedList, cutoff));
+		System.out.println("Square-APIA:\t"+Square_AP(queryid, squareEqual, rankedList, cutoff, awareEqual));
+		System.out.println("Square-ERRIA:\t"+Square_ERR(queryid, squareEqual, rankedList, cutoff, awareEqual));
+		System.out.println("Square-alpha_n_DCG:\t"+Square_alpha_n_DCG(queryid, squareEqual, rankedList, cutoff));
+		System.out.println("Square-D#-nDCG:\t"+Square_D_Sharp_n_DCG(queryid, squareEqual, rankedList, cutoff, awareEqual));
+		
+	}
+	//
+	//count of repeated relevant documents w.r.t. a specific sls
+	private static double getAvgReReleDoc_flsi(String queryid, int cutoff, int flsID, ArrayList<String> sysList){
+		//
+		TwoLevelTopic topic = _2LTMap.get(queryid);
+		ArrayList<Pair<String, Double>> slsList_flsi = topic._slsSetList.get(flsID-1);
+		int slsCount = slsList_flsi.size();
+		
+		//size as the count of sls w.r.t. the given flsID, flsID corresponds to the (flsID-1)-th element
+		ArrayList<Integer> priorReleCountList_flsi = new ArrayList<Integer>();
+		for(int i=1; i<=slsCount; i++){
+			priorReleCountList_flsi.add(0);
+		}
+		
+		if(null==sysList || sysList.size()==0){
+			return 0.0;
+		}
+		
+		int availableCut = Math.min(cutoff, sysList.size());
+		
+		for(int k=0; k<availableCut; k++){
+			String docid = sysList.get(k);
+			
+			ArrayList<Integer> releList_flsi = new ArrayList<Integer>();
+			
+			if(sls_DocReleMap.containsKey(docid)){
+				HashMap<String, HashMap<Integer, HashMap<Integer, Integer>>> slsDocReleMap = sls_DocReleMap.get(docid);
+				if(slsDocReleMap.containsKey(queryid)){
+					HashMap<Integer, HashMap<Integer, Integer>> slsQReleMap = slsDocReleMap.get(queryid);
+					if(slsQReleMap.containsKey(flsID)){
+						HashMap<Integer, Integer> slsFlsReleMap = slsQReleMap.get(flsID);						
+						for(int slsI=1; slsI<=slsCount; slsI++){
+							int binRele = 0;
+							if(slsFlsReleMap.containsKey(slsI)){
+								binRele = (int)I(slsFlsReleMap.get(slsI));
+							}
+							releList_flsi.add(binRele);
+						}												
+					}
+				}
+			}
+			//refresh count of relevant documents
+			if(releList_flsi.size() > 0){
+				for(int slsI=1; slsI<=slsCount; slsI++){
+					priorReleCountList_flsi.set(slsI-1, releList_flsi.get(slsI-1)+priorReleCountList_flsi.get(slsI-1));
+				}
+			}			
+		}	
+		/*
+		for(int slsI=1; slsI<=slsCount; slsI++){
+			int releCountByNow = priorReleCountList_flsi.get(slsI-1);
+			if(releCountByNow > 0){
+				priorReleCountList_flsi.set(slsI-1, releCountByNow-1);
+			}
+		}
+		*/
+		//get average redundant relevant documents per sls
+		double reReleDocSum = 0.0;
+		for(int slsI=1; slsI<=slsCount; slsI++){
+			int releCountByNow = priorReleCountList_flsi.get(slsI-1);
+			if(releCountByNow > 1){
+				reReleDocSum += (releCountByNow-1);
+			}
+		}
+		double avgReReleDoc_flsi = reReleDocSum/slsCount;
+		
+		return avgReReleDoc_flsi;		
+	}
+	//
+	private static double getAvgReReleDoc(String queryid, int cutoff, ArrayList<String> sysList){
+		TwoLevelTopic topic = _2LTMap.get(queryid);
+		int flsCount = topic._flsList.size();
+		//overall average redundant relevant documents per sls throughout a query
+		double overallAvgReReleDoc = 0.0;		
+		for(int i=1; i<=flsCount; i++){
+			overallAvgReReleDoc += getAvgReReleDoc_flsi(queryid, cutoff, i, sysList);
+		}
+		
+		overallAvgReReleDoc = overallAvgReReleDoc/flsCount;
+		
+		return overallAvgReReleDoc;		
+	}
+	//
+	private static void getAvgReReleDocAcrossRuns(ArrayList<String> orderedQIDList, int cutoff,
+			HashMap<String, HashMap<String, ArrayList<String>>> allRuns, int runNum){
+		
+		ArrayList<Double> avgReReleDocAcrossRunsPerQList = new ArrayList<Double>();
+		
+		for(String qID: orderedQIDList){
+			double avgPerQ = 0.0;
+			
+			for(Entry<String, HashMap<String, ArrayList<String>>> run: allRuns.entrySet()){
+				//String runID = run.getKey();
+				HashMap<String, ArrayList<String>> aSystemRun = run.getValue();
+				ArrayList<String> rankedListPerQuery = aSystemRun.get(qID);
+				
+				avgPerQ += getAvgReReleDoc(qID, cutoff, rankedListPerQuery);
+			}
+			
+			avgPerQ = avgPerQ/runNum;
+			
+			avgReReleDocAcrossRunsPerQList.add(avgPerQ);
+		}
+		
+		System.out.println("##\tavgReReleDoc Across Runs Per Query\t##");
+		for(String qID: orderedQIDList){
+			System.out.print(qID+"\t");
+		}
+		System.out.println();
+		for(Double avgV: avgReReleDocAcrossRunsPerQList){
+			System.out.print(resultFormat.format(avgV)+"\t");
+		}
+		System.out.println();
+		System.out.println();		
+	}
+	
+	
+	/////////ARC
+	private static HashMap<String, ArrayList<Pair<String, Double>>> getSpecificRunSet(ArrayList<String> globalQueryIDList, int cutoff, double avgReReleCut,
+			HashMap<String, HashMap<String, ArrayList<String>>> allRuns, int runNum){
+		
+		HashMap<String, ArrayList<Pair<String, Double>>> desiredRunsPerQMap = new HashMap<String, ArrayList<Pair<String, Double>>>();
+		
+		for(String qID: globalQueryIDList){
+			for(Entry<String, HashMap<String, ArrayList<String>>> run: allRuns.entrySet()){
+				String runID = run.getKey();
+				HashMap<String, ArrayList<String>> aSystemRun = run.getValue();
+				ArrayList<String> rankedListPerQuery = aSystemRun.get(qID);
+				
+				double avgPerQ = getAvgReReleDoc(qID, cutoff, rankedListPerQuery);
+				
+				if(avgPerQ > avgReReleCut){
+					//metric value
+					if(desiredRunsPerQMap.containsKey(qID)){
+						
+						desiredRunsPerQMap.get(qID).add(new Pair<String, Double>(runID, avgPerQ));
+						
+					}else{
+						ArrayList<Pair<String, Double>> runList = new ArrayList<Pair<String, Double>>();
+						runList.add(new Pair<String, Double>(runID, avgPerQ));
+						
+						desiredRunsPerQMap.put(qID, runList);
+					}
+				}
+			}
+		}
+		
+		return desiredRunsPerQMap;		
+	}
+	//
+	private static void compareWithSpecificRunSet(int cutoff, HashMap<String, ArrayList<Pair<String, Double>>> SpecificRunSetMap, 
+			HashMap<String, HashMap<String, ArrayList<String>>> allRuns){
+		
+		for(Entry<String, ArrayList<Pair<String, Double>>> comEntry: SpecificRunSetMap.entrySet()){
+			String comQID = comEntry.getKey();
+			ArrayList<Pair<String, Double>> comRunList = comEntry.getValue(); 
+			
+			Collections.sort(comRunList, new PairComparatorBySecond_Desc<String, Double>());
+			
+			if(comRunList.size() > 2){
+				ArrayList<Triple<Double, Double, Double>> comMetricValList = new ArrayList<Triple<Double,Double,Double>>();
+				
+				for(Pair<String, Double> pair: comRunList){
+					HashMap<String, ArrayList<String>> aSystemRun = allRuns.get(pair.getFirst());
+					ArrayList<String> rankedListPerQuery = aSystemRun.get(comQID);
+					
+					//Square-SRecall, SRecall, ERR-IA
+					double sRecall_Square = Square_SRecall(comQID, true, rankedListPerQuery, cutoff);
+					
+					double sRecall_Aware = SRecall(comQID, IDimension.I_AWARE, rankedListPerQuery, cutoff, -1);
+					
+					double errIA = ERRIA(true, comQID, IDimension.I_AWARE, rankedListPerQuery, cutoff, -1);
+					
+					comMetricValList.add(new Triple<Double, Double, Double>(sRecall_Square, sRecall_Aware, errIA));					
+				}
+				
+				System.out.println("#\tSpecific comparison:\t"+Square_SRecall+" "+SRecall+" "+ERR_IA+"\t#");
+				System.out.print("ReReleScore:\t");
+				for(Pair<String, Double> pair: comRunList){
+					System.out.print(resultFormat.format(pair.getSecond())+"\t");					
+				}
+				System.out.println();
+				System.out.print("Square_SRecall:\t");
+				for(Triple<Double, Double, Double> triple: comMetricValList){
+					System.out.print(resultFormat.format(triple.getFirst())+"\t");
+				}
+				System.out.println();
+				System.out.print("SRecall:\t");
+				for(Triple<Double, Double, Double> triple: comMetricValList){
+					System.out.print(resultFormat.format(triple.getSecond())+"\t");
+				}
+				System.out.println();
+				System.out.print("ERR_IA:\t");
+				for(Triple<Double, Double, Double> triple: comMetricValList){
+					System.out.print(resultFormat.format(triple.getThird())+"\t");
+				}
+				System.out.println();
+				System.out.println();
+			}
+			
+			
+		}
+		
+	}
+	/////////
+	//Achieved Significance Level
+	/////////
+	/**
+	 * Algorithm for obtaining the Achieved Significance Level
+	 * with the two-sided, randomised Tukey’s HSD
+	 * given a performance value matrix X whose rows represent topics and columns represent runs
+	 * **/
+	private static void testShuffle(){
+		//1 test
+		ArrayList<Integer> originalList = new ArrayList<Integer>();
+		originalList.add(1);
+		originalList.add(2);
+		originalList.add(3);
+		
+		ArrayList<Integer> newList = new ArrayList<Integer>();
+		newList.addAll(originalList);
+		Collections.shuffle(newList);
+		
+		System.out.println("original:\t"+originalList);
+		System.out.println("new:\t"+newList);
+	}
+	/**
+	 * @param ArrayList<ArrayList<Double>> X: topicNum*runNUM matrix row is the result list of all runs for the same topic
+	 * 
+	 * **/
+	private static void HSD(int B, String metricID, ArrayList<ArrayList<Double>> X, int topicNum, int runNum){			
+		//column mean of X
+		double [] columnMeanArray_X = new double [runNum];
+		for(int t=0; t<topicNum; t++){
+			ArrayList<Double> runResultsPerTopic_X = X.get(t);
+			for(int runIndex=0; runIndex<runNum; runIndex++){
+				columnMeanArray_X[runIndex] += runResultsPerTopic_X.get(runIndex);
+			}			
+		}
+		for(int runIndex=0; runIndex<runNum; runIndex++){
+			columnMeanArray_X[runIndex] = columnMeanArray_X[runIndex]/topicNum;
+		}
+		//count matrix
+		int [][] countMatrix = new int [runNum][runNum];
+		for(int runIndex=0; runIndex<runNum; runIndex++){
+			countMatrix [runIndex] = new int [runNum];
+		}
+		//ASL matrix
+		double [][] aslMatrix = new double [runNum][runNum];
+		for(int runIndex=0; runIndex<runNum; runIndex++){
+			aslMatrix[runIndex] = new double [runNum];
+		}		
+		//list of B metrics like X_star_b
+		//ArrayList<ArrayList<ArrayList<Double>>> X_star_b_List = new ArrayList<ArrayList<ArrayList<Double>>>();
+		//create B metrics
+		for(int b=1; b<=B; b++){
+			ArrayList<ArrayList<Double>> X_star_b = new ArrayList<ArrayList<Double>>();
+			//a permutation of row t of X
+			for(int t=0; t<topicNum; t++){
+				//new row
+				ArrayList<Double> permutedTRow = new ArrayList<Double>();
+				permutedTRow.addAll(X.get(t));
+				//permutation
+				Collections.shuffle(permutedTRow);
+				//create the t-th row of the new matrix
+				X_star_b.add(permutedTRow);				
+			}		
+			//compute the maxMeanColumn_star_b, minMeanColumn_star_b
+			double [] columnSumArray = new double [runNum];
+			for(int t=0; t<topicNum; t++){
+				ArrayList<Double> runResultsPerTopic = X_star_b.get(t);
+				for(int runIndex=0; runIndex<runNum; runIndex++){
+					columnSumArray[runIndex] += runResultsPerTopic.get(runIndex);
+				}
+			}
+			//initial minimum value
+			double maxColumnMean_star_b = Double.MIN_VALUE;
+			//initial maximum value
+			double minColumnMean_star_b = Double.MAX_VALUE;
+			
+			for(int runIndex=0; runIndex<runNum; runIndex++){
+				//mean value
+				double columnMean = columnSumArray[runIndex]/topicNum;
+				
+				if(columnMean > maxColumnMean_star_b){
+					maxColumnMean_star_b = columnMean;
+				}
+				
+				if(columnMean < minColumnMean_star_b){
+					minColumnMean_star_b = columnMean;
+				}
+			}			
+			//count
+			for(int runI=0; runI<runNum-1; runI++){
+				for(int runJ=runI+1; runJ<runNum; runJ++){
+					if( (maxColumnMean_star_b-minColumnMean_star_b) > Math.abs(columnMeanArray_X[runI]-columnMeanArray_X[runJ])){						
+						countMatrix[runI][runJ] += 1;
+					}					
+				}
+			}						
+		}	
+		//for sorting run-pairs by asl
+		ArrayList<Triple<Integer, Integer, Double>> sortedRunPairList = new ArrayList<Triple<Integer,Integer,Double>>();
+		
+		//ASL
+		for(int runI=0; runI<runNum-1; runI++){
+			for(int runJ=runI+1; runJ<runNum; runJ++){
+				aslMatrix[runI][runJ] = (1.0*countMatrix[runI][runJ])/B;
+				//
+				sortedRunPairList.add(new Triple<Integer, Integer, Double>(runI, runJ, aslMatrix[runI][runJ]));
+			}				
+		}
+		//
+		System.out.println("ASL curves(size="+sortedRunPairList.size()+"):");		
+		Collections.sort(sortedRunPairList, new TripleComparatorByThird_Desc<Integer, Integer, Double>());
+		System.out.print(metricID+":\t");
+		//
+		boolean cut = false;
+		ArrayList<Integer> sortedIDList = new ArrayList<Integer>();
+		if(cut){
+			for(int sortedID=1; sortedID<=sortedRunPairList.size(); sortedID++){
+				Triple<Integer, Integer, Double> aslOfRunPair = sortedRunPairList.get(sortedID-1);
+				if(aslOfRunPair.getThird() <= CurveCut){
+					sortedIDList.add(sortedID);
+					System.out.print(resultFormat.format(aslOfRunPair.getThird())+"\t");
+				}
+			}
+			System.out.println();
+			System.out.print("SortedID:\t");
+			for(Integer sortedID: sortedIDList){
+				System.out.print(sortedID+"\t");
+			}
+			System.out.println();
+		}else{			
+			for(int sortedID=1; sortedID<=sortedRunPairList.size(); sortedID++){
+				Triple<Integer, Integer, Double> aslOfRunPair = sortedRunPairList.get(sortedID-1);
+				sortedIDList.add(sortedID);
+				System.out.print(resultFormat.format(aslOfRunPair.getThird())+"\t");
+			}
+			System.out.println();
+			System.out.print("SortedID:\t");
+			for(Integer sortedID: sortedIDList){
+				System.out.print(sortedID+"\t");
+			}
+			System.out.println();
+			System.out.println();
+		}		
+	}
+	
+	/**
+	 * @param HashMap<String, ArrayList<Double>> perQueryEvalMapAllRun runID -> list of per query result
+	 * @return ArrayList<ArrayList<Double>> topicNum*runNUM matrix row is the result list of all runs for the same topic
+	 * **/
+	private static ArrayList<ArrayList<Double>> getTopicRunMatrix(int topicNum, ArrayList<String> runIDList, 
+			HashMap<String, ArrayList<Double>> perQueryEvalMapAllRun){
+		//topic*runID matrix
+		ArrayList<ArrayList<Double>> desiredX = new ArrayList<ArrayList<Double>>();
+		
+		for(int i=0; i<topicNum; i++){
+			ArrayList<Double> resultsForOneTopic = new ArrayList<Double>();
+			for(String runID: runIDList){
+				resultsForOneTopic.add(perQueryEvalMapAllRun.get(runID).get(i));				
+			}
+			desiredX.add(resultsForOneTopic);
+		}
+		
+		return desiredX;
+	}
+	
+	//////////
+	//Kendall's Tau
+	/////////
+	//between two metrics
+	private static void TauAP(TauCorrelation tauCorrelation, ArrayList<String> globalRunIDList, 
+			String metric_A, HashMap<String, Pair<String, Double>> metric_A_AvgMapAllRun,
+			String metric_B, HashMap<String, Pair<String, Double>> metric_B_AvgMapAllRun){
+		//
+		ArrayList<Double> valList_A = new ArrayList<Double>();
+		ArrayList<Double> valList_B = new ArrayList<Double>();
+		
+		for(String runid: globalRunIDList){
+			valList_A.add(metric_A_AvgMapAllRun.get(runid).getSecond());
+			valList_B.add(metric_B_AvgMapAllRun.get(runid).getSecond());			
+		}
+		
+		double corrValue = tauCorrelation.TauAP_CorrespondingID(valList_A, valList_B);
+		
+		System.out.println("Tau_AP:\t"+metric_A+"\t-\t"+metric_B+"\t"+resultFormat.format(corrValue));		
+	}
+	//correlation matrix w.r.t. a set of metrics
+	private static void correlationMatrix_TauAP(TauCorrelation tauCorrelation, ArrayList<String> globalRunIDList,
+			ArrayList<String> metricIDList, ArrayList<HashMap<String, Pair<String, Double>>> metricAvgMapAllRun_list){
+		
+		int metricNum = metricIDList.size();
+		
+		for(int i=0; i<metricNum-1; i++){
+			String metric_A = metricIDList.get(i);
+			for(int j=i+1; j<metricNum; j++){
+				String metric_B = metricIDList.get(j);
+				
+				TauAP(tauCorrelation, globalRunIDList, metric_A, metricAvgMapAllRun_list.get(i),
+						metric_B, metricAvgMapAllRun_list.get(j));				
+			}
+		}
+	}
+	//between one specific metric and another family of metrics
+	private static void corrBetweenOneAndAnotherFamily_TauAP(TauCorrelation tauCorrelation, ArrayList<String> globalRunIDList,
+			String starMetric, HashMap<String, Pair<String, Double>> starMetric_AvgMapAllRun,
+			ArrayList<String> metricFamily, ArrayList<HashMap<String, Pair<String, Double>>> metricAvgMapAllRun_Family){		
+		//-
+		int metricNum = metricFamily.size();
+		for(int i=0; i<metricNum; i++){
+			String memberMetric = metricFamily.get(i);
+			HashMap<String, Pair<String, Double>> memberMetric_AvgMapAllRun = metricAvgMapAllRun_Family.get(i);
+			
+			TauAP(tauCorrelation, globalRunIDList, 
+					starMetric, starMetric_AvgMapAllRun,
+					memberMetric, memberMetric_AvgMapAllRun);
+		}
+	}
+	/**
+	 * Per-query correlation, i.e., rank the metrics results of one query corresponding to all the runs
+	 * then compute the correlation of two metrics
+	 * 
+	 * **/
+	private static ArrayList<String> perQueryCorr_TauAP(boolean sortCorrValues, TauCorrelation tauCorrelation, ArrayList<String> globalQueryIDList, ArrayList<String> globalRunIDList,
+			String metric_A, HashMap<String, ArrayList<Double>> runToPerQueryResults_AllRunMap_A,
+			String metric_B, HashMap<String, ArrayList<Double>> runToPerQueryResults_AllRunMap_B){
+		
+		ArrayList<Triple<String, String, Double>> perQCorrList = new ArrayList<Triple<String,String,Double>>();
+		
+		for(int qIndex=0; qIndex<globalQueryIDList.size(); qIndex++){
+			String queryID = globalQueryIDList.get(qIndex);
+			ArrayList<Double> perQResults_AllRun_A = new ArrayList<Double>();
+			ArrayList<Double> perQResults_AllRun_B = new ArrayList<Double>();
+			
+			for(String runID: globalRunIDList){
+				ArrayList<Double> allQResult_OneRun_A = runToPerQueryResults_AllRunMap_A.get(runID);
+				ArrayList<Double> allQResult_OneRun_B = runToPerQueryResults_AllRunMap_B.get(runID);
+				
+				perQResults_AllRun_A.add(allQResult_OneRun_A.get(qIndex));
+				perQResults_AllRun_B.add(allQResult_OneRun_B.get(qIndex));
+			}
+			
+			double perQCorr = tauCorrelation.TauAP_CorrespondingID(perQResults_AllRun_A, perQResults_AllRun_B);
+			perQCorrList.add(new Triple<String, String, Double>(queryID, metric_A+" "+metric_B, perQCorr));
+		}
+		
+		if(sortCorrValues){
+			Collections.sort(perQCorrList, new TripleComparatorByThird_Desc<String, String, Double>());
+		}
+		
+		ArrayList<String> orderedQIDList = new ArrayList<String>(); 
+		
+		System.out.println("##\t"+metric_A+" vs. "+metric_B+" Per query correlation & sorting["+sortCorrValues+"]");
+		for(Triple<String, String, Double> corrTri: perQCorrList){
+			System.out.print(corrTri.getFirst()+"\t");
+			
+			orderedQIDList.add(corrTri.getFirst());
+		}
+		System.out.println();
+		for(Triple<String, String, Double> corrTri: perQCorrList){
+			System.out.print(resultFormat.format(corrTri.getThird())+"\t");
+		}
+		System.out.println();
+		System.out.println();	
+		
+		return orderedQIDList;
+	}
+	
 	
 	////////
 	//Comparison
@@ -1061,13 +2107,25 @@ public class MetricComparison {
 	private static final String D_Sharp_n_DCG = "D_Sharp_n_DCG";
 	private static final String DIN_Sharp_n_DCGl = "DIN_Sharp_n_DCGl";
 	
-	public static void metricValue(NTCIR_EVAL_TASK eval, NTCIR11_TOPIC_TYPE type, boolean equal, STLevel stLevel, int cutoff){
+	private static final String Square_SRecall = "Square_SRecall";
+	private static final String Square_AP_IA = "Square_AP_IA";
+	private static final String Square_ERR_IA = "Square_ERR_IA";
+	private static final String Square_Alpha_n_DCG = "Square_Alpha_n_DCG";
+	private static final String Square_D_Sharp_n_DCG = "Square_D_Sharp_n_DCG";
+	
+	
+	public static void metricValue(NTCIR_EVAL_TASK eval, NTCIR11_TOPIC_TYPE type, 
+			boolean awareEqual, int cutoff, boolean squareEqual){
 		
 		String xmlDir = "C:/T/Research/CurrentResearch/NTCIR/NTCIR-11/Ntcir11-IMine/Eval-IMine/20150428/";
 		String runDir = null;
 		
 		//filtered due to no sls, i.e., 0003(4), 0017(2) for Ch
 		HashSet<String> filteredTopicSet = new HashSet<String>();
+		//
+		ArrayList<String> globalQueryIDList = new ArrayList<String>();
+		int globalQueryNum;
+		
 		
 		if(type == NTCIR11_TOPIC_TYPE.UNCLEAR){		
 			//
@@ -1080,6 +2138,8 @@ public class MetricComparison {
 				
 				filteredTopicSet.add("0003");
 				filteredTopicSet.add("0017");
+				//0033 due to no fls relevant documents				
+				filteredTopicSet.add("0033");
 				
 			}else if(eval == NTCIR_EVAL_TASK.NTCIR11_DR_EN){
 				
@@ -1091,46 +2151,259 @@ public class MetricComparison {
 				filteredTopicSet.add("0070");
 			}
 			
+			//for global usage
+			for(TwoLevelTopic topic: _2LTList){
+				String queryid = topic.getTopicID();				
+				//filter the topics if it includes a subtopic that has no second-level subtopic
+				if(filteredTopicSet.contains(queryid)){
+					continue;
+				}				
+				globalQueryIDList.add(queryid);
+			}
+			globalQueryNum = globalQueryIDList.size();
+			
 			//runs to be evaluated
 			HashMap<String, HashMap<String, ArrayList<String>>> allRuns = loadSysRuns(runDir);
 			
+			int globalRunNum = allRuns.size();			
+			ArrayList<String> globalRunIDList = new ArrayList<String>();
+			
+			for(Entry<String, HashMap<String, ArrayList<String>>> run: allRuns.entrySet()){
+				String runID = run.getKey();
+				globalRunIDList.add(runID);
+			}
+			
 			//document relevance
-			getDocUsageMap(xmlDir, eval, type);
+			getDocUsageMap(xmlDir, eval, type);			
 			
-			//metricStr -> averageMetricValue
-			HashMap<String, Double> SRecall_AvgMap = new HashMap<String, Double>();
-			//metricStr -> list of per query result
-			HashMap<String, ArrayList<Double>> SRecall_PerQueryEvalMap = new HashMap<String, ArrayList<Double>>();
+			///////////////
+			//Intent-Aware
+			///////////////
+			ArrayList<String> metricIDList_family_1 = new ArrayList<String>();
+			ArrayList<HashMap<String, Pair<String, Double>>> metricAvgMapAllRun_list_family_1 
+			= new ArrayList<HashMap<String,Pair<String,Double>>>();
 			
-			HashMap<String, Double> APIA_AvgMap = new HashMap<String, Double>();
-			HashMap<String, ArrayList<Double>>  APIA_PerQueryEvalMap = new HashMap<String, ArrayList<Double>>();
+			//runID -> <runID, avgValue> // for avgOfOneRun
+			HashMap<String, Pair<String, Double>> SRecall_AvgMapAllRun_1 = new HashMap<String, Pair<String, Double>>();
+			//<runID, avgValue> // for run ranking
+			ArrayList<Pair<String, Double>> SRecall_AvgList_1 = new ArrayList<Pair<String,Double>>();
+			//runID -> list of per query result // for per-query analysis
+			HashMap<String, ArrayList<Double>> SRecall_PerQueryEvalMapAllRun_1 = new HashMap<String, ArrayList<Double>>();			
+			metricIDList_family_1.add(SRecall);			
 			
-			HashMap<String, Double> ERRIA_AvgMap = new HashMap<String, Double>();
-			HashMap<String, ArrayList<Double>> ERRIA_PerQueryEvalMap = new HashMap<String, ArrayList<Double>>();
+			HashMap<String, Pair<String, Double>> APIA_AvgMapAllRun_1 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> APIA_AvgList_1 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>>  APIA_PerQueryEvalMapAllRun_1 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_1.add(AP_IA);
 			
-			HashMap<String, Double> AlphaNDCG_AvgMap = new HashMap<String, Double>();
-			HashMap<String, ArrayList<Double>> AlphaNDCG_PerQueryEvalMap = new HashMap<String, ArrayList<Double>>();
+			HashMap<String, Pair<String, Double>> ERRIA_AvgMapAllRun_1 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> ERRIA_AvgList_1 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>> ERRIA_PerQueryEvalMapAllRun_1 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_1.add(ERR_IA);
 			
-			HashMap<String, Double> DSharpNDCG_AvgMap = new HashMap<String, Double>();
-			HashMap<String, ArrayList<Double>> DSharpNDCG_PerQueryEvalMap = new HashMap<String, ArrayList<Double>>();
-
+			HashMap<String, Pair<String, Double>> AlphaNDCG_AvgMapAllRun_1 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> AlphaNDCG_AvgList_1 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>> AlphaNDCG_PerQueryEvalMapAllRun_1 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_1.add(Alpha_n_DCG);
+			
+			HashMap<String, Pair<String, Double>> DSharpNDCG_AvgMapAllRun_1 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> DSharpNDCG_AvgList_1 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>> DSharpNDCG_PerQueryEvalMapAllRun_1 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_1.add(D_Sharp_n_DCG);
 			
 			for(Entry<String, HashMap<String, ArrayList<String>>> run: allRuns.entrySet()){
 				String runID = run.getKey();
 				//queryid -> ranked list
-				HashMap<String, ArrayList<String>> rankedListMap = run.getValue();
+				HashMap<String, ArrayList<String>> aSystemRun = run.getValue();
 				
-				ArrayList<Double> SRecall_PerQueryEvalList = new ArrayList<Double>();	
-				ArrayList<Double> APIA_PerQueryEvalList = new ArrayList<Double>();
-				ArrayList<Double> ERRIA_PerQueryEvalList = new ArrayList<Double>();
-				ArrayList<Double> AlphaNDCG_PerQueryEvalList = new ArrayList<Double>();
-				ArrayList<Double> DSharpNDCG_PerQueryEvalList = new ArrayList<Double>();
+				ArrayList<Double> SRecall_PerQueryEvalList_1 = new ArrayList<Double>();	
+				ArrayList<Double> APIA_PerQueryEvalList_1 = new ArrayList<Double>();
+				ArrayList<Double> ERRIA_PerQueryEvalList_1 = new ArrayList<Double>();
+				ArrayList<Double> AlphaNDCG_PerQueryEvalList_1 = new ArrayList<Double>();
+				ArrayList<Double> DSharpNDCG_PerQueryEvalList_1 = new ArrayList<Double>();
 				
-				double SRecall_sum = 0.0;
-				double APIA_sum = 0.0;
-				double ERRIA_sum = 0.0;
-				double AlphaNDCG_sum = 0.0;
-				double DSharpNDCG_sum = 0.0;
+				double SRecall_sum_1 = 0.0;
+				double APIA_sum_1 = 0.0;
+				double ERRIA_sum_1 = 0.0;
+				double AlphaNDCG_sum_1 = 0.0;
+				double DSharpNDCG_sum_1 = 0.0;
+				
+				int countOfUsedTopics = 0;
+				
+				for(TwoLevelTopic topic: _2LTList){
+					String queryid = topic.getTopicID();
+										
+					//filter the topics if it includes a subtopic that has no second-level subtopic
+					if(filteredTopicSet.contains(queryid)){
+						continue;
+					}
+					
+					ArrayList<String> rankedListPerQuery = aSystemRun.get(queryid);
+					
+					countOfUsedTopics++;
+					
+					//SRecall
+					double sRecall_1 = SRecall(queryid, IDimension.I_AWARE, rankedListPerQuery, cutoff, -1);
+					SRecall_PerQueryEvalList_1.add(sRecall_1);
+					SRecall_sum_1 += sRecall_1;
+					
+					//APIA
+					double apIA_1 = APIA(awareEqual, queryid, IDimension.I_AWARE, rankedListPerQuery, cutoff, -1);
+					APIA_PerQueryEvalList_1.add(apIA_1);
+					APIA_sum_1 += apIA_1;
+					
+					//ERRIA
+					double errIA_1 = ERRIA(awareEqual, queryid, IDimension.I_AWARE, rankedListPerQuery, cutoff, -1);
+					ERRIA_PerQueryEvalList_1.add(errIA_1);
+					ERRIA_sum_1 += errIA_1;
+					
+					//alpha-nDCG
+					double alphaNDCG_1 = alpha_n_DCG(queryid, IDimension.I_AWARE, rankedListPerQuery, cutoff, -1);
+					AlphaNDCG_PerQueryEvalList_1.add(alphaNDCG_1);
+					AlphaNDCG_sum_1 += alphaNDCG_1;
+					
+					//D#-nDCG
+					double dSharpNDCG_1 = D_Sharp_n_DCG(awareEqual, queryid, IDimension.I_AWARE, rankedListPerQuery, cutoff, -1);
+					DSharpNDCG_PerQueryEvalList_1.add(dSharpNDCG_1);
+					DSharpNDCG_sum_1 += dSharpNDCG_1;					
+				}
+				
+				Pair<String, Double> SRecall_Avg_1 = new Pair<String, Double>(runID, SRecall_sum_1/countOfUsedTopics);
+				SRecall_AvgMapAllRun_1.put(runID, SRecall_Avg_1);
+				SRecall_AvgList_1.add(SRecall_Avg_1);
+				SRecall_PerQueryEvalMapAllRun_1.put(runID, SRecall_PerQueryEvalList_1);
+				
+				Pair<String, Double> APIA_Avg_1 = new Pair<String, Double>(runID, APIA_sum_1/countOfUsedTopics);
+				APIA_AvgMapAllRun_1.put(runID, APIA_Avg_1);
+				APIA_AvgList_1.add(APIA_Avg_1);
+				APIA_PerQueryEvalMapAllRun_1.put(runID, APIA_PerQueryEvalList_1);
+				
+				Pair<String, Double> ERRIA_Avg_1 = new Pair<String, Double>(runID, ERRIA_sum_1/countOfUsedTopics);
+				ERRIA_AvgMapAllRun_1.put(runID, ERRIA_Avg_1);
+				ERRIA_AvgList_1.add(ERRIA_Avg_1);
+				ERRIA_PerQueryEvalMapAllRun_1.put(runID, ERRIA_PerQueryEvalList_1);
+				
+				Pair<String, Double> AlphaNDCG_Avg_1 = new Pair<String, Double>(runID, AlphaNDCG_sum_1/countOfUsedTopics);
+				AlphaNDCG_AvgMapAllRun_1.put(runID, AlphaNDCG_Avg_1);
+				AlphaNDCG_AvgList_1.add(AlphaNDCG_Avg_1);
+				AlphaNDCG_PerQueryEvalMapAllRun_1.put(runID, AlphaNDCG_PerQueryEvalList_1);
+				
+				Pair<String, Double> DSharpNDCG_Avg_1 = new Pair<String, Double>(runID, DSharpNDCG_sum_1/countOfUsedTopics);
+				DSharpNDCG_AvgMapAllRun_1.put(runID, DSharpNDCG_Avg_1);
+				DSharpNDCG_AvgList_1.add(DSharpNDCG_Avg_1);
+				DSharpNDCG_PerQueryEvalMapAllRun_1.put(runID, DSharpNDCG_PerQueryEvalList_1);				
+			}
+			
+			//-
+			metricAvgMapAllRun_list_family_1.add(SRecall_AvgMapAllRun_1);
+			metricAvgMapAllRun_list_family_1.add(APIA_AvgMapAllRun_1);
+			metricAvgMapAllRun_list_family_1.add(ERRIA_AvgMapAllRun_1);
+			metricAvgMapAllRun_list_family_1.add(AlphaNDCG_AvgMapAllRun_1);
+			metricAvgMapAllRun_list_family_1.add(DSharpNDCG_AvgMapAllRun_1);			
+			//-
+			
+			//check the ranked order of submitted runs
+			//SRecall
+			Collections.sort(SRecall_AvgList_1, new PairComparatorBySecond_Desc<String, Double>());
+			System.out.print("SRecall:\t");
+			for(Pair<String, Double> SRecall_PerRun_1: SRecall_AvgList_1){
+				System.out.print(SRecall_PerRun_1.getFirst()+" : "+resultFormat.format(SRecall_PerRun_1.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//APIA
+			System.out.print("APIA:\t\t");
+			Collections.sort(APIA_AvgList_1, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> APIA_PerRun_1: APIA_AvgList_1){
+				System.out.print(APIA_PerRun_1.getFirst()+" : "+resultFormat.format(APIA_PerRun_1.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//ERRIA
+			System.out.print("ERRIA:\t\t");
+			Collections.sort(ERRIA_AvgList_1, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> ERRIA_PerRun_1: ERRIA_AvgList_1){
+				System.out.print(ERRIA_PerRun_1.getFirst()+" : "+resultFormat.format(ERRIA_PerRun_1.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//AlphaNDCG
+			System.out.print("AlphaNDCG:\t");
+			Collections.sort(AlphaNDCG_AvgList_1, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> AlphaNDCG_PerRun_1: AlphaNDCG_AvgList_1){
+				System.out.print(AlphaNDCG_PerRun_1.getFirst()+" : "+resultFormat.format(AlphaNDCG_PerRun_1.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//DSharpNDCG
+			System.out.print("DSharpNDCG:\t");
+			Collections.sort(DSharpNDCG_AvgList_1, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> DSharpNDCG_PerRun_1: DSharpNDCG_AvgList_1){
+				System.out.print(DSharpNDCG_PerRun_1.getFirst()+" : "+resultFormat.format(DSharpNDCG_PerRun_1.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			
+			
+			///////////////////
+			//Intent-Square
+			///////////////////
+			System.out.println();
+			System.out.println();
+			ArrayList<String> metricIDList_family_2 = new ArrayList<String>();
+			ArrayList<HashMap<String, Pair<String, Double>>> metricAvgMapAllRun_list_family_2 
+			= new ArrayList<HashMap<String,Pair<String,Double>>>();
+			
+			
+			//runID -> <runID, avgValue> // for avgOfOneRun
+			HashMap<String, Pair<String, Double>> SRecall_AvgMapAllRun_2 = new HashMap<String, Pair<String, Double>>();
+			//<runID, avgValue> // for run ranking
+			ArrayList<Pair<String, Double>> SRecall_AvgList_2 = new ArrayList<Pair<String,Double>>();
+			//runID -> list of per query result // for per-query analysis
+			HashMap<String, ArrayList<Double>> SRecall_PerQueryEvalMapAllRun_2 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_2.add(Square_SRecall);
+			metricAvgMapAllRun_list_family_2.add(SRecall_AvgMapAllRun_2);
+			
+			HashMap<String, Pair<String, Double>> APIA_AvgMapAllRun_2 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> APIA_AvgList_2 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>>  APIA_PerQueryEvalMapAllRun_2 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_2.add(Square_AP_IA);
+			metricAvgMapAllRun_list_family_2.add(APIA_AvgMapAllRun_2);
+			
+			HashMap<String, Pair<String, Double>> ERRIA_AvgMapAllRun_2 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> ERRIA_AvgList_2 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>> ERRIA_PerQueryEvalMapAllRun_2 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_2.add(Square_ERR_IA);
+			metricAvgMapAllRun_list_family_2.add(ERRIA_AvgMapAllRun_2);
+			
+			HashMap<String, Pair<String, Double>> AlphaNDCG_AvgMapAllRun_2 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> AlphaNDCG_AvgList_2 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>> AlphaNDCG_PerQueryEvalMapAllRun_2 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_2.add(Square_Alpha_n_DCG);
+			metricAvgMapAllRun_list_family_2.add(AlphaNDCG_AvgMapAllRun_2);
+			
+			HashMap<String, Pair<String, Double>> DSharpNDCG_AvgMapAllRun_2 = new HashMap<String, Pair<String, Double>>();
+			ArrayList<Pair<String, Double>> DSharpNDCG_AvgList_2 = new ArrayList<Pair<String,Double>>();
+			HashMap<String, ArrayList<Double>> DSharpNDCG_PerQueryEvalMapAllRun_2 = new HashMap<String, ArrayList<Double>>();
+			metricIDList_family_2.add(Square_D_Sharp_n_DCG);
+			metricAvgMapAllRun_list_family_2.add(DSharpNDCG_AvgMapAllRun_2);
+			
+			for(Entry<String, HashMap<String, ArrayList<String>>> run: allRuns.entrySet()){
+				String runID = run.getKey();
+				//queryid -> ranked list
+				HashMap<String, ArrayList<String>> aSystemRun = run.getValue();
+				
+				ArrayList<Double> SRecall_PerQueryEvalList_2 = new ArrayList<Double>();	
+				ArrayList<Double> APIA_PerQueryEvalList_2 = new ArrayList<Double>();
+				ArrayList<Double> ERRIA_PerQueryEvalList_2 = new ArrayList<Double>();
+				ArrayList<Double> AlphaNDCG_PerQueryEvalList_2 = new ArrayList<Double>();
+				ArrayList<Double> DSharpNDCG_PerQueryEvalList_2 = new ArrayList<Double>();
+				
+				double SRecall_sum_2 = 0.0;
+				double APIA_sum_2 = 0.0;
+				double ERRIA_sum_2 = 0.0;
+				double AlphaNDCG_sum_2 = 0.0;
+				double DSharpNDCG_sum_2 = 0.0;
 				
 				int countOfUsedTopics = 0;
 				
@@ -1142,52 +2415,246 @@ public class MetricComparison {
 						continue;
 					}
 					
-					ArrayList<String> rankedList = rankedListMap.get(queryid);
+					ArrayList<String> rankedListPerQuery = aSystemRun.get(queryid);
 					
 					countOfUsedTopics++;
 					
 					//SRecall
-					double sRecall = SRecall(queryid, stLevel, rankedList, cutoff);
-					SRecall_PerQueryEvalList.add(sRecall);
-					SRecall_sum += sRecall;
+					double sRecall_2 = Square_SRecall(queryid, squareEqual, rankedListPerQuery, cutoff);
+					SRecall_PerQueryEvalList_2.add(sRecall_2);
+					SRecall_sum_2 += sRecall_2;
 					
 					//APIA
-					double apIA = APIA(equal, queryid, stLevel, rankedList, cutoff);
-					APIA_PerQueryEvalList.add(apIA);
-					APIA_sum += apIA;
+					double apIA_2 = Square_AP(queryid, squareEqual, rankedListPerQuery, cutoff, awareEqual);
+					APIA_PerQueryEvalList_2.add(apIA_2);
+					APIA_sum_2 += apIA_2;
 					
 					//ERRIA
-					double errIA = ERRIA(equal, queryid, stLevel, rankedList, cutoff);
-					ERRIA_PerQueryEvalList.add(errIA);
-					ERRIA_sum += errIA;
+					double errIA_2 = Square_ERR(queryid, squareEqual, rankedListPerQuery, cutoff, awareEqual);
+					ERRIA_PerQueryEvalList_2.add(errIA_2);
+					ERRIA_sum_2 += errIA_2;
 					
 					//alpha-nDCG
-					double alphaNDCG = alpha_n_DCG(queryid, stLevel, rankedList, cutoff);
-					AlphaNDCG_PerQueryEvalList.add(alphaNDCG);
-					AlphaNDCG_sum += alphaNDCG;
+					double alphaNDCG_2 = Square_alpha_n_DCG(queryid, squareEqual, rankedListPerQuery, cutoff);
+					AlphaNDCG_PerQueryEvalList_2.add(alphaNDCG_2);
+					AlphaNDCG_sum_2 += alphaNDCG_2;
 					
 					//D#-nDCG
-					double dSharpNDCG = D_Sharp_n_DCG(equal, queryid, stLevel, rankedList, cutoff);
-					DSharpNDCG_PerQueryEvalList.add(dSharpNDCG);
-					DSharpNDCG_sum += dSharpNDCG;
-					
+					double dSharpNDCG_2 = Square_D_Sharp_n_DCG(queryid, squareEqual, rankedListPerQuery, cutoff, awareEqual);
+					DSharpNDCG_PerQueryEvalList_2.add(dSharpNDCG_2);
+					DSharpNDCG_sum_2 += dSharpNDCG_2;					
 				}
 				
-				SRecall_AvgMap.put(SRecall, SRecall_sum/countOfUsedTopics);
-				SRecall_PerQueryEvalMap.put(SRecall, SRecall_PerQueryEvalList);
+				Pair<String, Double> SRecall_Avg_2 = new Pair<String, Double>(runID, SRecall_sum_2/countOfUsedTopics);
+				SRecall_AvgMapAllRun_2.put(runID, SRecall_Avg_2);
+				SRecall_AvgList_2.add(SRecall_Avg_2);
+				SRecall_PerQueryEvalMapAllRun_2.put(runID, SRecall_PerQueryEvalList_2);
 				
-				APIA_AvgMap.put(AP_IA, APIA_sum/countOfUsedTopics);
-				APIA_PerQueryEvalMap.put(AP_IA, APIA_PerQueryEvalList);
+				Pair<String, Double> APIA_Avg_2 = new Pair<String, Double>(runID, APIA_sum_2/countOfUsedTopics);
+				APIA_AvgMapAllRun_2.put(runID, APIA_Avg_2);
+				APIA_AvgList_2.add(APIA_Avg_2);
+				APIA_PerQueryEvalMapAllRun_2.put(runID, APIA_PerQueryEvalList_2);
 				
-				ERRIA_AvgMap.put(ERR_IA, ERRIA_sum/countOfUsedTopics);
-				ERRIA_PerQueryEvalMap.put(ERR_IA, ERRIA_PerQueryEvalList);
+				Pair<String, Double> ERRIA_Avg_2 = new Pair<String, Double>(runID, ERRIA_sum_2/countOfUsedTopics);
+				ERRIA_AvgMapAllRun_2.put(runID, ERRIA_Avg_2);
+				ERRIA_AvgList_2.add(ERRIA_Avg_2);
+				ERRIA_PerQueryEvalMapAllRun_2.put(runID, ERRIA_PerQueryEvalList_2);
 				
-				AlphaNDCG_AvgMap.put(Alpha_n_DCG, AlphaNDCG_sum/countOfUsedTopics);
-				AlphaNDCG_PerQueryEvalMap.put(Alpha_n_DCG, AlphaNDCG_PerQueryEvalList);
+				Pair<String, Double> AlphaNDCG_Avg_2 = new Pair<String, Double>(runID, AlphaNDCG_sum_2/countOfUsedTopics);
+				AlphaNDCG_AvgMapAllRun_2.put(runID, AlphaNDCG_Avg_2);
+				AlphaNDCG_AvgList_2.add(AlphaNDCG_Avg_2);
+				AlphaNDCG_PerQueryEvalMapAllRun_2.put(runID, AlphaNDCG_PerQueryEvalList_2);
 				
-				DSharpNDCG_AvgMap.put(D_Sharp_n_DCG, DSharpNDCG_sum/countOfUsedTopics);
-				DSharpNDCG_PerQueryEvalMap.put(D_Sharp_n_DCG, DSharpNDCG_PerQueryEvalList);				
+				Pair<String, Double> DSharpNDCG_Avg_2 = new Pair<String, Double>(runID, DSharpNDCG_sum_2/countOfUsedTopics);
+				DSharpNDCG_AvgMapAllRun_2.put(runID, DSharpNDCG_Avg_2);
+				DSharpNDCG_AvgList_2.add(DSharpNDCG_Avg_2);
+				DSharpNDCG_PerQueryEvalMapAllRun_2.put(runID, DSharpNDCG_PerQueryEvalList_2);				
 			}
+			
+			//check the ranked order of submitted runs
+			//Square-SRecall
+			Collections.sort(SRecall_AvgList_2, new PairComparatorBySecond_Desc<String, Double>());
+			System.out.print("Square-SRecall:\t\t");
+			for(Pair<String, Double> SRecall_PerRun_2: SRecall_AvgList_2){
+				System.out.print(SRecall_PerRun_2.getFirst()+" : "+resultFormat.format(SRecall_PerRun_2.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//Square-APIA
+			System.out.print("Square-APIA:\t\t");
+			Collections.sort(APIA_AvgList_2, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> APIA_PerRun_2: APIA_AvgList_2){
+				System.out.print(APIA_PerRun_2.getFirst()+" : "+resultFormat.format(APIA_PerRun_2.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//Square-ERRIA
+			System.out.print("Square-ERRIA:\t\t");
+			Collections.sort(ERRIA_AvgList_2, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> ERRIA_PerRun_2: ERRIA_AvgList_2){
+				System.out.print(ERRIA_PerRun_2.getFirst()+" : "+resultFormat.format(ERRIA_PerRun_2.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//Square-AlphaNDCG
+			System.out.print("Square-AlphaNDCG:\t");
+			Collections.sort(AlphaNDCG_AvgList_2, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> AlphaNDCG_PerRun_2: AlphaNDCG_AvgList_2){
+				System.out.print(AlphaNDCG_PerRun_2.getFirst()+" : "+resultFormat.format(AlphaNDCG_PerRun_2.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();
+			//Square-DSharpNDCG
+			System.out.print("Square-DSharpNDCG:\t");
+			Collections.sort(DSharpNDCG_AvgList_2, new PairComparatorBySecond_Desc<String, Double>());
+			for(Pair<String, Double> DSharpNDCG_PerRun_2: DSharpNDCG_AvgList_2){
+				System.out.print(DSharpNDCG_PerRun_2.getFirst()+" : "+resultFormat.format(DSharpNDCG_PerRun_2.getSecond())+"\t");
+			}
+			System.out.println();
+			System.out.println();	
+			
+			
+			
+			////////
+			//Experimental Analysis
+			////////
+			System.out.println("##\tExperimental Analysis\t##");
+			
+			//1	AvgFlsSRecall vs. AvgSlsSRecall
+			System.out.println(eval.toString());
+			getAvgFlsSRecallVersusAvgSlsSRecall(allRuns, filteredTopicSet, SRecall_AvgMapAllRun_1, SRecall_AvgMapAllRun_2);
+			
+			//////
+			//correlation
+			//////
+			
+			////Correlation Matrix of a family based on run rankings w.r.t. averaged value of all topics
+			System.out.println("##\tCorrelation Analysis [Intent-Aware]\t##");
+			correlationMatrix_TauAP(tauCorrelation, globalRunIDList, metricIDList_family_1, metricAvgMapAllRun_list_family_1);
+			System.out.println();
+			System.out.println("##\tCorrelation Analysis [Intent-Square]\t##");
+			correlationMatrix_TauAP(tauCorrelation, globalRunIDList, metricIDList_family_2, metricAvgMapAllRun_list_family_2);
+			System.out.println();
+			
+			////Correlation one vs. a family
+			System.out.println("##\tCorrelation Analysis [one vs. a family]\t##");			
+			//correlation: square-SRecall w.r.t. intent-aware family
+			corrBetweenOneAndAnotherFamily_TauAP(tauCorrelation, globalRunIDList, 
+					Square_SRecall, SRecall_AvgMapAllRun_2, 
+					metricIDList_family_1, metricAvgMapAllRun_list_family_1);
+			System.out.println();
+			
+			////Per query correlation between two metrics based on run rankings w.r.t. value of a specific topic
+			
+			//ArrayList<String> orderedQIDList_SquareSRecall_AlphaNDCG = 
+			//getAvgReReleDocAcrossRuns(orderedQIDList_SquareSRecall_AlphaNDCG, cutoff, allRuns, globalRunNum);
+			
+			//(1) SquareSRecall w.r.t. SRecall, AP-IA, ERR-IA, alpha_nDCG, D#-nDCG	
+			/*
+			boolean sortCorrelationValues_SSRecall = false;
+			//SRecall
+			perQueryCorr_TauAP(sortCorrelationValues_SSRecall, tauCorrelation, globalQueryIDList, globalRunIDList,
+					Square_SRecall, SRecall_PerQueryEvalMapAllRun_2, 
+					SRecall, SRecall_PerQueryEvalMapAllRun_1);	
+			//AP-IA
+			perQueryCorr_TauAP(sortCorrelationValues_SSRecall, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_SRecall, SRecall_PerQueryEvalMapAllRun_2, 
+					AP_IA, APIA_PerQueryEvalMapAllRun_1);
+			//ERR-IA
+			perQueryCorr_TauAP(sortCorrelationValues_SSRecall, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_SRecall, SRecall_PerQueryEvalMapAllRun_2, 
+					ERR_IA, ERRIA_PerQueryEvalMapAllRun_1);
+			//alpha_nDCG
+			perQueryCorr_TauAP(sortCorrelationValues_SSRecall, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_SRecall, SRecall_PerQueryEvalMapAllRun_2, 
+					Alpha_n_DCG, AlphaNDCG_PerQueryEvalMapAllRun_1);	
+			//D#-nDCG
+			perQueryCorr_TauAP(sortCorrelationValues_SSRecall, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_SRecall, SRecall_PerQueryEvalMapAllRun_2, 
+					D_Sharp_n_DCG, DSharpNDCG_PerQueryEvalMapAllRun_1);
+			*/
+			
+			//(2) Square_Alpha_nDCG w.r.t. SRecall, AP-IA, ERR-IA, alpha_nDCG, D#-nDCG
+			/*
+			boolean sortCorrelationValues_SAlpha_nDCG = false;
+			//SRecall
+			perQueryCorr_TauAP(sortCorrelationValues_SAlpha_nDCG, tauCorrelation, globalQueryIDList, globalRunIDList,
+					Square_Alpha_n_DCG, AlphaNDCG_PerQueryEvalMapAllRun_2, 
+					SRecall, SRecall_PerQueryEvalMapAllRun_1);	
+			//AP-IA
+			perQueryCorr_TauAP(sortCorrelationValues_SAlpha_nDCG, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_Alpha_n_DCG, AlphaNDCG_PerQueryEvalMapAllRun_2, 
+					AP_IA, APIA_PerQueryEvalMapAllRun_1);
+			//ERR-IA
+			perQueryCorr_TauAP(sortCorrelationValues_SAlpha_nDCG, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_Alpha_n_DCG, AlphaNDCG_PerQueryEvalMapAllRun_2, 
+					ERR_IA, ERRIA_PerQueryEvalMapAllRun_1);
+			//alpha_nDCG
+			perQueryCorr_TauAP(sortCorrelationValues_SAlpha_nDCG, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_Alpha_n_DCG, AlphaNDCG_PerQueryEvalMapAllRun_2, 
+					Alpha_n_DCG, AlphaNDCG_PerQueryEvalMapAllRun_1);	
+			//D#-nDCG
+			perQueryCorr_TauAP(sortCorrelationValues_SAlpha_nDCG, tauCorrelation, globalQueryIDList, globalRunIDList, 
+					Square_Alpha_n_DCG, AlphaNDCG_PerQueryEvalMapAllRun_2, 
+					D_Sharp_n_DCG, DSharpNDCG_PerQueryEvalMapAllRun_1);
+			*/		
+			
+			/////////
+			//ASL curve
+			/////////
+			
+			///*
+			////2 ASL curve w.r.t. intent-aware
+			ArrayList<ArrayList<Double>> sRecallMatrix_TopicRunID = 
+					getTopicRunMatrix(globalQueryNum, globalRunIDList, SRecall_PerQueryEvalMapAllRun_1);
+			HSD(Experiment_B, SRecall, sRecallMatrix_TopicRunID, globalQueryNum, globalRunNum);
+			
+			ArrayList<ArrayList<Double>> apIAMatrix_TopicRunID = 
+					getTopicRunMatrix(globalQueryNum, globalRunIDList, APIA_PerQueryEvalMapAllRun_1);
+			HSD(Experiment_B, AP_IA, apIAMatrix_TopicRunID, globalQueryNum, globalRunNum);			
+			
+			ArrayList<ArrayList<Double>> errMatrix_TopicRunID = 
+					getTopicRunMatrix(globalQueryNum, globalRunIDList, ERRIA_PerQueryEvalMapAllRun_1);
+			HSD(Experiment_B, ERR_IA, errMatrix_TopicRunID, globalQueryNum, globalRunNum);
+			
+			ArrayList<ArrayList<Double>> alpha_nDCGMatrix_TopicRunID = 
+					getTopicRunMatrix(globalQueryNum, globalRunIDList, AlphaNDCG_PerQueryEvalMapAllRun_1);
+			HSD(Experiment_B, Alpha_n_DCG, alpha_nDCGMatrix_TopicRunID, globalQueryNum, globalRunNum);
+			
+			ArrayList<ArrayList<Double>> dSharp_nDCGMatrix_TopicRunID = 
+					getTopicRunMatrix(globalQueryNum, globalRunIDList, DSharpNDCG_PerQueryEvalMapAllRun_1);
+			HSD(Experiment_B, D_Sharp_n_DCG, dSharp_nDCGMatrix_TopicRunID, globalQueryNum, globalRunNum);
+			
+			////2 ASL curve w.r.t. Intent-square
+			ArrayList<ArrayList<Double>> squareSRecall_TopicRunID = 
+					getTopicRunMatrix(globalQueryNum, globalRunIDList, SRecall_PerQueryEvalMapAllRun_2);			
+			HSD(Experiment_B, Square_SRecall, squareSRecall_TopicRunID, globalQueryNum, globalRunNum);
+			
+			//ArrayList<ArrayList<Double>> squareErrMatrix_TopicRunID = 
+			//		getTopicRunMatrix(globalQueryNum, globalRunIDList, ERRIA_PerQueryEvalMapAllRun_2);			
+			//HSD(Experiment_B, Square_ERR_IA, squareErrMatrix_TopicRunID, globalQueryNum, globalRunNum);
+			
+			ArrayList<ArrayList<Double>> squareAlpha_nDCGMatrix_TopicRunID = 
+					getTopicRunMatrix(globalQueryNum, globalRunIDList, AlphaNDCG_PerQueryEvalMapAllRun_2);			
+			HSD(Experiment_B, Square_Alpha_n_DCG, squareAlpha_nDCGMatrix_TopicRunID, globalQueryNum, globalRunNum);
+			
+			
+			
+			
+			////////Specific Query based comparison
+			
+			/*
+			HashMap<String, ArrayList<Pair<String, Double>>> SpecificRunSetMap = 
+					getSpecificRunSet(globalQueryIDList, cutoff, 0.4, allRuns, globalRunNum);
+			
+			compareWithSpecificRunSet(cutoff, SpecificRunSetMap, allRuns);
+			*/
+			
+			
+			
+			
+			
+			
 			
 			
 		}else {
@@ -1196,16 +2663,101 @@ public class MetricComparison {
 	}
 	
 	
+	//////////
+	//Experimental Analysis
+	//////////
+	
+	private static void getAvgFlsSRecallVersusAvgSlsSRecall(HashMap<String, HashMap<String, ArrayList<String>>> allRuns,
+			HashSet<String> filteredTopicSet, HashMap<String, Pair<String, Double>> SRecall_AvgMapAllRun_Fls, 
+			HashMap<String, Pair<String, Double>> SRecall_AvgMapAllRun_Sls){
+		
+		ArrayList<String> runIDList = new ArrayList<String>();
+		//fls
+		ArrayList<Double> avgSRecallList_Fls = new ArrayList<Double>();
+		//sls
+		ArrayList<Double> avgSRecallList_Sls = new ArrayList<Double>();
+		
+		for(Entry<String, HashMap<String, ArrayList<String>>> run: allRuns.entrySet()){
+			String runID = run.getKey();
+			
+			if(filteredTopicSet.contains(runID)){
+				continue;
+			}
+			
+			runIDList.add(runID);
+			avgSRecallList_Fls.add(SRecall_AvgMapAllRun_Fls.get(runID).getSecond());
+			avgSRecallList_Sls.add(SRecall_AvgMapAllRun_Sls.get(runID).getSecond());
+		}
+		
+		//run
+		System.out.println("##\tAvgFlsSRecall vs. AvgSlsSRecall");
+		System.out.println("runIDList:");
+		for(String runID: runIDList){
+			System.out.print(runID+"\t");
+		}
+		System.out.println();
+		System.out.println();
+		
+		//fls
+		System.out.println("Fls avgSRecall:");
+		for(Double flsAvgSRecall: avgSRecallList_Fls){
+			System.out.print(resultFormat.format(flsAvgSRecall)+"\t");
+		}
+		System.out.println();
+		System.out.println();
+		
+		//sls
+		System.out.println("Sls avgSRecall:");
+		for(Double slsAvgSRecall: avgSRecallList_Sls){
+			System.out.print(resultFormat.format(slsAvgSRecall)+"\t");
+		}
+		System.out.println();
+		System.out.println();		
+	}
+	
+	
 	
 	///////////////////////////////
+	
+	//////////////////////////
+	//Main
+	//////////////////////////
 	public static void main(String []args){
 		//1
-		//MetricComparison.test(false);
+		//MetricComparison.test(true);
+		/*
+		boolean awareEqual = true;
+		boolean squareEqual = false;
+		MetricComparison.test_2(awareEqual, squareEqual);
+		*/
 		
 		//2
-		boolean equal = true;
+		/*
+		boolean awareEqual = true;
+		boolean squareEqual = true;
 		int cutoff = 20;
-		MetricComparison.metricValue(NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, equal, STLevel.FLS, cutoff);
+		*/
+		/*
+		MetricComparison.metricValue(NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, 
+				awareEqual, STLevel.FLS, cutoff, squareEqual);
+		*/
+		//
+		/*
+		MetricComparison.metricValue(NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, 
+				awareEqual, STLevel.FLS, cutoff, squareEqual);
+		*/
+		
+		//3
+		//MetricComparison.testShuffle();
+		
+		//4 ASL curve
+		MetricComparison metricComparison = new MetricComparison();
+		boolean awareEqual = true;
+		boolean squareEqual = true;
+		int cutoff = 20;
+		//MetricComparison.metricValue(NTCIR_EVAL_TASK.NTCIR11_DR_CH, NTCIR11_TOPIC_TYPE.UNCLEAR, awareEqual, cutoff, squareEqual);
+		metricComparison.metricValue(NTCIR_EVAL_TASK.NTCIR11_DR_EN, NTCIR11_TOPIC_TYPE.UNCLEAR, awareEqual, cutoff, squareEqual);
+		
 	}
 	
 }

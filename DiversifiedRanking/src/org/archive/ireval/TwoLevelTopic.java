@@ -98,6 +98,22 @@ public class TwoLevelTopic {
 			return this._flsList.get(flsID-1).getSecond();
 		}
 	}
+	/**
+	 * get second-level subtopic probability
+	 * **/
+	public double getSlsPro(int flsID, int slsID, boolean equal){
+		ArrayList<Pair<String, Double>> slsList_flsi = this._slsSetList.get(flsID-1);
+		
+		if(equal){
+			
+			return (1.0/slsList_flsi.size());
+			
+		}else{
+			
+			return slsList_flsi.get(slsID-1).getSecond();
+			
+		}		
+	}
 	
 	/**
 	 * get fls probability based on number of descendant topic units (i.e., second-level subtopics), which are equally treated 

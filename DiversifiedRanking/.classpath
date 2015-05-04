@@ -33,5 +33,6 @@
 	<classpathentry kind="lib" path="C:/T/WorkBench/Bench_Jar/jar_DiversifiedRanking/snowball_stemmer.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="C:/T/WorkBench/Bench_Jar/jar_DiversifiedRanking/jna-4.0.0.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/RProject"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
